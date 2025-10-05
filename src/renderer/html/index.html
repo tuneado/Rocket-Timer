@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline';">
+  <title>Countdown Timer</title>
+  <link rel="stylesheet" href="../css/shared.css">
+</head>
+<body>
+  <div class="main-container">
+    <div class="container">
+
+    <!-- Top bar with theme switch -->
+    <div class="top-bar">
+      <button id="themeToggle" class="btn small">🌙 Dark Mode</button>
+      <button id="toggleDisplay" class="btn small">📺 Show Display</button>
+      <button id="clockToggle" class="btn small">🕒 Show Clock</button>
+    </div>
+
+    <!-- Duration Inputs -->
+    <div class="set-duration">
+      <label>Hours <input type="number" id="hours" value="0" min="0"></label>
+      <label>Minutes <input type="number" id="minutes" value="25" min="0"></label>
+      <label>Seconds <input type="number" id="seconds" value="0" min="0"></label>
+    </div>
+
+    <!-- Presets -->
+    <div class="presets">
+      <button class="preset" data-minutes="5">05:00</button>
+      <button class="preset" data-minutes="10">10:00</button>
+      <button class="preset" data-minutes="15">15:00</button>
+      <button class="preset" data-minutes="20">20:00</button>
+      <button class="preset" data-minutes="25">25:00</button>
+      <button class="preset" data-minutes="30">30:00</button>
+    </div>
+
+    <!-- Countdown Display -->
+    <div class="display">
+      <h1 id="countdown">00:25:00</h1>
+      <div class="progress-container">
+        <div id="progressBar"></div>
+      </div>
+      <div id="clock" class="clock">--:--:--</div>
+      
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button id="startStop" class="btn start">Start</button>
+      <button id="reset" class="btn reset">Reset</button>
+    </div>
+
+      </div>
+    </div>
+  </div>
+  <script src="../js/countdown.js"></script>
+</body>
+</html>
