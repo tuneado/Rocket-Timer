@@ -1,0 +1,34 @@
+/* Bootstrap Icons - Custom Styling */
+/* Base styling for all bootstrap icons */
+.bi {
+  display: inline-block;
+  vertical-align: text-top;
+  color: inherit;
+}
+
+/* Icon alignment in buttons */
+.btn .bi {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+.btn.small .bi {
+  margin-right: 4px;
+  font-size: 14px;
+}
+
+.preset-style-btn .bi {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+/* Header icons */
+h3 .bi {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+/* Time control buttons */
+.time-btn .bi {
+  font-size: 14px;
+}

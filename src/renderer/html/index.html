@@ -2,56 +2,103 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
   <title>Countdown Timer</title>
   <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/bootstrap-icons.css">
+  <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
 </head>
 <body>
   <div class="main-container">
-    <div class="container">
 
-    <!-- Top bar with theme switch -->
-    <div class="top-bar">
-      <button id="themeToggle" class="btn small">🌙 Dark Mode</button>
-      <button id="toggleDisplay" class="btn small">📺 Show Display</button>
-      <button id="clockToggle" class="btn small">🕒 Show Clock</button>
-    </div>
 
-    <!-- Duration Inputs -->
-    <div class="set-duration">
-      <label>Hours <input type="number" id="hours" value="0" min="0"></label>
-      <label>Minutes <input type="number" id="minutes" value="25" min="0"></label>
-      <label>Seconds <input type="number" id="seconds" value="0" min="0"></label>
-    </div>
-
-    <!-- Presets -->
-    <div class="presets">
-      <button class="preset" data-minutes="5">05:00</button>
-      <button class="preset" data-minutes="10">10:00</button>
-      <button class="preset" data-minutes="15">15:00</button>
-      <button class="preset" data-minutes="20">20:00</button>
-      <button class="preset" data-minutes="25">25:00</button>
-      <button class="preset" data-minutes="30">30:00</button>
-    </div>
-
-    <!-- Countdown Display -->
-    <div class="display">
-      <h1 id="countdown">00:25:00</h1>
-      <div class="progress-container">
-        <div id="progressBar"></div>
-      </div>
-      <div id="clock" class="clock">--:--:--</div>
+    <!-- Two-column layout -->
+    <div class="layout-container">
       
-    </div>
+      <!-- Left Column: Time Controls -->
+      <div class="controls-section">
+        
+        <!-- Duration Inputs -->
+        <div class="time-inputs">
+          <h3><i class="bi bi-stopwatch-fill"></i>Set Duration</h3>
+          <div class="input-row">
+            <label>Hours <input type="number" id="hours" value="0" min="0"></label>
+            <label>Minutes <input type="number" id="minutes" value="25" min="0"></label>
+            <label>Seconds <input type="number" id="seconds" value="0" min="0"></label>
+          </div>
+          <div class="minute-controls">
+            <label>Quick Adjust</label>
+            <div class="minute-buttons">
+              <button id="addMinute" class="btn time-btn"><i class="bi bi-caret-up-fill"></i>1 Min</button>
+              <button id="subtractMinute" class="btn time-btn"><i class="bi bi-caret-down-fill"></i>1 Min</button>
+            </div>
+          </div>
+        </div>
 
-    <!-- Controls -->
-    <div class="controls">
-      <button id="startStop" class="btn start">Start</button>
-      <button id="reset" class="btn reset">Reset</button>
-    </div>
+        <!-- Presets -->
+        <div class="presets-section">
+          <h3><i class="bi bi-lightning-fill"></i>Quick Presets</h3>
+          <div class="presets">
+            <button class="preset" data-minutes="5">05:00</button>
+            <button class="preset" data-minutes="10">10:00</button>
+            <button class="preset" data-minutes="15">15:00</button>
+            <button class="preset" data-minutes="20">20:00</button>
+            <button class="preset" data-minutes="25">25:00</button>
+            <button class="preset" data-minutes="30">30:00</button>
+          </div>
+        </div>
+
+        <!-- Message Display -->
+        <div class="message-section">
+          <div class="message-header">
+            <h3><i class="bi bi-chat-square-text-fill"></i>Display Message</h3>
+            <span id="charCounter" class="char-counter">0/100</span>
+          </div>
+          <div class="message-input-group">
+            <textarea id="messageInput" 
+                      placeholder="Enter message to display..." 
+                      maxlength="100" 
+                      rows="2"></textarea>
+            <div class="message-controls">
+              <button id="displayMessage" class="preset-style-btn"><i class="bi bi-display-fill"></i>Display Message</button>
+              <button id="clearMessage" class="preset-style-btn"><i class="bi bi-trash-fill"></i>Clear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="control-buttons">
+          <button id="startStop" class="btn start"><i class="bi bi-play-fill"></i>Start</button>
+          <button id="reset" class="btn reset"><i class="bi bi-arrow-clockwise"></i>Reset</button>
+        </div>
 
       </div>
+
+      <!-- Right Column: Display Section -->
+      <div class="display-section">
+        
+        <!-- Progress Bar -->
+        <div class="progress-area">
+          <div class="progress-container">
+            <div id="progressBar"></div>
+          </div>
+        </div>
+
+        <!-- Timer Display -->
+        <div class="timer-area">
+          <h1 id="countdown">00:25:00</h1>
+          <div id="clock" class="clock">--:--:--</div>
+        </div>
+
+        <!-- Message Display Area -->
+        <div id="messageArea" class="message-area" style="display: none;">
+          <div id="messageText" class="message-text"></div>
+        </div>
+
+      </div>
+
     </div>
+  </div>
   </div>
   <script src="../js/countdown.js"></script>
 </body>

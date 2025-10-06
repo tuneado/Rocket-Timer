@@ -1,5 +1,6 @@
 const { ipcMain } = require('electron');
 const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible } = require('./windows');
+const { updateDisplayMenuItems } = require('./menu');
 
 function setupIpcHandlers(mainWindow) {
   // Handle display window toggle
@@ -18,6 +19,9 @@ function setupIpcHandlers(mainWindow) {
           mainWindow.webContents.send('request-current-state-for-display');
         }
       }
+      
+      // Update menu items
+      updateDisplayMenuItems();
     } catch (error) {
       console.error('Error while toggling display window:', error);
     }
@@ -94,6 +98,12 @@ function setupIpcHandlers(mainWindow) {
     }
   });
 
+  // Handle menu state updates
+  ipcMain.on('update-menu-states', (event, themeState, clockState) => {
+    const { updateMenuStates } = require('./menu');
+    updateMenuStates(themeState, clockState);
+  });
+
   // Add handler to respond with clock state
   ipcMain.on('clock-state-response', (event, data) => {
     console.log('Received clock-state-response:', data);
@@ -137,6 +147,31 @@ function setupIpcHandlers(mainWindow) {
       if (data.clockVisible !== undefined) {
         displayWindow.webContents.send('toggle-clock-display', data.clockVisible);
       }
+    }
+  });
+
+  // Handle display message
+  ipcMain.on('display-message', (event, message) => {
+    if (!message || typeof message !== 'string') {
+      console.warn('Invalid display-message data received:', message);
+      return;
+    }
+    
+    console.log('Displaying message on display window:', message);
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('show-message', message);
+    }
+  });
+
+  // Handle clear message
+  ipcMain.on('clear-message', (event) => {
+    console.log('Clearing message from display window');
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('clear-message');
     }
   });
 }

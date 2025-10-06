@@ -16,10 +16,16 @@ const { ipcRenderer } = window.electron;
 const countdownEl = document.getElementById("countdown");
 const startStopBtn = document.getElementById("startStop");
 const resetBtn = document.getElementById("reset");
-const themeToggle = document.getElementById("themeToggle");
 const progressBar = document.getElementById("progressBar");
 const clockEl = document.getElementById("clock");
-const clockToggle = document.getElementById("clockToggle");
+const addMinuteBtn = document.getElementById("addMinute");
+const subtractMinuteBtn = document.getElementById("subtractMinute");
+const messageInput = document.getElementById("messageInput");
+const displayMessageBtn = document.getElementById("displayMessage");
+const clearMessageBtn = document.getElementById("clearMessage");
+const charCounter = document.getElementById("charCounter");
+const messageArea = document.getElementById("messageArea");
+const messageText = document.getElementById("messageText");
 
 
 // --------------------
@@ -45,34 +51,28 @@ function startClock() {
   updateClock();
   clockEl.style.display = "block";
   clockInterval = setInterval(updateClock, 1000);
-  clockToggle.textContent = "🕒 Hide Clock";
   localStorage.setItem("clock", "on");
   
-  // Notify display window that clock is visible
+  // Notify display window and update menu
   if (window.electron && window.electron.ipcRenderer) {
     ipcRenderer.send('toggle-clock-visibility', true);
+    ipcRenderer.send('update-menu-states', document.body.classList.contains('dark') ? 'dark' : 'light', true);
   }
 }
 
 function stopClock() {
   clearInterval(clockInterval);
   clockEl.style.display = "none";
-  clockToggle.textContent = "🕒 Show Clock";
   localStorage.setItem("clock", "off");
   
-  // Notify display window that clock is hidden
+  // Notify display window and update menu
   if (window.electron && window.electron.ipcRenderer) {
     ipcRenderer.send('toggle-clock-visibility', false);
+    ipcRenderer.send('update-menu-states', document.body.classList.contains('dark') ? 'dark' : 'light', false);
   }
 }
 
-clockToggle.addEventListener("click", () => {
-  if (clockEl.style.display === "none") {
-    startClock();
-  } else {
-    stopClock();
-  }
-});
+
 
 // Restore saved clock setting
 if (localStorage.getItem("clock") === "on") {
@@ -91,6 +91,38 @@ function formatTime(sec) {
   return `${h}:${m}:${s}`;
 }
 
+// Helper function to update button icon using Bootstrap Icons classes
+function updateButtonIcon(button, iconName, text) {
+  // Find the icon element and update its Bootstrap Icons class
+  const icon = button.querySelector('i.bi');
+  if (icon) {
+    // Remove all bi- classes and add the new one
+    icon.className = `bi bi-${iconName}`;
+  }
+  
+  // Update the text content (keeping the icon element)
+  const textNodes = Array.from(button.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  if (textNodes.length > 0) {
+    textNodes[0].textContent = text;
+  } else {
+    button.appendChild(document.createTextNode(text));
+  }
+}
+
+function updateProgressBarColor(progressPercent) {
+  // Remove existing color classes
+  progressBar.classList.remove('progress-green', 'progress-orange', 'progress-red');
+  
+  // Apply color based on percentage thresholds
+  if (progressPercent >= 30) {
+    progressBar.classList.add('progress-green');
+  } else if (progressPercent >= 10) {
+    progressBar.classList.add('progress-orange');
+  } else {
+    progressBar.classList.add('progress-red');
+  }
+}
+
 function updateDisplay() {
   const formattedTime = formatTime(remainingTime);
   countdownEl.textContent = formattedTime;
@@ -98,6 +130,9 @@ function updateDisplay() {
   // Progress bar should go from 100% (full) to 0% (empty) as time runs down
   const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
   progressBar.style.width = `${progressPercent}%`;
+  
+  // Update progress bar color based on remaining time
+  updateProgressBarColor(progressPercent);
 
   // Send updates to display window
   if (window.electron && window.electron.ipcRenderer) {
@@ -147,7 +182,7 @@ startStopBtn.addEventListener("click", () => {
 
     if (remainingTime > 0) {
       running = true;
-      startStopBtn.textContent = "Stop";
+      updateButtonIcon(startStopBtn, 'pause-fill', 'Stop');
       startStopBtn.classList.remove("start");
       startStopBtn.classList.add("stop");
       setInputsDisabled(true); // 🔧 Disable inputs while running
@@ -156,7 +191,7 @@ startStopBtn.addEventListener("click", () => {
         if (remainingTime <= 0) {
           clearInterval(countdown);
           running = false;
-          startStopBtn.textContent = "Start";
+          updateButtonIcon(startStopBtn, 'play-fill', 'Start');
           startStopBtn.classList.remove("stop");
           startStopBtn.classList.add("start");
           setInputsDisabled(false); // ✅ Re-enable inputs
@@ -172,7 +207,7 @@ startStopBtn.addEventListener("click", () => {
   } else {
     clearInterval(countdown);
     running = false;
-    startStopBtn.textContent = "Start";
+    updateButtonIcon(startStopBtn, 'play-fill', 'Start');
     startStopBtn.classList.remove("stop");
     startStopBtn.classList.add("start");
     setInputsDisabled(false); // ✅ Re-enable inputs on stop
@@ -197,7 +232,7 @@ resetBtn.addEventListener("click", () => {
   document.getElementById("seconds").value = s;
 
   updateDisplay();
-  startStopBtn.textContent = "Start";
+  updateButtonIcon(startStopBtn, 'play-fill', 'Start');
   startStopBtn.classList.remove("stop");
   startStopBtn.classList.add("start");
   setInputsDisabled(false);
@@ -206,26 +241,228 @@ resetBtn.addEventListener("click", () => {
 
 // Presets
 document.querySelectorAll(".preset").forEach(btn => {
-  btn.addEventListener("click", () => {
-    const minutes = parseInt(btn.dataset.minutes);
-    totalTime = minutes * 60;
-    remainingTime = totalTime;
-    lastSetTime = totalTime;
-    updateDisplay();
+  btn.addEventListener("click", (event) => {
+    // Check if Cmd (Mac) or Ctrl (Windows/Linux) is held down
+    if (event.metaKey || event.ctrlKey) {
+      // Update preset with current input values
+      updatePresetFromInputs(btn);
+    } else {
+      // Normal behavior: load preset time
+      const minutes = parseInt(btn.dataset.minutes);
+      totalTime = minutes * 60;
+      remainingTime = totalTime;
+      lastSetTime = totalTime;
+      updateDisplay();
+    }
   });
 });
 
+// Function to update preset button with current input values
+function updatePresetFromInputs(button) {
+  const hours = parseInt(document.getElementById("hours").value) || 0;
+  const minutes = parseInt(document.getElementById("minutes").value) || 0;
+  const seconds = parseInt(document.getElementById("seconds").value) || 0;
+  
+  // Calculate total time in seconds
+  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  
+  // Don't allow empty or zero time
+  if (totalSeconds === 0) {
+    alert("Please set a time before updating the preset!");
+    return;
+  }
+  
+  // Update button's data attribute and display text
+  button.dataset.minutes = totalMinutes;
+  
+  // Format display text (show hours:minutes if hours > 0, otherwise just minutes:seconds)
+  let displayText;
+  if (hours > 0) {
+    displayText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } else if (minutes > 0) {
+    displayText = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } else {
+    displayText = `00:${String(seconds).padStart(2, '0')}`;
+  }
+  
+  button.textContent = displayText;
+  
+  // Save to localStorage for persistence
+  const presetIndex = Array.from(document.querySelectorAll(".preset")).indexOf(button);
+  localStorage.setItem(`preset-${presetIndex}`, JSON.stringify({
+    minutes: totalMinutes,
+    displayText: displayText,
+    totalSeconds: totalSeconds
+  }));
+  
+  // Visual feedback
+  button.style.backgroundColor = 'var(--countdown)';
+  button.style.color = 'white';
+  setTimeout(() => {
+    button.style.backgroundColor = '';
+    button.style.color = '';
+  }, 200);
+  
+  console.log(`Preset updated: ${displayText} (${totalSeconds} seconds)`);
+}
 
 //SET TIME
 const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
 
+function normalizeTimeInputs() {
+  const hoursInput = document.getElementById("hours");
+  const minutesInput = document.getElementById("minutes");
+  const secondsInput = document.getElementById("seconds");
+  
+  let h = parseInt(hoursInput.value) || 0;
+  let m = parseInt(minutesInput.value) || 0;
+  let s = parseInt(secondsInput.value) || 0;
+  
+  // Normalize seconds (carry over to minutes)
+  if (s >= 60) {
+    const extraMinutes = Math.floor(s / 60);
+    m += extraMinutes;
+    s = s % 60;
+  }
+  
+  // Normalize minutes (carry over to hours)
+  if (m >= 60) {
+    const extraHours = Math.floor(m / 60);
+    h += extraHours;
+    m = m % 60;
+  }
+  
+  // Update the input fields with normalized values
+  hoursInput.value = h.toString().padStart(2, '0');
+  minutesInput.value = m.toString().padStart(2, '0');
+  secondsInput.value = s.toString().padStart(2, '0');
+  
+  return { hours: h, minutes: m, seconds: s };
+}
+
 function updateTimeFromInputs() {
-  const h = parseInt(document.getElementById("hours").value) || 0;
-  const m = parseInt(document.getElementById("minutes").value) || 0;
-  const s = parseInt(document.getElementById("seconds").value) || 0;
-  totalTime = h * 3600 + m * 60 + s;
+  const normalized = normalizeTimeInputs();
+  totalTime = normalized.hours * 3600 + normalized.minutes * 60 + normalized.seconds;
   remainingTime = totalTime;
   updateDisplay();
+}
+
+// Minute adjustment functions
+function addMinute() {
+  // Add 60 seconds (1 minute) to remaining time
+  remainingTime += 60;
+  
+  // Also update total time if timer is not running (so progress bar works correctly)
+  if (!running) {
+    totalTime += 60;
+    // Update the minutes input field to reflect the change
+    const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
+    document.getElementById("minutes").value = currentMinutes + 1;
+  }
+  
+  updateDisplay();
+}
+
+function subtractMinute() {
+  // Don't allow going below 0
+  if (remainingTime <= 60) {
+    remainingTime = 0;
+    if (!running) {
+      totalTime = 0;
+      document.getElementById("minutes").value = 0;
+      document.getElementById("hours").value = 0;
+      document.getElementById("seconds").value = 0;
+    }
+  } else {
+    // Subtract 60 seconds (1 minute) from remaining time
+    remainingTime -= 60;
+    
+    // Also update total time if timer is not running
+    if (!running) {
+      totalTime -= 60;
+      // Update the minutes input field to reflect the change
+      const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
+      if (currentMinutes > 0) {
+        document.getElementById("minutes").value = currentMinutes - 1;
+      }
+    }
+  }
+  
+  updateDisplay();
+}
+
+// --------------------
+// Message functions
+// --------------------
+function updateCharCounter() {
+  const currentLength = messageInput.value.length;
+  const maxLength = messageInput.getAttribute('maxlength') || 100;
+  
+  charCounter.textContent = `${currentLength}/${maxLength}`;
+  
+  // Change color based on character count
+  charCounter.classList.remove('warning', 'danger');
+  if (currentLength >= maxLength * 0.9) {
+    charCounter.classList.add('danger');
+  } else if (currentLength >= maxLength * 0.7) {
+    charCounter.classList.add('warning');
+  }
+}
+
+let messageDisplayed = false;
+
+function displayMessage() {
+  const message = messageInput.value.trim();
+  
+  if (!messageDisplayed) {
+    // Display message
+    if (!message) {
+      alert('Please enter a message to display.');
+      return;
+    }
+    
+    // Show in main window
+    messageText.textContent = message;
+    messageArea.style.display = 'flex';
+    
+    // Send message to display window via IPC
+    if (window.electron && window.electron.ipcRenderer) {
+      ipcRenderer.send('display-message', message);
+    }
+    
+    // Update button state
+    updateButtonIcon(displayMessageBtn, 'eye-slash-fill', 'Hide Message');
+    messageDisplayed = true;
+  } else {
+    // Hide message
+    hideMessage();
+  }
+}
+
+function hideMessage() {
+  // Hide in main window
+  messageText.textContent = '';
+  messageArea.style.display = 'none';
+  
+  // Clear message from display window
+  if (window.electron && window.electron.ipcRenderer) {
+    ipcRenderer.send('clear-message');
+  }
+  
+  // Update button state
+  updateButtonIcon(displayMessageBtn, 'display-fill', 'Display Message');
+  messageDisplayed = false;
+}
+
+function clearMessage() {
+  messageInput.value = '';
+  updateCharCounter();
+  
+  // Hide message if it's currently displayed
+  if (messageDisplayed) {
+    hideMessage();
+  }
 }
 
 function setInputsDisabled(disabled) {
@@ -249,7 +486,7 @@ timeInputs.forEach(input => {
     if (running) {
       clearInterval(countdown);
       running = false;
-      startStopBtn.textContent = "Start";
+      updateButtonIcon(startStopBtn, 'play-fill', 'Start');
       startStopBtn.classList.remove("stop");
       startStopBtn.classList.add("start");
       setInputsDisabled(false);
@@ -280,58 +517,46 @@ timeInputs.forEach(input => {
 // Theme toggle
 function setTheme(dark) {
   if (dark) {
+    // Dark mode: remove light class, add dark class
+    document.body.classList.remove("light");
     document.body.classList.add("dark");
-    themeToggle.textContent = "☀️ Light Mode";
     localStorage.setItem("theme", "dark");
   } else {
+    // Light mode: add light class, remove dark class
+    document.body.classList.add("light");
     document.body.classList.remove("dark");
-    themeToggle.textContent = "🌙 Dark Mode";
     localStorage.setItem("theme", "light");
   }
   
-  // Send theme update to display window via IPC
+  // Update menu state
   if (window.electron && window.electron.ipcRenderer) {
     ipcRenderer.send('update-theme', dark ? 'dark' : 'light');
+    ipcRenderer.send('update-menu-states', dark ? 'dark' : 'light', clockEl.style.display !== 'none');
   }
 }
 
-themeToggle.addEventListener("click", () => {
-  setTheme(!document.body.classList.contains("dark"));
-});
 
-if (localStorage.getItem("theme") === "dark") {
-  setTheme(true);
-} else {
-  setTheme(false);
-}
 
-//Toggle display
-const toggleDisplayBtn = document.getElementById('toggleDisplay');
-let displayVisible = false;
+// Minute adjustment button event listeners
+addMinuteBtn.addEventListener("click", addMinute);
+subtractMinuteBtn.addEventListener("click", subtractMinute);
 
-// Function to update button text based on display state
-function updateDisplayButton(isVisible) {
-  displayVisible = isVisible;
-  toggleDisplayBtn.textContent = displayVisible ? "📺 Hide Display" : "📺 Show Display";
-}
+// Message input event listeners
+messageInput.addEventListener("input", updateCharCounter);
+displayMessageBtn.addEventListener("click", displayMessage);
+clearMessageBtn.addEventListener("click", clearMessage);
 
-toggleDisplayBtn.addEventListener('click', () => {
-  if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('toggle-display-window');
-  }
-});
+// Initialize character counter
+updateCharCounter();
 
+
+
+// Display window management (handled via menu)
 // Listen for display window state changes from main process
 if (window.electron && window.electron.ipcRenderer) {
-  ipcRenderer.on('display-window-state-changed', (isVisible) => {
-    console.log('Display window state changed:', isVisible);
-    updateDisplayButton(isVisible);
-  });
-  
   // Listen for when display window is closed manually
   ipcRenderer.on('display-window-closed', () => {
     console.log('Display window was closed');
-    updateDisplayButton(false);
   });
   
   // Listen for requests to sync current state to display window
@@ -379,10 +604,79 @@ ipcRenderer.on('request-clock-state', () => {
 
 // Listen for theme requests from display window
 ipcRenderer.on('request-current-theme-for-display', () => {
-  const isDark = document.body.classList.contains('dark');
-  ipcRenderer.send('current-theme-response', isDark ? 'dark' : 'light');
+  const isLight = document.body.classList.contains('light');
+  ipcRenderer.send('current-theme-response', isLight ? 'light' : 'dark');
 });
 
+// Function to load saved presets from localStorage
+function loadSavedPresets() {
+  document.querySelectorAll(".preset").forEach((button, index) => {
+    const savedPreset = localStorage.getItem(`preset-${index}`);
+    if (savedPreset) {
+      try {
+        const presetData = JSON.parse(savedPreset);
+        button.dataset.minutes = presetData.minutes;
+        button.textContent = presetData.displayText;
+        console.log(`Loaded preset ${index}: ${presetData.displayText}`);
+      } catch (error) {
+        console.warn(`Failed to load preset ${index}:`, error);
+      }
+    }
+  });
+}
+
+// Initialize everything when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize theme based on stored preference or default to dark
+  if (localStorage.getItem("theme") === "light") {
+    setTheme(false);
+  } else {
+    setTheme(true); // Default to dark mode
+  }
+  
+  // Initialize clock state and update menu
+  if (localStorage.getItem("clock") === "on") {
+    startClock();
+  } else {
+    stopClock();
+  }
+});
+
+// Menu event listeners
+if (window.electron && window.electron.ipcRenderer) {
+  // Theme change from menu
+  ipcRenderer.on('menu-theme-change', (theme) => {
+    setTheme(theme === 'dark');
+  });
+  
+  // Clock toggle from menu
+  ipcRenderer.on('menu-toggle-clock', (visible) => {
+    if (visible) {
+      startClock();
+    } else {
+      stopClock();
+    }
+  });
+  
+  // Start/Stop from menu
+  ipcRenderer.on('menu-start-stop', () => {
+    if (startStopBtn) {
+      startStopBtn.click();
+    }
+  });
+  
+  // Reset from menu
+  ipcRenderer.on('menu-reset', () => {
+    if (resetBtn) {
+      resetBtn.click();
+    }
+  });
+}
+
 // Init
+loadSavedPresets();
 updateDisplay();
+
+// Bootstrap Icons work automatically with CSS classes - no initialization needed
+
 
