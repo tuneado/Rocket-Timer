@@ -1,105 +1,214 @@
 <!DOCTYPE html>
-<html>
+<html data-theme="dark">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
   <title>Countdown Timer</title>
-  <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/bulma.min.css">
   <link rel="stylesheet" href="../css/bootstrap-icons.css">
   <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
+  <link rel="stylesheet" href="../css/shared.css">
 </head>
 <body>
-  <div class="main-container">
-
-
-    <!-- Two-column layout -->
-    <div class="layout-container">
+  <div class="container is-fluid">
+    <div class="columns">
       
-      <!-- Left Column: Time Controls -->
-      <div class="controls-section">
-        
-        <!-- Duration Inputs -->
-        <div class="time-inputs">
-          <h3><i class="bi bi-stopwatch-fill"></i>Set Duration</h3>
-          <div class="input-row">
-            <label>Hours <input type="number" id="hours" value="0" min="0"></label>
-            <label>Minutes <input type="number" id="minutes" value="25" min="0"></label>
-            <label>Seconds <input type="number" id="seconds" value="0" min="0"></label>
-          </div>
-          <div class="minute-controls">
-            <label>Quick Adjust</label>
-            <div class="minute-buttons">
-              <button id="addMinute" class="btn time-btn"><i class="bi bi-caret-up-fill"></i>1 Min</button>
-              <button id="subtractMinute" class="btn time-btn"><i class="bi bi-caret-down-fill"></i>1 Min</button>
+      <!-- Left Column: Controls -->
+      <div class="column is-one-third">
+        <div class="content">
+            
+            <!-- Duration Inputs Card -->
+            <div class="card mb-5">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-stopwatch-fill"></i>
+                  </span>
+                  Set Duration
+                </p>
+              </header>
+              <div class="card-content">
+                <div class="time-picker">
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="hours" value="0" min="0" max="99">
+                    <label class="time-label">Hours</label>
+                  </div>
+                  <div class="time-separator">:</div>
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="minutes" value="25" min="0" max="59">
+                    <label class="time-label">Minutes</label>
+                  </div>
+                  <div class="time-separator">:</div>
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="seconds" value="0" min="0" max="59">
+                    <label class="time-label">Seconds</label>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Presets -->
-        <div class="presets-section">
-          <h3><i class="bi bi-lightning-fill"></i>Quick Presets</h3>
-          <div class="presets">
-            <button class="preset" data-minutes="5">05:00</button>
-            <button class="preset" data-minutes="10">10:00</button>
-            <button class="preset" data-minutes="15">15:00</button>
-            <button class="preset" data-minutes="20">20:00</button>
-            <button class="preset" data-minutes="25">25:00</button>
-            <button class="preset" data-minutes="30">30:00</button>
-          </div>
-        </div>
-
-        <!-- Message Display -->
-        <div class="message-section">
-          <div class="message-header">
-            <h3><i class="bi bi-chat-square-text-fill"></i>Display Message</h3>
-            <span id="charCounter" class="char-counter">0/100</span>
-          </div>
-          <div class="message-input-group">
-            <textarea id="messageInput" 
-                      placeholder="Enter message to display..." 
-                      maxlength="100" 
-                      rows="2"></textarea>
-            <div class="message-controls">
-              <button id="displayMessage" class="preset-style-btn"><i class="bi bi-display-fill"></i>Display Message</button>
-              <button id="clearMessage" class="preset-style-btn"><i class="bi bi-trash-fill"></i>Clear</button>
+            <!-- Presets Card -->
+            <div class="card mb-5">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-lightning-fill"></i>
+                  </span>
+                  Quick Presets
+                </p>
+                <div class="card-header-icon">
+                  <span id="resetPresets" class="has-text-grey" style="cursor: pointer;">
+                    <span class="icon">
+                      <i class="bi bi-arrow-counterclockwise"></i>
+                    </span>
+                    <span>Reset</span>
+                  </span>
+                </div>
+              </header>
+              <div class="card-content">
+                <div class="buttons are-small">
+                  <button class="button is-light preset" data-minutes="5" style="flex: 1;">05:00</button>
+                  <button class="button is-light preset" data-minutes="10" style="flex: 1;">10:00</button>
+                  <button class="button is-light preset" data-minutes="15" style="flex: 1;">15:00</button>
+                  <button class="button is-light preset" data-minutes="20" style="flex: 1;">20:00</button>
+                </div>
+                <div class="buttons are-small mt-2">
+                  <button class="button is-light preset" data-minutes="25" style="flex: 1;">25:00</button>
+                  <button class="button is-light preset" data-minutes="30" style="flex: 1;">30:00</button>
+                  <button class="button is-light preset" data-minutes="45" style="flex: 1;">45:00</button>
+                  <button class="button is-light preset" data-minutes="60" style="flex: 1;">60:00</button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Control Buttons -->
-        <div class="control-buttons">
-          <button id="startStop" class="btn start"><i class="bi bi-play-fill"></i>Start</button>
-          <button id="reset" class="btn reset"><i class="bi bi-arrow-clockwise"></i>Reset</button>
-        </div>
+            <!-- Message Card -->
+            <div class="card mb-5">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-chat-square-text-fill"></i>
+                  </span>
+                  Display Message
+                </p>
+                <div class="card-header-icon">
+                  <span id="charCounter" class="has-text-grey">0/100</span>
+                </div>
+              </header>
+              <div class="card-content">
+                <div class="field">
+                  <div class="control">
+                    <textarea id="messageInput" 
+                              class="textarea" 
+                              placeholder="Enter message to display..." 
+                              maxlength="100" 
+                              rows="2"></textarea>
+                  </div>
+                </div>
+                <div class="field is-grouped">
+                  <div class="control">
+                    <button id="displayMessage" class="button is-light">
+                      <span class="icon">
+                        <i class="bi bi-display-fill"></i>
+                      </span>
+                      <span>Display</span>
+                    </button>
+                  </div>
+                  <div class="control">
+                    <button id="clearMessage" class="button is-light">
+                      <span class="icon">
+                        <i class="bi bi-trash-fill"></i>
+                      </span>
+                      <span>Clear</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            <!-- Canvas Layout Selector Card -->
+            <div class="card">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon">
+                    <i class="bi bi-layout-three-columns"></i>
+                  </span>
+                  Canvas Layout
+                </p>
+              </header>
+              <div class="card-content">
+                <div class="field">
+                  <label class="label is-small">Choose Display Layout</label>
+                  <div class="control">
+                    <div class="select is-fullwidth">
+                      <select id="layoutSelector">
+                        <option value="classic">Classic - Traditional centered layout</option>
+                        <option value="minimal">Minimal - Clean countdown-focused design</option>
+                        <option value="clockfocus">Clock Focus - Large clock with countdown below</option>
+                        <option value="detailed">Detailed - Complete info (countdown, clock, elapsed time)</option>
+                        <option value="circular">Circular - Ring progress with timer in center</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Control Buttons Card -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-content">
+                <div class="field is-grouped is-grouped-centered">
+                  <div class="control">
+                    <button id="startStop" class="button is-large is-success">
+                      <span class="icon">
+                        <i class="bi bi-play-fill"></i>
+                      </span>
+                      <span>Start</span>
+                    </button>
+                  </div>
+                  <div class="control">
+                    <button id="reset" class="button is-large is-danger">
+                      <span class="icon">
+                        <i class="bi bi-arrow-clockwise"></i>
+                      </span>
+                      <span>Reset</span>
+                    </button>
+                  </div>
+                  <!-- Quick Adjust buttons stacked on the right -->
+                  <div class="control" style="display: flex; flex-direction: column; gap: 0.125rem; align-self: center;">
+                    <button id="addMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
+                      <span class="icon is-small">
+                        <i class="bi bi-caret-up-fill"></i>
+                      </span>
+                      <span style="font-size: 0.75rem;">+1</span>
+                    </button>
+                    <button id="subtractMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
+                      <span class="icon is-small">
+                        <i class="bi bi-caret-down-fill"></i>
+                      </span>
+                      <span style="font-size: 0.75rem;">-1</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+        </div>
       </div>
 
-      <!-- Right Column: Display Section -->
-      <div class="display-section">
-        
-        <!-- Progress Bar -->
-        <div class="progress-area">
-          <div class="progress-container">
-            <div id="progressBar"></div>
-          </div>
+      <!-- Right Column: Timer Display -->
+      <div class="column is-two-thirds">
+        <div class="timer-monitor-container">
+          <!-- Canvas-based display (replaces DOM elements) -->
+          <canvas id="timerCanvas"></canvas>
         </div>
-
-        <!-- Timer Display -->
-        <div class="timer-area">
-          <h1 id="countdown">00:25:00</h1>
-          <div id="clock" class="clock">--:--:--</div>
-        </div>
-
-        <!-- Message Display Area -->
-        <div id="messageArea" class="message-area" style="display: none;">
-          <div id="messageText" class="message-text"></div>
-        </div>
-
       </div>
 
     </div>
   </div>
-  </div>
+  
+  <script src="../layouts/layoutRegistry.js"></script>
+  <script src="../js/canvasRenderer.js"></script>
   <script src="../js/countdown.js"></script>
 </body>
 </html>

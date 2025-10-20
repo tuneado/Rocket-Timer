@@ -168,26 +168,12 @@ function updateMenuStates(themeState, clockState) {
   
   if (themeItem && themeState !== undefined) {
     themeItem.checked = themeState === 'dark';
+    console.log(`Updated menu theme state: ${themeState} (checked: ${themeItem.checked})`);
   }
   
   if (clockItem && clockState !== undefined) {
     clockItem.checked = clockState;
-  }
-}
-
-// Function to update menu states from renderer process
-function updateMenuStates(themeState, clockState) {
-  if (!global.appMenu) return;
-  
-  const themeItem = global.appMenu.getMenuItemById('dark-theme');
-  const clockItem = global.appMenu.getMenuItemById('toggle-clock');
-  
-  if (themeItem && themeState !== undefined) {
-    themeItem.checked = themeState === 'dark';
-  }
-  
-  if (clockItem && clockState !== undefined) {
-    clockItem.checked = clockState;
+    console.log(`Updated menu clock state: ${clockState} (checked: ${clockItem.checked})`);
   }
 }
 

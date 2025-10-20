@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, desktopCapturer } = require('electron');
 
 contextBridge.exposeInMainWorld('electron', {
   ipcRenderer: {
@@ -9,5 +9,13 @@ contextBridge.exposeInMainWorld('electron', {
         func(args[0]);
       });
     },
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+  },
+  clipboard: {
+    readText: () => ipcRenderer.invoke('clipboard-read-text'),
+  },
+  // Stream handling for canvas capture
+  desktopCapturer: {
+    getSources: (opts) => desktopCapturer.getSources(opts),
   },
 });

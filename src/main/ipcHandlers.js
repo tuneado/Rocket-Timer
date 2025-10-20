@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron');
+const { ipcMain, clipboard } = require('electron');
 const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible } = require('./windows');
 const { updateDisplayMenuItems } = require('./menu');
 
@@ -147,6 +147,14 @@ function setupIpcHandlers(mainWindow) {
       if (data.clockVisible !== undefined) {
         displayWindow.webContents.send('toggle-clock-display', data.clockVisible);
       }
+      // Send current message state
+      if (data.message) {
+        if (data.message.visible && data.message.text) {
+          displayWindow.webContents.send('show-message', data.message.text);
+        } else {
+          displayWindow.webContents.send('clear-message');
+        }
+      }
     }
   });
 
@@ -172,6 +180,37 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       displayWindow.webContents.send('clear-message');
+    }
+  });
+
+  // Handle clipboard read requests
+  ipcMain.handle('clipboard-read-text', async () => {
+    try {
+      return clipboard.readText();
+    } catch (error) {
+      console.error('Error reading clipboard:', error);
+      return '';
+    }
+  });
+
+  // Handle display sync request (when external display opens)
+  ipcMain.on('request-display-sync', (event) => {
+    console.log('Display sync requested');
+    
+    // Request main window to send current state to display window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('request-current-state-for-display');
+    }
+  });
+
+  // Handle layout changes
+  ipcMain.on('layout-changed', (event, layoutId) => {
+    console.log('Layout changed to:', layoutId);
+    
+    // Forward layout change to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('layout-changed', layoutId);
     }
   });
 }

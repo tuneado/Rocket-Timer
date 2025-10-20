@@ -5,6 +5,9 @@ let running = false;
 let clockInterval;
 let lastSetTime = 45 * 60; // default to 45 minutes for first launch.
 
+// Initialize Canvas Renderer
+let canvasRenderer = null;
+
 // Check if window.electron is available
 if (!window.electron || !window.electron.ipcRenderer) {
   console.error('IPC renderer not available');
@@ -12,20 +15,43 @@ if (!window.electron || !window.electron.ipcRenderer) {
 
 const { ipcRenderer } = window.electron;
 
+// Initialize canvas renderer when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+  // Load saved layout or use default
+  const savedLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
+  const layout = LayoutRegistry.getLayout(savedLayoutId);
+  
+  // Create canvas renderer with layout
+  canvasRenderer = new CanvasRenderer('timerCanvas', layout);
+  console.log('Canvas renderer initialized with layout:', savedLayoutId);
+  
+  // Set initial theme
+  const savedTheme = localStorage.getItem("theme") || "dark";
+  canvasRenderer.updateTheme(savedTheme);
+  
+  // Update display to show initial time with correct progress (100%)
+  console.log('Calling updateDisplay - totalTime:', totalTime, 'remainingTime:', remainingTime);
+  updateDisplay();
+});
 
-const countdownEl = document.getElementById("countdown");
+// Note: DOM elements for countdown/progress are no longer used in main window
+// They've been replaced by canvas rendering
+// Keep references for backward compatibility but they won't be displayed
+const countdownEl = { textContent: '00:25:00' }; // Dummy object
+const progressBar = { value: 100, classList: { remove: () => {}, add: () => {} } }; // Dummy object
+const clockEl = { textContent: '--:--:--', style: { display: 'block' } }; // Dummy object
+const messageArea = { style: { opacity: '0' } }; // Dummy object
+const messageText = { textContent: '' }; // Dummy object
+
+// Real DOM elements that still exist (controls)
 const startStopBtn = document.getElementById("startStop");
 const resetBtn = document.getElementById("reset");
-const progressBar = document.getElementById("progressBar");
-const clockEl = document.getElementById("clock");
 const addMinuteBtn = document.getElementById("addMinute");
 const subtractMinuteBtn = document.getElementById("subtractMinute");
 const messageInput = document.getElementById("messageInput");
 const displayMessageBtn = document.getElementById("displayMessage");
 const clearMessageBtn = document.getElementById("clearMessage");
 const charCounter = document.getElementById("charCounter");
-const messageArea = document.getElementById("messageArea");
-const messageText = document.getElementById("messageText");
 
 
 // --------------------
@@ -38,8 +64,10 @@ function updateClock() {
   const s = String(now.getSeconds()).padStart(2, "0");
   const timeString = `${h}:${m}:${s}`;
   
-  // Update main window clock
-  clockEl.textContent = timeString;
+  // Update canvas renderer
+  if (canvasRenderer) {
+    canvasRenderer.setState({ clock: timeString });
+  }
   
   // Send clock update to display window
   if (window.electron && window.electron.ipcRenderer) {
@@ -49,26 +77,39 @@ function updateClock() {
 
 function startClock() {
   updateClock();
-  clockEl.style.display = "block";
   clockInterval = setInterval(updateClock, 1000);
+  
+  // Update canvas renderer
+  if (canvasRenderer) {
+    canvasRenderer.setState({ showClock: true });
+  }
+  
   localStorage.setItem("clock", "on");
   
-  // Notify display window and update menu
+  // Update menu state
   if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('toggle-clock-visibility', true);
-    ipcRenderer.send('update-menu-states', document.body.classList.contains('dark') ? 'dark' : 'light', true);
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    ipcRenderer.send('update-menu-states', currentTheme, true);
   }
 }
 
 function stopClock() {
-  clearInterval(clockInterval);
-  clockEl.style.display = "none";
+  if (clockInterval) {
+    clearInterval(clockInterval);
+    clockInterval = null;
+  }
+  
+  // Update canvas renderer
+  if (canvasRenderer) {
+    canvasRenderer.setState({ showClock: false });
+  }
+  
   localStorage.setItem("clock", "off");
   
-  // Notify display window and update menu
+  // Update menu state
   if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('toggle-clock-visibility', false);
-    ipcRenderer.send('update-menu-states', document.body.classList.contains('dark') ? 'dark' : 'light', false);
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    ipcRenderer.send('update-menu-states', currentTheme, false);
   }
 }
 
@@ -91,7 +132,7 @@ function formatTime(sec) {
   return `${h}:${m}:${s}`;
 }
 
-// Helper function to update button icon using Bootstrap Icons classes
+// Helper function to update button icon and text using Bulma's button structure
 function updateButtonIcon(button, iconName, text) {
   // Find the icon element and update its Bootstrap Icons class
   const icon = button.querySelector('i.bi');
@@ -100,45 +141,60 @@ function updateButtonIcon(button, iconName, text) {
     icon.className = `bi bi-${iconName}`;
   }
   
-  // Update the text content (keeping the icon element)
-  const textNodes = Array.from(button.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
-  if (textNodes.length > 0) {
-    textNodes[0].textContent = text;
+  // Find the text span and update its content
+  const textSpan = button.querySelector('span:not(.icon)');
+  if (textSpan) {
+    textSpan.textContent = text;
   } else {
-    button.appendChild(document.createTextNode(text));
+    // Fallback: create new text span if not found
+    const newTextSpan = document.createElement('span');
+    newTextSpan.textContent = text;
+    button.appendChild(newTextSpan);
   }
 }
 
 function updateProgressBarColor(progressPercent) {
-  // Remove existing color classes
-  progressBar.classList.remove('progress-green', 'progress-orange', 'progress-red');
+  // Remove existing Bulma color classes
+  progressBar.classList.remove('is-success', 'is-warning', 'is-danger');
   
-  // Apply color based on percentage thresholds
+  // Apply Bulma color classes based on percentage thresholds
   if (progressPercent >= 30) {
-    progressBar.classList.add('progress-green');
+    progressBar.classList.add('is-success');
   } else if (progressPercent >= 10) {
-    progressBar.classList.add('progress-orange');
+    progressBar.classList.add('is-warning');
   } else {
-    progressBar.classList.add('progress-red');
+    progressBar.classList.add('is-danger');
   }
 }
 
 function updateDisplay() {
   const formattedTime = formatTime(remainingTime);
-  countdownEl.textContent = formattedTime;
-
+  
   // Progress bar should go from 100% (full) to 0% (empty) as time runs down
   const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
-  progressBar.style.width = `${progressPercent}%`;
   
-  // Update progress bar color based on remaining time
-  updateProgressBarColor(progressPercent);
+  console.log('updateDisplay called - totalTime:', totalTime, 'remainingTime:', remainingTime, 'progressPercent:', progressPercent);
+  
+  // Calculate elapsed time (can go negative if timer exceeds set time)
+  const elapsedSeconds = totalTime - remainingTime;
+  const formattedElapsed = formatTime(Math.abs(elapsedSeconds));
+  const elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
+  
+  // Update canvas renderer
+  if (canvasRenderer) {
+    canvasRenderer.setState({
+      countdown: formattedTime,
+      progress: progressPercent,
+      elapsed: elapsedDisplay
+    });
+  }
 
   // Send updates to display window
   if (window.electron && window.electron.ipcRenderer) {
     ipcRenderer.send('timer-update', {
       formattedTime,
-      progressPercent
+      progressPercent,
+      elapsed: elapsedDisplay
     });
   }
 }
@@ -422,9 +478,13 @@ function displayMessage() {
       return;
     }
     
-    // Show in main window
-    messageText.textContent = message;
-    messageArea.style.display = 'flex';
+    // Update canvas renderer
+    if (canvasRenderer) {
+      canvasRenderer.setState({
+        message: message,
+        showMessage: true
+      });
+    }
     
     // Send message to display window via IPC
     if (window.electron && window.electron.ipcRenderer) {
@@ -441,9 +501,13 @@ function displayMessage() {
 }
 
 function hideMessage() {
-  // Hide in main window
-  messageText.textContent = '';
-  messageArea.style.display = 'none';
+  // Update canvas renderer
+  if (canvasRenderer) {
+    canvasRenderer.setState({
+      message: '',
+      showMessage: false
+    });
+  }
   
   // Clear message from display window
   if (window.electron && window.electron.ipcRenderer) {
@@ -514,24 +578,31 @@ timeInputs.forEach(input => {
 
 
 
-// Theme toggle
+// Theme toggle using Bulma's data-theme approach
 function setTheme(dark) {
+  const htmlElement = document.documentElement;
+  const theme = dark ? 'dark' : 'light';
+  
   if (dark) {
-    // Dark mode: remove light class, add dark class
-    document.body.classList.remove("light");
-    document.body.classList.add("dark");
+    // Dark mode: set data-theme attribute
+    htmlElement.setAttribute('data-theme', 'dark');
     localStorage.setItem("theme", "dark");
   } else {
-    // Light mode: add light class, remove dark class
-    document.body.classList.add("light");
-    document.body.classList.remove("dark");
+    // Light mode: set data-theme attribute  
+    htmlElement.setAttribute('data-theme', 'light');
     localStorage.setItem("theme", "light");
+  }
+  
+  // Update canvas renderer theme
+  if (canvasRenderer) {
+    canvasRenderer.updateTheme(theme);
   }
   
   // Update menu state
   if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('update-theme', dark ? 'dark' : 'light');
-    ipcRenderer.send('update-menu-states', dark ? 'dark' : 'light', clockEl.style.display !== 'none');
+    ipcRenderer.send('update-theme', theme);
+    const clockVisible = localStorage.getItem("clock") === "on";
+    ipcRenderer.send('update-menu-states', theme, clockVisible);
   }
 }
 
@@ -543,8 +614,105 @@ subtractMinuteBtn.addEventListener("click", subtractMinute);
 
 // Message input event listeners
 messageInput.addEventListener("input", updateCharCounter);
+messageInput.addEventListener("paste", handlePaste);
+messageInput.addEventListener("keydown", handleKeyDown);
+messageInput.addEventListener("contextmenu", handleContextMenu);
 displayMessageBtn.addEventListener("click", displayMessage);
 clearMessageBtn.addEventListener("click", clearMessage);
+
+// Add manual paste function for troubleshooting
+async function manualPaste() {
+  try {
+    const clipboardText = await window.electron.clipboard.readText();
+    if (clipboardText) {
+      const maxLength = parseInt(messageInput.getAttribute('maxlength')) || 100;
+      const currentPos = messageInput.selectionStart;
+      const currentValue = messageInput.value;
+      const beforeCursor = currentValue.substring(0, currentPos);
+      const afterCursor = currentValue.substring(messageInput.selectionEnd);
+      
+      // Calculate how much text can be pasted
+      const availableSpace = maxLength - beforeCursor.length - afterCursor.length;
+      const textToPaste = clipboardText.substring(0, Math.max(0, availableSpace));
+      
+      // Insert the text
+      const newValue = beforeCursor + textToPaste + afterCursor;
+      messageInput.value = newValue;
+      
+      // Set cursor position after pasted text
+      const newCursorPos = beforeCursor.length + textToPaste.length;
+      messageInput.setSelectionRange(newCursorPos, newCursorPos);
+      
+      // Update character counter
+      updateCharCounter();
+      
+      console.log('Manual paste successful:', textToPaste.length, 'characters');
+    }
+  } catch (error) {
+    console.error('Manual paste failed:', error);
+  }
+}
+
+// Handle right-click context menu
+function handleContextMenu(event) {
+  // Allow default context menu
+}
+
+// Handle paste events with Electron clipboard API
+async function handlePaste(event) {
+  console.log('Paste event detected');
+  event.preventDefault(); // Prevent default paste behavior
+  
+  // Use the working manual paste logic
+  await manualPaste();
+}
+
+// Handle keyboard shortcuts including Ctrl+V/Cmd+V
+function handleKeyDown(event) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const isCtrlV = (isMac && event.metaKey && event.key === 'v') || 
+                  (!isMac && event.ctrlKey && event.key === 'v');
+  
+  if (isCtrlV) {
+    console.log('Ctrl+V detected, triggering manual paste');
+    event.preventDefault();
+    manualPaste();
+    return;
+  }
+}
+
+// Reset presets functionality
+const resetPresetsBtn = document.getElementById("resetPresets");
+if (resetPresetsBtn) {
+  resetPresetsBtn.addEventListener("click", resetPresetsToDefault);
+}
+
+function resetPresetsToDefault() {
+  // Default preset values: 5, 10, 15, 20, 25, 30, 45, 60 minutes
+  const defaultPresets = [5, 10, 15, 20, 25, 30, 45, 60];
+  const presetButtons = document.querySelectorAll(".preset");
+  
+  presetButtons.forEach((btn, index) => {
+    if (index < defaultPresets.length) {
+      const minutes = defaultPresets[index];
+      btn.setAttribute("data-minutes", minutes);
+      
+      // Format time display
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const timeString = hours > 0 ? 
+        `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00` : 
+        `${String(mins).padStart(2, '0')}:00`;
+      
+      btn.textContent = timeString;
+      
+      // Clear saved preset from localStorage
+      localStorage.removeItem(`preset-${index}`);
+    }
+  });
+  
+  console.log("Presets reset to default values");
+}
 
 // Initialize character counter
 updateCharCounter();
@@ -577,10 +745,19 @@ if (window.electron && window.electron.ipcRenderer) {
       visible: isClockVisible
     };
     
+    // Get current message state
+    const isMessageVisible = messageArea && messageArea.style.opacity === '1';
+    const currentMessage = messageText ? messageText.textContent : '';
+    const messageData = {
+      visible: isMessageVisible,
+      text: currentMessage
+    };
+
     // Send all current state to main process for forwarding to display window
     ipcRenderer.send('sync-current-state', {
       timer: timerData,
       clock: clockData,
+      message: messageData,
       clockVisible: isClockVisible
     });
   });
@@ -627,6 +804,36 @@ function loadSavedPresets() {
 
 // Initialize everything when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+  // Load saved presets from localStorage
+  loadSavedPresets();
+  
+  // Initialize layout selector
+  const layoutSelector = document.getElementById('layoutSelector');
+  if (layoutSelector) {
+    // Set saved layout
+    const savedLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
+    layoutSelector.value = savedLayoutId;
+    
+    // Handle layout changes
+    layoutSelector.addEventListener('change', (e) => {
+      const layoutId = e.target.value;
+      
+      // Update canvas renderer
+      if (canvasRenderer) {
+        const layout = LayoutRegistry.getLayout(layoutId);
+        canvasRenderer.setLayout(layout);
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('canvasLayout', layoutId);
+      
+      // Notify display window
+      if (window.electron && window.electron.ipcRenderer) {
+        ipcRenderer.send('layout-changed', layoutId);
+      }
+    });
+  }
+  
   // Initialize theme based on stored preference or default to dark
   if (localStorage.getItem("theme") === "light") {
     setTheme(false);
@@ -640,6 +847,15 @@ document.addEventListener('DOMContentLoaded', function() {
   } else {
     stopClock();
   }
+  
+  // Send initial menu state after theme is set
+  setTimeout(() => {
+    if (window.electron && window.electron.ipcRenderer) {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const clockVisible = clockEl.style.display !== 'none';
+      ipcRenderer.send('update-menu-states', currentTheme, clockVisible);
+    }
+  }, 100);
 });
 
 // Menu event listeners
@@ -675,7 +891,7 @@ if (window.electron && window.electron.ipcRenderer) {
 
 // Init
 loadSavedPresets();
-updateDisplay();
+// Note: updateDisplay() is now called in DOMContentLoaded after canvasRenderer is initialized
 
 // Bootstrap Icons work automatically with CSS classes - no initialization needed
 
