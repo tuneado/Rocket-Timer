@@ -18,4 +18,15 @@ contextBridge.exposeInMainWorld('electron', {
   desktopCapturer: {
     getSources: (opts) => desktopCapturer.getSources(opts),
   },
+  // Settings API
+  settings: {
+    getAll: () => ipcRenderer.invoke('get-settings'),
+    get: (key) => ipcRenderer.invoke('get-setting', key),
+    saveAll: (settings) => ipcRenderer.invoke('save-settings', settings),
+    save: (key, value) => ipcRenderer.invoke('save-setting', key, value),
+    reset: () => ipcRenderer.invoke('reset-settings'),
+    onUpdate: (callback) => {
+      ipcRenderer.on('settings-updated', (event, settings) => callback(settings));
+    }
+  },
 });

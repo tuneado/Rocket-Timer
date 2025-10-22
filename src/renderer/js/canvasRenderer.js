@@ -16,6 +16,25 @@ class CanvasRenderer {
     this.ctx = this.canvas.getContext('2d');
     this.animationId = null;
     
+    // Video Input Manager (for HDMI capture cards)
+    this.videoInputManager = null;
+    
+    // Feature Image
+    this.featureImage = {
+      enabled: false,
+      image: null,
+      path: '',
+      targetOpacity: 1.0,
+      currentOpacity: 0.0,
+      fadeSpeed: 0.05 // Fade increment per frame
+    };
+    
+    // Flash Overlay
+    this.flashOverlay = {
+      active: false,
+      opacity: 0
+    };
+    
     // Load layout or use default
     this.layout = layout || this.getDefaultLayout();
     
@@ -32,6 +51,18 @@ class CanvasRenderer {
       theme: 'dark'
     };
     
+    // Performance settings
+    this.performanceSettings = {
+      frameRate: 60,
+      canvasQuality: 'high',
+      reduceMotion: false,
+      lowPowerMode: false
+    };
+    
+    // Frame rate limiting
+    this.lastFrameTime = 0;
+    this.frameInterval = 1000 / this.performanceSettings.frameRate;
+    
     // Cache CSS variables for performance
     this.updateStyleCache();
     
@@ -43,6 +74,9 @@ class CanvasRenderer {
     
     // Setup media stream for external display
     this.setupStream();
+    
+    // Load performance settings
+    this.loadPerformanceSettings();
     
     // Start animation loop
     this.startAnimation();
@@ -114,6 +148,7 @@ class CanvasRenderer {
       countdownColor: styles.getPropertyValue('--canvas-countdown-color').trim(),
       clockColor: styles.getPropertyValue('--canvas-clock-color').trim(),
       messageColor: styles.getPropertyValue('--canvas-message-color').trim(),
+      messageBackgroundColor: styles.getPropertyValue('--canvas-message-background-color').trim(),
       progressBg: styles.getPropertyValue('--canvas-progress-bg').trim(),
       separatorColor: styles.getPropertyValue('--canvas-separator-color').trim(),
       background: styles.getPropertyValue('--canvas-background').trim(),
@@ -280,15 +315,108 @@ class CanvasRenderer {
   }
 
   /**
+   * Load performance settings from settings manager
+   */
+  async loadPerformanceSettings() {
+    try {
+      if (window.electron && window.electron.settings) {
+        const settings = await window.electron.settings.getAll();
+        this.applyPerformanceSettings(settings);
+      }
+    } catch (error) {
+      console.error('Error loading performance settings:', error);
+    }
+  }
+
+  /**
+   * Apply performance settings
+   */
+  applyPerformanceSettings(settings) {
+    // Update frame rate
+    if (settings.frameRate) {
+      this.performanceSettings.frameRate = settings.frameRate;
+      this.frameInterval = 1000 / settings.frameRate;
+      console.log('Applied frame rate:', settings.frameRate);
+    }
+
+    // Update canvas quality
+    if (settings.canvasQuality) {
+      this.performanceSettings.canvasQuality = settings.canvasQuality;
+      this.applyCanvasQuality(settings.canvasQuality);
+    }
+
+    // Update reduce motion
+    if (settings.reduceMotion !== undefined) {
+      this.performanceSettings.reduceMotion = settings.reduceMotion;
+      // Apply to document for CSS
+      document.documentElement.setAttribute('data-reduce-motion', settings.reduceMotion.toString());
+      console.log('Reduce motion:', settings.reduceMotion ? 'enabled' : 'disabled');
+    }
+
+    // Update low power mode
+    if (settings.lowPowerMode !== undefined) {
+      this.performanceSettings.lowPowerMode = settings.lowPowerMode;
+      
+      // Low power mode: reduce frame rate to 30fps
+      if (settings.lowPowerMode) {
+        this.performanceSettings.frameRate = 30;
+        this.frameInterval = 1000 / 30;
+        console.log('Low power mode enabled: reduced to 30fps');
+      } else if (settings.frameRate) {
+        // Restore normal frame rate if low power is disabled
+        this.performanceSettings.frameRate = settings.frameRate;
+        this.frameInterval = 1000 / settings.frameRate;
+      }
+    }
+  }
+
+  /**
+   * Apply canvas quality settings
+   */
+  applyCanvasQuality(quality) {
+    const ctx = this.ctx;
+    
+    switch (quality) {
+      case 'high':
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        console.log('Canvas quality: High (smooth rendering)');
+        break;
+        
+      case 'balanced':
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'medium';
+        console.log('Canvas quality: Balanced');
+        break;
+        
+      case 'performance':
+        ctx.imageSmoothingEnabled = false;
+        console.log('Canvas quality: Performance (no smoothing)');
+        break;
+        
+      default:
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+    }
+  }
+
+  /**
    * Main animation loop using requestAnimationFrame
-   * Provides smooth 60fps rendering
+   * Provides smooth rendering with frame rate limiting
    */
   startAnimation() {
-    const animate = () => {
-      this.draw();
+    const animate = (timestamp) => {
+      // Frame rate limiting
+      const elapsed = timestamp - this.lastFrameTime;
+      
+      if (elapsed >= this.frameInterval) {
+        this.lastFrameTime = timestamp - (elapsed % this.frameInterval);
+        this.draw();
+      }
+      
       this.animationId = requestAnimationFrame(animate);
     };
-    animate();
+    this.animationId = requestAnimationFrame(animate);
   }
 
   /**
@@ -319,6 +447,24 @@ class CanvasRenderer {
     
     // Clear canvas with theme-appropriate background
     this.clearCanvas();
+    
+    // Draw video frame if layout supports it
+    if (this.layout.videoFrame && this.layout.videoFrame.enabled) {
+      this.drawVideoFrame();
+    }
+    
+    // Draw feature image if enabled (after video, before everything else)
+    this.drawFeatureImage();
+    
+    // Draw flash overlay if active (over background/video/feature image, under text elements)
+    if (this.flashOverlay.active && this.flashOverlay.opacity > 0) {
+      this.drawFlashOverlay();
+    }
+    
+    // Draw bottom info bar if layout supports it (must be before other elements)
+    if (this.layout.bottomBar && this.layout.bottomBar.enabled) {
+      this.drawBottomInfoBar();
+    }
     
     // Draw progress bar if enabled in layout
     if (this.layout.progressBar.enabled) {
@@ -378,9 +524,31 @@ class CanvasRenderer {
   }
 
   /**
+   * Draw flash overlay (red rectangle covering entire canvas)
+   */
+  drawFlashOverlay() {
+    const { width, height } = this.canvas;
+    
+    // Save context
+    this.ctx.save();
+    
+    // Set opacity
+    this.ctx.globalAlpha = this.flashOverlay.opacity;
+    
+    // Draw red rectangle covering entire canvas
+    this.ctx.fillStyle = '#ff0000';
+    this.ctx.fillRect(0, 0, width, height);
+    
+    // Restore context
+    this.ctx.restore();
+  }
+
+  /**
    * Clear canvas with theme-appropriate background
+   * Video input is only used in the "video" layout type
    */
   clearCanvas() {
+    // Always draw solid background for all layouts
     this.ctx.fillStyle = this.styles.background;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
@@ -604,14 +772,199 @@ class CanvasRenderer {
       lines.push(currentLine.trim());
     }
     
-    // Draw lines with proper spacing based on lineHeight
+    // Calculate dimensions for background box
     const lineSpacing = fontSize * lineHeight;
     const totalHeight = (lines.length - 1) * lineSpacing;
     const startY = y - totalHeight / 2;
     
+    // Find the widest line to determine box width
+    let maxLineWidth = 0;
+    lines.forEach(line => {
+      const lineWidth = this.ctx.measureText(line).width;
+      if (lineWidth > maxLineWidth) {
+        maxLineWidth = lineWidth;
+      }
+    });
+    
+    // Add padding around the text
+    const padding = fontSize * 0.5;
+    const boxWidth = maxLineWidth + padding * 2;
+    const boxHeight = totalHeight + fontSize + padding * 2;
+    
+    // Draw background box with message background color (if enabled in layout)
+    if (this.layout.message.showBackground !== false) {
+      this.ctx.fillStyle = this.styles.messageBackgroundColor || this.styles.background;
+      this.ctx.fillRect(
+        x - boxWidth / 2,
+        startY - fontSize / 2 - padding,
+        boxWidth,
+        boxHeight
+      );
+    }
+    
+    // Reset fill style for text
+    this.ctx.fillStyle = this.styles.messageColor;
+    
+    // Draw lines with proper spacing based on lineHeight
     lines.forEach((line, index) => {
       this.ctx.fillText(line, x, startY + index * lineSpacing);
     });
+  }
+
+  /**
+   * Draw video frame in a specific region (for video layout)
+   */
+  drawVideoFrame() {
+    if (!this.videoInputManager || !this.videoInputManager.isEnabled()) {
+      return;
+    }
+    
+    const vf = this.layout.videoFrame;
+    const { width, height } = this.canvas;
+    
+    // Calculate video frame position and size
+    const frameX = this.parsePosition(vf.position.x, 'x', width);
+    const frameY = this.parsePosition(vf.position.y, 'y', height);
+    const frameWidth = this.parseSize(vf.size.width, width);
+    const frameHeight = this.parseSize(vf.size.height, height);
+    
+    // Save context
+    this.ctx.save();
+    
+    // Set opacity if specified
+    if (vf.opacity !== undefined) {
+      this.ctx.globalAlpha = vf.opacity;
+    } else {
+      this.ctx.globalAlpha = this.videoInputManager.getOpacity();
+    }
+    
+    // Draw video element to the specified frame area
+    const videoElement = this.videoInputManager.getVideoElement();
+    if (videoElement && videoElement.readyState >= 2) {
+      this.ctx.drawImage(videoElement, frameX, frameY, frameWidth, frameHeight);
+    }
+    
+    // Restore context
+    this.ctx.restore();
+  }
+
+  /**
+   * Draw feature image overlay (between background/video and text elements)
+   */
+  drawFeatureImage() {
+    if (!this.featureImage.enabled || !this.featureImage.image) {
+      return;
+    }
+    
+    const img = this.featureImage.image;
+    
+    // Check if image is loaded
+    if (!img.complete || img.naturalWidth === 0) {
+      return;
+    }
+    
+    // Animate opacity for fade-in effect
+    if (this.featureImage.currentOpacity < this.featureImage.targetOpacity) {
+      this.featureImage.currentOpacity = Math.min(
+        this.featureImage.currentOpacity + this.featureImage.fadeSpeed,
+        this.featureImage.targetOpacity
+      );
+    } else if (this.featureImage.currentOpacity > this.featureImage.targetOpacity) {
+      this.featureImage.currentOpacity = Math.max(
+        this.featureImage.currentOpacity - this.featureImage.fadeSpeed,
+        this.featureImage.targetOpacity
+      );
+    }
+    
+    const { width, height } = this.canvas;
+    
+    // Save context
+    this.ctx.save();
+    
+    // Set opacity with fade animation
+    this.ctx.globalAlpha = this.featureImage.currentOpacity;
+    
+    // Draw image covering entire canvas
+    this.ctx.drawImage(img, 0, 0, width, height);
+    
+    // Restore context
+    this.ctx.restore();
+  }
+
+  /**
+   * Enable feature image
+   * @param {string} imagePath - Path to the image file
+   */
+  async enableFeatureImage(imagePath) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        this.featureImage.image = img;
+        this.featureImage.path = imagePath;
+        this.featureImage.targetOpacity = 1.0;
+        this.featureImage.currentOpacity = 0.0; // Start from 0 for fade-in
+        this.featureImage.enabled = true;
+        console.log('✅ Feature image loaded:', imagePath);
+        resolve();
+      };
+      
+      img.onerror = (error) => {
+        console.error('❌ Failed to load feature image:', imagePath, error);
+        reject(error);
+      };
+      
+      img.src = `file://${imagePath}`;
+    });
+  }
+
+  /**
+   * Disable feature image
+   */
+  disableFeatureImage() {
+    // Fade out before disabling
+    this.featureImage.targetOpacity = 0.0;
+    
+    // Wait for fade out to complete, then disable
+    const checkFadeOut = () => {
+      if (this.featureImage.currentOpacity <= 0) {
+        this.featureImage.enabled = false;
+        console.log('Feature image disabled');
+      } else {
+        setTimeout(checkFadeOut, 50);
+      }
+    };
+    
+    checkFadeOut();
+  }
+
+  /**
+   * Draw bottom info bar with timer and progress (for video layout)
+   */
+  drawBottomInfoBar() {
+    if (!this.layout.bottomBar || !this.layout.bottomBar.enabled) {
+      return;
+    }
+    
+    const bar = this.layout.bottomBar;
+    const { width, height } = this.canvas;
+    
+    // Calculate bar dimensions
+    const barX = this.parsePosition(bar.position.x, 'x', width);
+    const barY = this.parsePosition(bar.position.y, 'y', height);
+    const barWidth = this.parseSize(bar.size.width, width);
+    const barHeight = this.parseSize(bar.size.height, height);
+    
+    // Draw semi-transparent black background
+    this.ctx.fillStyle = bar.backgroundColor || 'rgba(0, 0, 0, 0.85)';
+    this.ctx.fillRect(barX, barY, barWidth, barHeight);
+    
+    // Draw border if specified
+    if (bar.borderColor && bar.borderWidth) {
+      this.ctx.strokeStyle = bar.borderColor;
+      this.ctx.lineWidth = bar.borderWidth;
+      this.ctx.strokeRect(barX, barY, barWidth, barHeight);
+    }
   }
 
   /**
@@ -651,6 +1004,52 @@ class CanvasRenderer {
   }
 
   /**
+   * Initialize video input manager (for HDMI capture cards)
+   */
+  initializeVideoInput() {
+    if (!this.videoInputManager) {
+      this.videoInputManager = new VideoInputManager(this.canvas);
+    }
+    return this.videoInputManager;
+  }
+
+  /**
+   * Get video input manager
+   */
+  getVideoInputManager() {
+    return this.videoInputManager;
+  }
+
+  /**
+   * Enable video input from device
+   * @param {string} deviceId - Video device ID
+   */
+  async enableVideoInput(deviceId) {
+    if (!this.videoInputManager) {
+      this.initializeVideoInput();
+    }
+    return await this.videoInputManager.startVideoInput(deviceId);
+  }
+
+  /**
+   * Disable video input
+   */
+  disableVideoInput() {
+    if (this.videoInputManager) {
+      this.videoInputManager.stopVideoInput();
+    }
+  }
+
+  /**
+   * Set video input opacity (0-1)
+   */
+  setVideoOpacity(opacity) {
+    if (this.videoInputManager) {
+      this.videoInputManager.setOpacity(opacity);
+    }
+  }
+
+  /**
    * Get the canvas media stream (for external display)
    */
   getStream() {
@@ -664,6 +1063,9 @@ class CanvasRenderer {
     this.stopAnimation();
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
+    }
+    if (this.videoInputManager) {
+      this.videoInputManager.destroy();
     }
     window.removeEventListener('resize', () => this.handleResize());
   }

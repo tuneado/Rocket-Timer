@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
   <title>Display Window</title>
+  <link rel="stylesheet" href="../css/fonts.css">
   <link rel="stylesheet" href="../css/shared.css">
   <style>
     * {
@@ -36,8 +37,9 @@
   <!-- Canvas element that renders the same content as main window -->
   <canvas id="displayCanvas"></canvas>
   
-  <script src="../layouts/layoutRegistry.js"></script>
-  <script src="../js/canvasRenderer.js"></script>
-  <script src="../js/displayCanvas.js"></script>
+  <script type="module" src="../layouts/layoutRegistry.js"></script>
+  <script type="module" src="../js/videoInputManager.js"></script>
+  <script type="module" src="../js/canvasRenderer.js"></script>
+  <script type="module" src="../js/displayCanvas.js"></script>
 </body>
 </html>

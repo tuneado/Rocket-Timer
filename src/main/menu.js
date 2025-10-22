@@ -48,6 +48,21 @@ function setupMenu(mainWindow) {
 
   const template = [
     {
+      label: 'Countdown Timer',
+      submenu: [
+        {
+          label: 'Preferences...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            const { createSettingsWindow } = require('./windows');
+            createSettingsWindow();
+          }
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
       label: 'Timer',
       submenu: [
         {
@@ -109,8 +124,6 @@ function setupMenu(mainWindow) {
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggledevtools' },
-        { type: 'separator' },
-        { role: 'quit' },
       ],
     },
   ];

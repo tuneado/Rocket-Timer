@@ -3,6 +3,7 @@ const path = require('path');
 
 let mainWindow;    // Declare mainWindow globally
 let displayWindow; // Declare displayWindow globally
+let settingsWindow; // Declare settingsWindow globally
 let displayWindowVisible = false; // Track if display window should be visible
 let currentDisplayIndex = 0; // Track which display is currently selected
 
@@ -229,6 +230,49 @@ function getCurrentDisplayIndex() {
   return currentDisplayIndex;
 }
 
+function createSettingsWindow() {
+  // If settings window already exists, focus it
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return settingsWindow;
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 900,
+    height: 600,
+    minWidth: 800,
+    minHeight: 500,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+    title: 'Preferences',
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    show: false, // Don't show until ready
+  });
+
+  settingsWindow.loadFile(path.join(__dirname, '../renderer/html/settings.html'));
+
+  // Show when ready
+  settingsWindow.once('ready-to-show', () => {
+    settingsWindow.show();
+  });
+
+  // Clean up reference when closed
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+
+  return settingsWindow;
+}
+
+function getSettingsWindow() {
+  return settingsWindow;
+}
+
 module.exports = { 
   createMainWindow, 
   createDisplayWindow, 
@@ -238,5 +282,7 @@ module.exports = {
   isDisplayWindowVisible,
   getDisplayWindowState,
   showFullscreenOnDisplay,
-  getCurrentDisplayIndex
+  getCurrentDisplayIndex,
+  createSettingsWindow,
+  getSettingsWindow
 };

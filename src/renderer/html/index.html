@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
   <title>Countdown Timer</title>
+  <link rel="stylesheet" href="../css/fonts.css">
   <link rel="stylesheet" href="../css/bulma.min.css">
   <link rel="stylesheet" href="../css/bootstrap-icons.css">
   <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
@@ -14,7 +15,7 @@
   <div class="container is-fluid">
     <div class="columns">
       
-      <!-- Left Column: Controls -->
+      <!-- Left Column: Configuration -->
       <div class="column is-one-third">
         <div class="content">
             
@@ -127,7 +128,7 @@
             </div>
 
             <!-- Canvas Layout Selector Card -->
-            <div class="card">
+            <div class="card" style="margin-bottom: 0;">
               <header class="card-header">
                 <p class="card-header-title">
                   <span class="icon">
@@ -147,6 +148,7 @@
                         <option value="clockfocus">Clock Focus - Large clock with countdown below</option>
                         <option value="detailed">Detailed - Complete info (countdown, clock, elapsed time)</option>
                         <option value="circular">Circular - Ring progress with timer in center</option>
+                        <option value="video">Video Input - 16:9 video with timer overlay in bottom bar</option>
                       </select>
                     </div>
                   </div>
@@ -154,61 +156,91 @@
               </div>
             </div>
 
-            <!-- Control Buttons Card -->
-            <div class="card" style="margin-bottom: 0;">
-              <div class="card-content">
-                <div class="field is-grouped is-grouped-centered">
-                  <div class="control">
-                    <button id="startStop" class="button is-large is-success">
-                      <span class="icon">
-                        <i class="bi bi-play-fill"></i>
-                      </span>
-                      <span>Start</span>
-                    </button>
-                  </div>
-                  <div class="control">
-                    <button id="reset" class="button is-large is-danger">
-                      <span class="icon">
-                        <i class="bi bi-arrow-clockwise"></i>
-                      </span>
-                      <span>Reset</span>
-                    </button>
-                  </div>
-                  <!-- Quick Adjust buttons stacked on the right -->
-                  <div class="control" style="display: flex; flex-direction: column; gap: 0.125rem; align-self: center;">
-                    <button id="addMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
-                      <span class="icon is-small">
-                        <i class="bi bi-caret-up-fill"></i>
-                      </span>
-                      <span style="font-size: 0.75rem;">+1</span>
-                    </button>
-                    <button id="subtractMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
-                      <span class="icon is-small">
-                        <i class="bi bi-caret-down-fill"></i>
-                      </span>
-                      <span style="font-size: 0.75rem;">-1</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
         </div>
       </div>
 
-      <!-- Right Column: Timer Display -->
+      <!-- Right Column: Timer Preview & Controls -->
       <div class="column is-two-thirds">
+        <!-- Timer Preview -->
         <div class="timer-monitor-container">
-          <!-- Canvas-based display (replaces DOM elements) -->
           <canvas id="timerCanvas"></canvas>
+        </div>
+
+        <!-- Control Buttons Card -->
+        <div class="card mt-5">
+          <div class="card-content">
+            <!-- Main Controls Row -->
+            <div class="field is-grouped is-grouped-centered mb-4">
+              <div class="control">
+                <button id="startStop" class="button is-large is-success">
+                  <span class="icon">
+                    <i class="bi bi-play-fill"></i>
+                  </span>
+                  <span>Start</span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="reset" class="button is-large is-danger">
+                  <span class="icon">
+                    <i class="bi bi-arrow-clockwise"></i>
+                  </span>
+                  <span>Reset</span>
+                </button>
+              </div>
+              <!-- Quick Adjust buttons stacked on the right -->
+              <div class="control" style="display: flex; flex-direction: column; gap: 0.125rem; align-self: center;">
+                <button id="addMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
+                  <span class="icon is-small">
+                    <i class="bi bi-caret-up-fill"></i>
+                  </span>
+                  <span style="font-size: 0.75rem;">+1</span>
+                </button>
+                <button id="subtractMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
+                  <span class="icon is-small">
+                    <i class="bi bi-caret-down-fill"></i>
+                  </span>
+                  <span style="font-size: 0.75rem;">-1</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Additional Controls Row -->
+            <div class="field is-grouped is-grouped-centered">
+              <div class="control">
+                <button id="flashButton" class="button is-light">
+                  <span class="icon">
+                    <i class="bi bi-lightning-fill"></i>
+                  </span>
+                  <span>Flash</span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="muteSounds" class="button is-danger">
+                  <span class="icon">
+                    <i class="bi bi-volume-mute-fill"></i>
+                  </span>
+                  <span>Unmute</span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="featureImage" class="button is-light">
+                  <span class="icon">
+                    <i class="bi bi-image-fill"></i>
+                  </span>
+                  <span>Feature Image</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
     </div>
   </div>
   
-  <script src="../layouts/layoutRegistry.js"></script>
-  <script src="../js/canvasRenderer.js"></script>
-  <script src="../js/countdown.js"></script>
+  <script type="module" src="../layouts/layoutRegistry.js"></script>
+  <script type="module" src="../js/videoInputManager.js"></script>
+  <script type="module" src="../js/canvasRenderer.js"></script>
+  <script type="module" src="../js/countdown.js"></script>
 </body>
 </html>

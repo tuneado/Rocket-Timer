@@ -49,10 +49,11 @@ const classicLayout = {
   "message": {
     "enabled": true,
     "position": { "x": "center", "y": "85%" },
-    "fontSize": 70,
+    "fontSize": 60,
     "alignment": "center",
     "maxLines": 2,
-    "lineHeight": 1.3
+    "lineHeight": 1.3,
+    "showBackground": false
   }
 };
 
@@ -87,7 +88,8 @@ const minimalLayout = {
     "fontSize": 90,
     "alignment": "center",
     "maxLines": 2,
-    "lineHeight": 1.3
+    "lineHeight": 1.3,
+    "showBackground": false
   }
 };
 
@@ -132,7 +134,8 @@ const clockFocusLayout = {
     "fontSize": 60,
     "alignment": "center",
     "maxLines": 2,
-    "lineHeight": 1.3
+    "lineHeight": 1.3,
+    "showBackground": true
   }
 };
 
@@ -180,7 +183,8 @@ const detailedLayout = {
     "fontSize": 60,
     "alignment": "center",
     "maxLines": 1,
-    "lineHeight": 1.2
+    "lineHeight": 1.2,
+    "showBackground": true
   }
 };
 
@@ -223,7 +227,67 @@ const circularLayout = {
     "fontSize": 60,
     "alignment": "center",
     "maxLines": 2,
-    "lineHeight": 1.3
+    "lineHeight": 1.3,
+    "showBackground": true
+  }
+};
+
+const videoLayout = {
+  "name": "Video Input",
+  "description": "16:9 video input with timer overlay in bottom bar",
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "videoFrame": {
+    "enabled": true,
+    "position": { "x": 0, "y": 0 },
+    "size": { "width": 1920, "height": 1080 },
+    "opacity": 1.0
+  },
+  "bottomBar": {
+    "enabled": true,
+    "position": { "x": "25%", "y": 1080 - 175 },
+    "size": { "width": "50%", "height": 175 },
+    "backgroundColor": "rgba(0, 0, 0, 0.85)",
+    "borderColor": "#333333",
+    "borderWidth": 2
+  },
+  "progressBar": {
+    "enabled": true,
+    "position": { "x": "27.5%", "y": 940 },
+    "size": { "width": "45%", "height": 20 },
+    "cornerRadius": 10
+  },
+  "countdown": {
+    "enabled": true,
+    "position": { "x": "50%", "y": 1010 },
+    "fontSize": 85,
+    "alignment": "center"
+  },
+  "clock": {
+    "enabled": false,
+    "position": { "x": "50%", "y": 1010 },
+    "fontSize": 85,
+    "alignment": "center"
+  },
+  "elapsed": {
+    "enabled": false,
+    "position": { "x": "75%", "y": 1010 },
+    "fontSize": 65,
+    "alignment": "center"
+  },
+  "separator": {
+    "enabled": false
+  },
+  "message": {
+    "enabled": true,
+    "position": { "x": "center", "y": "45%" },
+    "fontSize": 80,
+    "alignment": "center",
+    "maxLines": 3,
+    "lineHeight": 1.4,
+    "showBackground": true
   }
 };
 
@@ -233,7 +297,8 @@ const layouts = {
   minimal: minimalLayout,
   clockfocus: clockFocusLayout,
   detailed: detailedLayout,
-  circular: circularLayout
+  circular: circularLayout,
+  video: videoLayout
 };
 
 /**

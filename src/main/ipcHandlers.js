@@ -1,8 +1,93 @@
-const { ipcMain, clipboard } = require('electron');
-const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible } = require('./windows');
+const { ipcMain, clipboard, dialog } = require('electron');
+const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow } = require('./windows');
 const { updateDisplayMenuItems } = require('./menu');
+const SettingsManager = require('./settingsManager');
+
+let settingsManager;
 
 function setupIpcHandlers(mainWindow) {
+  // Initialize settings manager
+  settingsManager = new SettingsManager();
+
+  // Settings handlers
+  ipcMain.handle('get-settings', async () => {
+    return settingsManager.getSettings();
+  });
+
+  ipcMain.handle('get-setting', async (event, key) => {
+    return settingsManager.getSetting(key);
+  });
+
+  ipcMain.handle('save-settings', async (event, settings) => {
+    const success = settingsManager.saveSettings(settings);
+    
+    // Notify all windows of settings change
+    if (success) {
+      const updatedSettings = settingsManager.getSettings();
+      
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const displayWindow = getDisplayWindow();
+      if (displayWindow && !displayWindow.isDestroyed()) {
+        displayWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const settingsWindow = getSettingsWindow();
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+    }
+    
+    return success;
+  });
+
+  ipcMain.handle('save-setting', async (event, key, value) => {
+    const success = settingsManager.setSetting(key, value);
+    
+    // Notify all windows of settings change
+    if (success) {
+      const updatedSettings = settingsManager.getSettings();
+      
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const displayWindow = getDisplayWindow();
+      if (displayWindow && !displayWindow.isDestroyed()) {
+        displayWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const settingsWindow = getSettingsWindow();
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+    }
+    
+    return success;
+  });
+
+  ipcMain.handle('reset-settings', async () => {
+    return settingsManager.resetSettings();
+  });
+
+  // Handle apply-settings (when settings window closes)
+  ipcMain.on('apply-settings', (event, settings) => {
+    console.log('Applying settings from settings window');
+    
+    // Notify main window to apply settings
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('apply-settings', settings);
+    }
+    
+    // Notify display window if open
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed()) {
+      displayWindow.webContents.send('apply-settings', settings);
+    }
+  });
+
   // Handle display window toggle
   ipcMain.on('toggle-display-window', (event) => {
     try {
@@ -155,6 +240,19 @@ function setupIpcHandlers(mainWindow) {
           displayWindow.webContents.send('clear-message');
         }
       }
+      // Send current video input state
+      if (data.video && data.video.enabled) {
+        console.log('Syncing video input to display window:', data.video);
+        displayWindow.webContents.send('video-input-start', data.video.deviceId);
+        if (data.video.opacity !== undefined) {
+          displayWindow.webContents.send('video-opacity-change', data.video.opacity);
+        }
+      }
+      // Send current feature image state
+      if (data.featureImage && data.featureImage.enabled) {
+        console.log('Syncing feature image to display window:', data.featureImage);
+        displayWindow.webContents.send('sync-feature-image', data.featureImage);
+      }
     }
   });
 
@@ -180,6 +278,16 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       displayWindow.webContents.send('clear-message');
+    }
+  });
+
+  // Handle flash at zero
+  ipcMain.on('flash-at-zero', (event) => {
+    console.log('Flash at zero triggered');
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('flash-at-zero');
     }
   });
 
@@ -211,6 +319,116 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       displayWindow.webContents.send('layout-changed', layoutId);
+    }
+  });
+
+  // Handle video input start
+  ipcMain.on('video-input-started', (event, deviceId) => {
+    console.log('Video input started with device:', deviceId);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-input-start', deviceId);
+    }
+    
+    // Notify settings window with device info
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('video-input-live', {
+        isLive: true,
+        deviceId: deviceId
+      });
+    }
+  });
+
+  // Handle video input stop
+  ipcMain.on('video-input-stopped', (event) => {
+    console.log('Video input stopped');
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-input-stop');
+    }
+    
+    // Notify settings window
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('video-input-live', {
+        isLive: false,
+        deviceId: null
+      });
+    }
+  });
+
+  // Handle video device selection from settings window
+  ipcMain.on('video-device-selected', (event, deviceId) => {
+    console.log('Video device selected in settings:', deviceId);
+    
+    // Forward to main window so it knows which device to use
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('video-device-changed', deviceId);
+    }
+    
+    // Also forward to display window if it exists
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-device-changed', deviceId);
+    }
+  });
+
+  // Handle video opacity change
+  ipcMain.on('video-opacity-changed', (event, opacity) => {
+    console.log('Video opacity changed to:', opacity);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-opacity-change', opacity);
+    }
+  });
+
+  // Handle restart notification for hardware acceleration changes
+  ipcMain.on('show-restart-notification', (event) => {
+    const { dialog } = require('electron');
+    const settingsWindow = getSettingsWindow();
+    
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      dialog.showMessageBox(settingsWindow, {
+        type: 'info',
+        title: 'Restart Required',
+        message: 'Hardware Acceleration Setting Changed',
+        detail: 'Please restart the application for the hardware acceleration changes to take effect.',
+        buttons: ['OK']
+      });
+    }
+  });
+
+  // Handle feature image selection
+  ipcMain.handle('select-feature-image', async (event) => {
+    const settingsWindow = getSettingsWindow();
+    
+    const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
+      title: 'Select Feature Image',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    return result;
+  });
+
+  // Handle feature image toggle
+  ipcMain.on('toggle-feature-image', (event, enabled) => {
+    console.log('Feature image toggled:', enabled);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('toggle-feature-image', enabled);
     }
   });
 }
