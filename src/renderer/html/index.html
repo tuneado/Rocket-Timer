@@ -13,14 +13,14 @@
 </head>
 <body>
   <div class="container is-fluid">
-    <div class="columns">
+    <div class="columns is-variable is-2">
       
       <!-- Left Column: Configuration -->
-      <div class="column is-one-third">
+      <div class="column is-one-third" style="display: flex; flex-direction: column;">
         <div class="content">
             
             <!-- Duration Inputs Card -->
-            <div class="card mb-5">
+            <div class="card mb-3">
               <header class="card-header">
                 <p class="card-header-title">
                   <span class="icon mr-2">
@@ -50,7 +50,7 @@
             </div>
 
             <!-- Presets Card -->
-            <div class="card mb-5">
+            <div class="card mb-3">
               <header class="card-header">
                 <p class="card-header-title">
                   <span class="icon mr-2">
@@ -84,7 +84,7 @@
             </div>
 
             <!-- Message Card -->
-            <div class="card mb-5">
+            <div class="card mb-3">
               <header class="card-header">
                 <p class="card-header-title">
                   <span class="icon mr-2">
@@ -131,7 +131,7 @@
             <div class="card" style="margin-bottom: 0;">
               <header class="card-header">
                 <p class="card-header-title">
-                  <span class="icon">
+                  <span class="icon mr-2">
                     <i class="bi bi-layout-three-columns"></i>
                   </span>
                   Canvas Layout
@@ -139,7 +139,6 @@
               </header>
               <div class="card-content">
                 <div class="field">
-                  <label class="label is-small">Choose Display Layout</label>
                   <div class="control">
                     <div class="select is-fullwidth">
                       <select id="layoutSelector">
@@ -160,19 +159,21 @@
       </div>
 
       <!-- Right Column: Timer Preview & Controls -->
-      <div class="column is-two-thirds">
-        <!-- Timer Preview -->
-        <div class="timer-monitor-container">
-          <canvas id="timerCanvas"></canvas>
+      <div class="column is-two-thirds" style="display: flex; flex-direction: column;">
+        <!-- Timer Preview - Centered -->
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0;">
+          <div class="timer-monitor-container">
+            <canvas id="timerCanvas"></canvas>
+          </div>
         </div>
 
-        <!-- Control Buttons Card -->
-        <div class="card mt-5">
+        <!-- Control Buttons Card - Bottom Aligned -->
+        <div class="card" style="margin-top: 1rem;">
           <div class="card-content">
-            <!-- Main Controls Row -->
-            <div class="field is-grouped is-grouped-centered mb-4">
+            <!-- All Controls in One Row -->
+            <div class="field is-grouped is-grouped-centered">
               <div class="control">
-                <button id="startStop" class="button is-large is-success">
+                <button id="startStop" class="button is-large is-success control-button">
                   <span class="icon">
                     <i class="bi bi-play-fill"></i>
                   </span>
@@ -180,7 +181,7 @@
                 </button>
               </div>
               <div class="control">
-                <button id="reset" class="button is-large is-danger">
+                <button id="reset" class="button is-large is-danger control-button">
                   <span class="icon">
                     <i class="bi bi-arrow-clockwise"></i>
                   </span>
@@ -188,46 +189,45 @@
                 </button>
               </div>
               <!-- Quick Adjust buttons stacked on the right -->
-              <div class="control" style="display: flex; flex-direction: column; gap: 0.125rem; align-self: center;">
-                <button id="addMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
-                  <span class="icon is-small">
-                    <i class="bi bi-caret-up-fill"></i>
-                  </span>
-                  <span style="font-size: 0.75rem;">+1</span>
-                </button>
-                <button id="subtractMinute" class="button is-light" style="height: calc((3rem - 0.125rem) / 2); margin: 0;">
-                  <span class="icon is-small">
-                    <i class="bi bi-caret-down-fill"></i>
-                  </span>
-                  <span style="font-size: 0.75rem;">-1</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Additional Controls Row -->
-            <div class="field is-grouped is-grouped-centered">
               <div class="control">
-                <button id="flashButton" class="button is-light">
+                <div class="quick-adjust-container">
+                  <button id="addMinute" class="button is-light quick-adjust-button">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-up-fill"></i>
+                    </span>
+                    <span style="font-size: 0.75rem;">+1</span>
+                  </button>
+                  <button id="subtractMinute" class="button is-light quick-adjust-button">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-down-fill"></i>
+                    </span>
+                    <span style="font-size: 0.75rem;">-1</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Vertical Separator -->
+              <div class="control" style="display: flex; align-items: stretch;">
+                <div class="control-separator"></div>
+              </div>
+              <div class="control">
+                <button id="flashButton" class="button is-large is-light control-button" title="Flash">
                   <span class="icon">
                     <i class="bi bi-lightning-fill"></i>
                   </span>
-                  <span>Flash</span>
                 </button>
               </div>
               <div class="control">
-                <button id="muteSounds" class="button is-danger">
+                <button id="muteSounds" class="button is-large is-danger control-button" title="Unmute">
                   <span class="icon">
                     <i class="bi bi-volume-mute-fill"></i>
                   </span>
-                  <span>Unmute</span>
                 </button>
               </div>
               <div class="control">
-                <button id="featureImage" class="button is-light">
+                <button id="featureImage" class="button is-large is-light control-button" title="Feature Image">
                   <span class="icon">
                     <i class="bi bi-image-fill"></i>
                   </span>
-                  <span>Feature Image</span>
                 </button>
               </div>
             </div>

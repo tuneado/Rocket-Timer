@@ -73,6 +73,8 @@ body {
   font-family: var(--font-ui) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* ===================================
@@ -101,14 +103,16 @@ body {
 }
 
 [data-theme="dark"] .input, 
-[data-theme="dark"] .textarea {
+[data-theme="dark"] .textarea,
+[data-theme="dark"] .select select {
   background-color: var(--bg) !important;
   color: var(--fg) !important;
   border-color: var(--border) !important;
 }
 
 [data-theme="dark"] .input:focus,
-[data-theme="dark"] .textarea:focus {
+[data-theme="dark"] .textarea:focus,
+[data-theme="dark"] .select select:focus {
   border-color: var(--countdown) !important;
   box-shadow: 0 0 0 0.125em rgba(76, 175, 80, 0.25) !important;
 }
@@ -187,7 +191,6 @@ body {
 }
 
 .card-header {
-  padding: 0.5rem 0.75rem !important; /* More compact header */
   align-items: center !important; /* Ensure vertical alignment */
 }
 
@@ -204,15 +207,6 @@ body {
 
 .card-content {
   padding: 0.75rem !important; /* Reduce content padding from 1.25rem */
-}
-
-/* Compact form fields */
-.field.is-grouped {
-  margin-bottom: 0.75rem !important; /* Reduce field spacing */
-}
-
-.field {
-  margin-bottom: 0.5rem !important; /* Tighter field spacing */
 }
 
 /* Compact overall layout */
@@ -240,20 +234,22 @@ body {
 /* Container for the monitor display on main interface */
 .timer-monitor-container {
   width: 100%;
-  max-width: 800px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0;
   position: relative;
 }
 
 /* Canvas element styling - 16:9 aspect ratio with border */
 #timerCanvas {
   width: 100%;
+  max-width: 100%;
   height: auto;
   border: 3px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: block;
+  margin: 0 auto;
   background: var(--bg);
 }
 
@@ -707,6 +703,34 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* Control buttons unified height */
+.control-button {
+  height: 4rem !important;
+}
+
+/* Quick adjust buttons container */
+.quick-adjust-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  height: 4rem;
+}
+
+/* Quick adjust individual buttons */
+.quick-adjust-button {
+  margin: 0 !important;
+  min-height: 0 !important;
+  height: calc((4rem - 0.125rem) / 2) !important;
+}
+
+/* Control buttons separator */
+.control-separator {
+  width: 2px;
+  height: 4rem;
+  background-color: var(--border);
+  margin: 0 0.5rem;
 }
 
 /* ===================================

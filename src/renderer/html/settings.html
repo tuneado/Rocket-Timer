@@ -30,10 +30,6 @@
           <i class="bi bi-aspect-ratio"></i>
           <span>Canvas</span>
         </div>
-        <div class="settings-nav-item" data-section="external-display">
-          <i class="bi bi-display"></i>
-          <span>External Display</span>
-        </div>
         <div class="settings-nav-item" data-section="performance">
           <i class="bi bi-lightning"></i>
           <span>Performance</span>
@@ -41,10 +37,6 @@
         <div class="settings-nav-item" data-section="video-input">
           <i class="bi bi-camera-video"></i>
           <span>Video Input</span>
-        </div>
-        <div class="settings-nav-item" data-section="presets">
-          <i class="bi bi-clock-history"></i>
-          <span>Presets</span>
         </div>
         <div class="settings-nav-item" data-section="appearance">
           <i class="bi bi-palette"></i>
@@ -97,6 +89,23 @@
                     <option value="auto">Auto (System)</option>
                   </select>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">External Display</div>
+            
+            <div class="settings-item">
+              <div class="settings-item-label">
+                <div class="settings-item-title">Auto-Open at Startup</div>
+                <div class="settings-item-description">Automatically open fullscreen timer on external display if available</div>
+              </div>
+              <div class="settings-item-control">
+                <label class="switch">
+                  <input type="checkbox" id="autoOpenDisplay">
+                  <span class="slider-switch"></span>
+                </label>
               </div>
             </div>
           </div>
@@ -250,45 +259,6 @@
           </div>
         </div>
 
-        <!-- External Display Section -->
-        <div class="settings-section" id="section-external-display">
-          <h1 class="settings-section-title">External Display</h1>
-          <p class="settings-section-subtitle">Configure external display window</p>
-
-          <div class="settings-group">
-            <div class="settings-group-title">Behavior</div>
-            
-            <div class="settings-item">
-              <div class="settings-item-label">
-                <div class="settings-item-title">Auto-Open on Startup</div>
-                <div class="settings-item-description">Automatically open external display window</div>
-              </div>
-              <div class="settings-item-control">
-                <label class="switch">
-                  <input type="checkbox" id="autoOpenDisplay">
-                  <span class="slider-switch"></span>
-                </label>
-              </div>
-            </div>
-
-            <div class="settings-item">
-              <div class="settings-item-label">
-                <div class="settings-item-title">Display Monitor</div>
-                <div class="settings-item-description">Which monitor to show on</div>
-              </div>
-              <div class="settings-item-control">
-                <div class="select">
-                  <select id="displayMonitor">
-                    <option value="0">Primary Display</option>
-                    <option value="1">External Display 1</option>
-                    <option value="2">External Display 2</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Performance Section -->
         <div class="settings-section" id="section-performance">
           <h1 class="settings-section-title">Performance</h1>
@@ -428,66 +398,6 @@
                     <option value="auto">Auto</option>
                   </select>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Presets Section -->
-        <div class="settings-section" id="section-presets">
-          <h1 class="settings-section-title">Presets</h1>
-          <p class="settings-section-subtitle">Manage quick time presets</p>
-
-          <div class="settings-group">
-            <div class="settings-group-title">Preset List</div>
-            
-            <div class="settings-item settings-item-block">
-              <div class="preset-list" id="presetList">
-                <!-- Presets will be dynamically added here -->
-                <div class="preset-item">
-                  <i class="bi bi-grip-vertical preset-drag-handle"></i>
-                  <div class="preset-time">05:00</div>
-                  <div class="preset-actions">
-                    <button title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button title="Delete"><i class="bi bi-trash"></i></button>
-                  </div>
-                </div>
-                <div class="preset-item">
-                  <i class="bi bi-grip-vertical preset-drag-handle"></i>
-                  <div class="preset-time">10:00</div>
-                  <div class="preset-actions">
-                    <button title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button title="Delete"><i class="bi bi-trash"></i></button>
-                  </div>
-                </div>
-                <div class="preset-item">
-                  <i class="bi bi-grip-vertical preset-drag-handle"></i>
-                  <div class="preset-time">15:00</div>
-                  <div class="preset-actions">
-                    <button title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button title="Delete"><i class="bi bi-trash"></i></button>
-                  </div>
-                </div>
-                <div class="preset-item">
-                  <i class="bi bi-grip-vertical preset-drag-handle"></i>
-                  <div class="preset-time">20:00</div>
-                  <div class="preset-actions">
-                    <button title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button title="Delete"><i class="bi bi-trash"></i></button>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="buttons preset-buttons">
-                <button class="button is-primary is-small">
-                  <i class="bi bi-plus-circle"></i>&nbsp;&nbsp;Add Preset
-                </button>
-                <button class="button is-small">
-                  <i class="bi bi-download"></i>&nbsp;&nbsp;Import
-                </button>
-                <button class="button is-small">
-                  <i class="bi bi-upload"></i>&nbsp;&nbsp;Export
-                </button>
               </div>
             </div>
           </div>

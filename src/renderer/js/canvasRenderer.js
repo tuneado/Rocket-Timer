@@ -39,9 +39,9 @@ class CanvasRenderer {
     this.layout = layout || this.getDefaultLayout();
     
     // State that mirrors the current timer state
-    // Default: 45 minutes (matches initializeDefaultTime in countdown.js)
+    // Will be immediately updated by countdown.js after initialization
     this.state = {
-      countdown: '00:45:00',
+      countdown: '00:00:00',
       clock: '--:--:--',
       message: '',
       progress: 100,

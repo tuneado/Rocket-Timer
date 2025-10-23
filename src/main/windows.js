@@ -9,8 +9,10 @@ let currentDisplayIndex = 0; // Track which display is currently selected
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1024,
+    height: 768,
+    minWidth: 1024,
+    minHeight: 768,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true, // Add for security

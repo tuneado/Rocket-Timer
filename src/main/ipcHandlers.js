@@ -305,9 +305,24 @@ function setupIpcHandlers(mainWindow) {
   ipcMain.on('request-display-sync', (event) => {
     console.log('Display sync requested');
     
-    // Request main window to send current state to display window
+    // Only sync if main window is ready
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('request-current-state-for-display');
+      if (mainWindow.mainWindowReady) {
+        console.log('Main window is ready, requesting sync');
+        mainWindow.webContents.send('request-current-state-for-display');
+      } else {
+        console.log('Main window not ready yet, waiting...');
+        // Wait for main window to be ready
+        const checkReady = () => {
+          if (mainWindow.mainWindowReady) {
+            console.log('Main window now ready, requesting sync');
+            mainWindow.webContents.send('request-current-state-for-display');
+          } else {
+            setTimeout(checkReady, 100);
+          }
+        };
+        checkReady();
+      }
     }
   });
 
@@ -429,6 +444,18 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       displayWindow.webContents.send('toggle-feature-image', enabled);
+    }
+  });
+  
+  // Handle main window ready notification
+  ipcMain.on('main-window-ready', (event) => {
+    console.log('Main window renderer is ready');
+    mainWindow.mainWindowReady = true;
+    
+    // If display window is already open and waiting, sync it now
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      mainWindow.webContents.send('request-current-state-for-display');
     }
   });
 }

@@ -81,6 +81,9 @@ ipcRenderer.on('update-display', (data) => {
     if (data.progressPercent !== undefined) {
       displayRenderer.setState({ progress: data.progressPercent });
     }
+    if (data.elapsed !== undefined) {
+      displayRenderer.setState({ elapsed: data.elapsed });
+    }
   }
 });
 

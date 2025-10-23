@@ -163,21 +163,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Create canvas renderer with layout
   canvasRenderer = new CanvasRenderer('timerCanvas', layout);
-  console.log('Canvas renderer initialized with layout:', savedLayoutId);
   
   // Apply theme to canvas (already set by loadAndApplySettings)
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   canvasRenderer.updateTheme(currentTheme);
   
   // Update display to show initial time with correct progress (100%)
-  console.log('Calling updateDisplay - totalTime:', totalTime, 'remainingTime:', remainingTime);
   updateDisplay();
   
   // Start clock if the layout has clock enabled
   if (layout.clock && layout.clock.enabled) {
-    console.log('Layout has clock enabled, starting clock');
     startClock();
   }
+  
+  // Notify main process that renderer is ready
+  ipcRenderer.send('main-window-ready');
 });
 
 // Listen for settings updates from settings window
@@ -242,12 +242,6 @@ if (window.electron && window.electron.ipcRenderer) {
 
 // Note: DOM elements for countdown/progress are no longer used in main window
 // They've been replaced by canvas rendering
-// Keep references for backward compatibility but they won't be displayed
-const countdownEl = { textContent: '00:25:00' }; // Dummy object
-const progressBar = { value: 100, classList: { remove: () => {}, add: () => {} } }; // Dummy object
-const clockEl = { textContent: '--:--:--', style: { display: 'block' } }; // Dummy object
-const messageArea = { style: { opacity: '0' } }; // Dummy object
-const messageText = { textContent: '' }; // Dummy object
 
 // Real DOM elements that still exist (controls)
 const startStopBtn = document.getElementById("startStop");
@@ -270,8 +264,6 @@ function updateClock() {
   const s = String(now.getSeconds()).padStart(2, "0");
   const timeString = `${h}:${m}:${s}`;
   
-  console.log('updateClock called, time:', timeString, 'canvasRenderer exists:', !!canvasRenderer);
-  
   // Update canvas renderer
   if (canvasRenderer) {
     canvasRenderer.setState({ clock: timeString });
@@ -284,14 +276,12 @@ function updateClock() {
 }
 
 function startClock() {
-  console.log('startClock called, canvasRenderer exists:', !!canvasRenderer);
   updateClock();
   clockInterval = setInterval(updateClock, 1000);
   
   // Update canvas renderer
   if (canvasRenderer) {
     canvasRenderer.setState({ showClock: true });
-    console.log('Clock state set to true, triggering updateDisplay');
     updateDisplay(); // Force immediate redraw
   }
   
@@ -358,21 +348,6 @@ function updateButtonIcon(button, iconName, text) {
     button.appendChild(newTextSpan);
   }
 }
-
-function updateProgressBarColor(progressPercent) {
-  // Remove existing Bulma color classes
-  progressBar.classList.remove('is-success', 'is-warning', 'is-danger');
-  
-  // Apply Bulma color classes based on percentage thresholds
-  if (progressPercent >= 30) {
-    progressBar.classList.add('is-success');
-  } else if (progressPercent >= 10) {
-    progressBar.classList.add('is-warning');
-  } else {
-    progressBar.classList.add('is-danger');
-  }
-}
-
 /**
  * Flash red background with black text at timer completion
  */
@@ -435,10 +410,10 @@ async function handleTimerComplete() {
 function updateDisplay() {
   const formattedTime = formatTime(remainingTime);
   
+  console.log('updateDisplay called - remainingTime:', remainingTime, 'formatted:', formattedTime);
+  
   // Progress bar should go from 100% (full) to 0% (empty) as time runs down
   const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
-  
-  console.log('updateDisplay called - totalTime:', totalTime, 'remainingTime:', remainingTime, 'progressPercent:', progressPercent);
   
   // Calculate elapsed time (can go negative if timer exceeds set time)
   const elapsedSeconds = totalTime - remainingTime;
@@ -616,16 +591,15 @@ function updateMuteButtonState() {
   if (!muteSoundsBtn) return;
   
   const icon = muteSoundsBtn.querySelector('i');
-  const text = muteSoundsBtn.querySelector('span:last-child');
   
   if (soundsMuted) {
     icon.className = 'bi bi-volume-mute-fill';
-    text.textContent = 'Unmute';
+    muteSoundsBtn.title = 'Unmute';
     muteSoundsBtn.classList.add('is-danger');
     muteSoundsBtn.classList.remove('is-light');
   } else {
     icon.className = 'bi bi-volume-up-fill';
-    text.textContent = 'Mute';
+    muteSoundsBtn.title = 'Mute';
     muteSoundsBtn.classList.remove('is-danger');
     muteSoundsBtn.classList.add('is-light');
   }
@@ -693,16 +667,15 @@ function updateFeatureImageButtonState() {
   if (!featureImageBtn) return;
   
   const icon = featureImageBtn.querySelector('i');
-  const text = featureImageBtn.querySelector('span:last-child');
   
   if (featureImageEnabled) {
     icon.className = 'bi bi-image-fill';
-    text.textContent = 'Hide Image';
+    featureImageBtn.title = 'Hide Image';
     featureImageBtn.classList.add('is-primary');
     featureImageBtn.classList.remove('is-light');
   } else {
     icon.className = 'bi bi-image';
-    text.textContent = 'Feature Image';
+    featureImageBtn.title = 'Feature Image';
     featureImageBtn.classList.remove('is-primary');
     featureImageBtn.classList.add('is-light');
   }
@@ -1135,26 +1108,28 @@ if (window.electron && window.electron.ipcRenderer) {
   ipcRenderer.on('request-current-state-for-display', () => {
     console.log('Syncing current state to display window');
     
-    // Get current timer state
+    // Get current state from canvas renderer (most reliable source)
+    const canvasState = canvasRenderer.state;
+    
+    console.log('Canvas state at sync:', canvasState);
+    console.log('remainingTime:', remainingTime, 'totalTime:', totalTime);
+    
+    // Get current timer state - use canvas state as fallback
     const timerData = {
-      formattedTime: formatTime(remainingTime),
-      progressPercent: totalTime > 0 ? (remainingTime / totalTime * 100) : 0
+      formattedTime: canvasState.countdown || formatTime(remainingTime),
+      progressPercent: canvasState.progress !== undefined ? canvasState.progress : (totalTime > 0 ? (remainingTime / totalTime * 100) : 0)
     };
     
-    // Get current clock state
-    const isClockVisible = clockEl && clockEl.style.display !== 'none';
-    const currentTime = clockEl ? clockEl.textContent : '00:00:00';
+    // Get current clock state from canvasRenderer
     const clockData = {
-      time: currentTime,
-      visible: isClockVisible
+      time: canvasState.clock || '--:--:--',
+      visible: canvasState.showClock || false
     };
     
-    // Get current message state
-    const isMessageVisible = messageArea && messageArea.style.opacity === '1';
-    const currentMessage = messageText ? messageText.textContent : '';
+    // Get current message state from canvasRenderer
     const messageData = {
-      visible: isMessageVisible,
-      text: currentMessage
+      visible: canvasState.showMessage || false,
+      text: canvasState.message || ''
     };
     
     // Get current video input state
@@ -1185,7 +1160,7 @@ if (window.electron && window.electron.ipcRenderer) {
       timer: timerData,
       clock: clockData,
       message: messageData,
-      clockVisible: isClockVisible,
+      clockVisible: canvasState.showClock,
       video: videoData,
       featureImage: featureImageData
     });
@@ -1199,13 +1174,22 @@ if (window.electron && window.electron.ipcRenderer) {
 
 // Listen for clock state requests
 ipcRenderer.on('request-clock-state', () => {
-  const isClockVisible = clockEl.style.display !== 'none';
-  const currentTime = clockEl.textContent;
-  
-  ipcRenderer.send('clock-state-response', { 
-    time: currentTime, 
-    visible: isClockVisible 
-  });
+  if (canvasRenderer && canvasRenderer.state) {
+    const state = canvasRenderer.state;
+    const isClockVisible = state.showClock;
+    const currentTime = state.clock || '';
+    
+    ipcRenderer.send('clock-state-response', { 
+      time: currentTime, 
+      visible: isClockVisible 
+    });
+  } else {
+    // Fallback if canvasRenderer not ready
+    ipcRenderer.send('clock-state-response', { 
+      time: '', 
+      visible: false 
+    });
+  }
 });
 
 // Listen for theme requests from display window
@@ -1292,9 +1276,10 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Send initial menu state after theme is set
   setTimeout(() => {
-    if (window.electron && window.electron.ipcRenderer) {
+    if (window.electron && window.electron.ipcRenderer && canvasRenderer && canvasRenderer.state) {
       const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const clockVisible = clockEl.style.display !== 'none';
+      const state = canvasRenderer.state;
+      const clockVisible = state.showClock;
       ipcRenderer.send('update-menu-states', currentTheme, clockVisible);
     }
   }, 100);
@@ -1351,28 +1336,17 @@ if (window.electron && window.electron.ipcRenderer) {
       
       if (videoManager && videoManager.isEnabled()) {
         console.log('🔄 Restarting video input with new device:', deviceId);
-        console.log('Current video element before stop:', videoManager.getVideoElement());
         
         try {
           // Stop current video
           canvasRenderer.disableVideoInput();
-          console.log('Video disabled, waiting for cleanup...');
           
           // Small delay to ensure cleanup
           await new Promise(resolve => setTimeout(resolve, 300));
           
           // Start with new device
-          console.log('Starting video with device:', deviceId);
           await canvasRenderer.enableVideoInput(deviceId);
-          
-          const newVideoElement = videoManager.getVideoElement();
           console.log('✅ Video input switched to new device successfully');
-          console.log('New video element:', newVideoElement);
-          console.log('New video dimensions:', {
-            width: newVideoElement?.videoWidth,
-            height: newVideoElement?.videoHeight,
-            readyState: newVideoElement?.readyState
-          });
           
           // Force canvas redraw to show new video
           updateDisplay();
@@ -1415,9 +1389,6 @@ async function handleVideoInputForLayout(layout) {
   }
   
   const videoManager = canvasRenderer.getVideoInputManager();
-  const videoDeviceSelector = document.getElementById('videoDeviceSelector');
-  const startVideoBtn = document.getElementById('startVideo');
-  const stopVideoBtn = document.getElementById('stopVideo');
   
   if (needsVideo) {
     // Layout needs video - try to start it
@@ -1425,9 +1396,8 @@ async function handleVideoInputForLayout(layout) {
     
     // Check if we have a selected device
     const savedDeviceId = localStorage.getItem('selectedVideoDevice');
-    const deviceId = videoDeviceSelector?.value || savedDeviceId;
     
-    if (deviceId && !videoManager.isEnabled()) {
+    if (savedDeviceId && !videoManager.isEnabled()) {
       try {
         // Auto-detect devices first if not already detected
         if (videoManager.devices.length === 0) {
@@ -1435,25 +1405,21 @@ async function handleVideoInputForLayout(layout) {
         }
         
         // Start video with saved/selected device
-        await canvasRenderer.enableVideoInput(deviceId);
-        
-        // Update UI
-        if (startVideoBtn) startVideoBtn.disabled = true;
-        if (stopVideoBtn) stopVideoBtn.disabled = false;
-        updateVideoStatus('Active (Auto)', 'is-success');
-        
+        await canvasRenderer.enableVideoInput(savedDeviceId);
         console.log('✅ Video input auto-started for layout');
+        
+        // Notify display window
+        if (window.electron && window.electron.ipcRenderer) {
+          ipcRenderer.send('video-input-started', savedDeviceId);
+        }
       } catch (error) {
         console.warn('Could not auto-start video input:', error.message);
-        updateVideoStatus('Layout needs video - Click "Start Video"', 'is-warning');
       }
-    } else if (!deviceId) {
-      // No device selected - prompt user
-      console.log('⚠️ No video device selected - user needs to detect and select');
-      updateVideoStatus('Detect & Select Device', 'is-warning');
+    } else if (!savedDeviceId) {
+      // No device selected - user needs to configure in settings
+      console.log('⚠️ No video device selected - configure in settings');
     } else if (videoManager.isEnabled()) {
       console.log('✅ Video already active');
-      updateVideoStatus('Active', 'is-success');
     }
     
   } else {
@@ -1462,11 +1428,6 @@ async function handleVideoInputForLayout(layout) {
       console.log('⏹️ Layout doesn\'t use video, stopping to save resources...');
       
       canvasRenderer.disableVideoInput();
-      
-      // Update UI
-      if (stopVideoBtn) stopVideoBtn.disabled = true;
-      if (startVideoBtn) startVideoBtn.disabled = false;
-      updateVideoStatus('Inactive (Auto)', 'is-light');
       
       // Notify display window
       if (window.electron && window.electron.ipcRenderer) {
