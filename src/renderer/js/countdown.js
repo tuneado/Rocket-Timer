@@ -3,6 +3,8 @@ import { createFlashAnimation } from './canvas/canvasEffects.js';
 import statusBar from './statusBar.js';
 import { formatTime } from './utils/timeFormatter.js';
 import * as TimeInputs from './modules/timeInputs.js';
+import * as ClockManager from './modules/clockManager.js';
+import * as MessageManager from './modules/messageManager.js';
 
 let countdown;
 let remainingTime = 0;
@@ -35,6 +37,19 @@ const timerState = {
   setTotalTime(value) { totalTime = value; },
   setRunning(value) { running = value; },
   setLastSetTime(value) { lastSetTime = value; }
+};
+
+// Clock state wrapper for passing to modules
+const clockState = {
+  getInterval() { return clockInterval; },
+  setInterval(value) { clockInterval = value; }
+};
+
+// Message state wrapper for passing to modules
+let messageDisplayed = false;
+const messageState = {
+  isDisplayed() { return messageDisplayed; },
+  setDisplayed(value) { messageDisplayed = value; }
 };
 
 /**
@@ -190,6 +205,39 @@ function subtractMinute() {
   TimeInputs.subtractMinute(timerState, updateDisplay);
 }
 
+// ============================================================================
+// CLOCK WRAPPER FUNCTIONS
+// ============================================================================
+// Note: These wrapper functions maintain compatibility with existing code
+// while delegating to the imported ClockManager module.
+
+function updateClock() {
+  ClockManager.updateClock({ canvasRenderer, ipcRenderer });
+}
+
+function startClock() {
+  ClockManager.startClock(clockState, { canvasRenderer, ipcRenderer, updateDisplay });
+}
+
+function stopClock() {
+  ClockManager.stopClock(clockState, { canvasRenderer, ipcRenderer });
+}
+
+// ============================================================================
+// MESSAGE WRAPPER FUNCTIONS
+// ============================================================================
+// Note: These wrapper functions will be populated after DOM loads with access
+// to messageInput, displayMessageBtn, charCounter elements.
+// Placeholder functions to be overwritten in DOMContentLoaded.
+
+let updateCharCounter = () => {};
+let displayMessage = () => {};
+let hideMessage = () => {};
+let clearMessage = () => {};
+let manualPaste = async () => {};
+let handlePaste = async () => {};
+let handleKeyDown = () => {};
+
 // Initialize canvas renderer when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialize status bar
@@ -297,66 +345,56 @@ const displayMessageBtn = document.getElementById("displayMessage");
 const clearMessageBtn = document.getElementById("clearMessage");
 const charCounter = document.getElementById("charCounter");
 
+// Assign message wrapper functions now that DOM elements are available
+updateCharCounter = () => {
+  MessageManager.updateCharCounter(messageInput, charCounter);
+};
+
+displayMessage = () => {
+  MessageManager.displayMessage(messageState, {
+    messageInput,
+    displayMessageBtn,
+    canvasRenderer,
+    ipcRenderer,
+    updateButtonIcon,
+    hideMessage
+  });
+};
+
+hideMessage = () => {
+  MessageManager.hideMessage(messageState, {
+    displayMessageBtn,
+    canvasRenderer,
+    ipcRenderer,
+    updateButtonIcon
+  });
+};
+
+clearMessage = () => {
+  MessageManager.clearMessage(messageState, {
+    messageInput,
+    charCounter,
+    updateCharCounter,
+    hideMessage
+  });
+};
+
+manualPaste = async () => {
+  await MessageManager.manualPaste(messageInput, updateCharCounter);
+};
+
+handlePaste = async (event) => {
+  await MessageManager.handlePaste(event, manualPaste);
+};
+
+handleKeyDown = (event) => {
+  MessageManager.handleKeyDown(event, manualPaste);
+};
+
 
 // --------------------
-// Clock functions
+// Clock functions (now imported from ./modules/clockManager.js)
 // --------------------
-function updateClock() {
-  const now = new Date();
-  const h = String(now.getHours()).padStart(2, "0");
-  const m = String(now.getMinutes()).padStart(2, "0");
-  const s = String(now.getSeconds()).padStart(2, "0");
-  const timeString = `${h}:${m}:${s}`;
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ clock: timeString });
-  }
-  
-  // Send clock update to display window
-  if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('clock-update', { time: timeString, visible: true });
-  }
-}
-
-function startClock() {
-  updateClock();
-  clockInterval = setInterval(updateClock, 1000);
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ showClock: true });
-    updateDisplay(); // Force immediate redraw
-  }
-  
-  localStorage.setItem("clock", "on");
-  
-  // Update menu state
-  if (window.electron && window.electron.ipcRenderer) {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    ipcRenderer.send('update-menu-states', currentTheme, true);
-  }
-}
-
-function stopClock() {
-  if (clockInterval) {
-    clearInterval(clockInterval);
-    clockInterval = null;
-  }
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ showClock: false });
-  }
-  
-  localStorage.setItem("clock", "off");
-  
-  // Update menu state
-  if (window.electron && window.electron.ipcRenderer) {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    ipcRenderer.send('update-menu-states', currentTheme, false);
-  }
-}
 
 
 
@@ -933,85 +971,8 @@ function updatePresetFromInputs(button) {
 const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
 
 // --------------------
-// Message functions
+// Message functions (now imported from ./modules/messageManager.js)
 // --------------------
-function updateCharCounter() {
-  const currentLength = messageInput.value.length;
-  const maxLength = messageInput.getAttribute('maxlength') || 100;
-  
-  charCounter.textContent = `${currentLength}/${maxLength}`;
-  
-  // Change color based on character count
-  charCounter.classList.remove('warning', 'danger');
-  if (currentLength >= maxLength * 0.9) {
-    charCounter.classList.add('danger');
-  } else if (currentLength >= maxLength * 0.7) {
-    charCounter.classList.add('warning');
-  }
-}
-
-let messageDisplayed = false;
-
-function displayMessage() {
-  const message = messageInput.value.trim();
-  
-  if (!messageDisplayed) {
-    // Display message
-    if (!message) {
-      alert('Please enter a message to display.');
-      return;
-    }
-    
-    // Update canvas renderer
-    if (canvasRenderer) {
-      canvasRenderer.setState({
-        message: message,
-        showMessage: true
-      });
-    }
-    
-    // Send message to display window via IPC
-    if (window.electron && window.electron.ipcRenderer) {
-      ipcRenderer.send('display-message', message);
-    }
-    
-    // Update button state
-    updateButtonIcon(displayMessageBtn, 'eye-slash-fill', 'Hide Message');
-    messageDisplayed = true;
-  } else {
-    // Hide message
-    hideMessage();
-  }
-}
-
-function hideMessage() {
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({
-      message: '',
-      showMessage: false
-    });
-  }
-  
-  // Clear message from display window
-  if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('clear-message');
-  }
-  
-  // Update button state
-  updateButtonIcon(displayMessageBtn, 'display-fill', 'Display Message');
-  messageDisplayed = false;
-}
-
-function clearMessage() {
-  messageInput.value = '';
-  updateCharCounter();
-  
-  // Hide message if it's currently displayed
-  if (messageDisplayed) {
-    hideMessage();
-  }
-}
 
 function setInputsDisabled(disabled) {
   // Time input fields
@@ -1094,65 +1055,9 @@ messageInput.addEventListener("contextmenu", handleContextMenu);
 displayMessageBtn.addEventListener("click", displayMessage);
 clearMessageBtn.addEventListener("click", clearMessage);
 
-// Add manual paste function for troubleshooting
-async function manualPaste() {
-  try {
-    const clipboardText = await window.electron.clipboard.readText();
-    if (clipboardText) {
-      const maxLength = parseInt(messageInput.getAttribute('maxlength')) || 100;
-      const currentPos = messageInput.selectionStart;
-      const currentValue = messageInput.value;
-      const beforeCursor = currentValue.substring(0, currentPos);
-      const afterCursor = currentValue.substring(messageInput.selectionEnd);
-      
-      // Calculate how much text can be pasted
-      const availableSpace = maxLength - beforeCursor.length - afterCursor.length;
-      const textToPaste = clipboardText.substring(0, Math.max(0, availableSpace));
-      
-      // Insert the text
-      const newValue = beforeCursor + textToPaste + afterCursor;
-      messageInput.value = newValue;
-      
-      // Set cursor position after pasted text
-      const newCursorPos = beforeCursor.length + textToPaste.length;
-      messageInput.setSelectionRange(newCursorPos, newCursorPos);
-      
-      // Update character counter
-      updateCharCounter();
-      
-      console.log('Manual paste successful:', textToPaste.length, 'characters');
-    }
-  } catch (error) {
-    console.error('Manual paste failed:', error);
-  }
-}
-
 // Handle right-click context menu
 function handleContextMenu(event) {
   // Allow default context menu
-}
-
-// Handle paste events with Electron clipboard API
-async function handlePaste(event) {
-  console.log('Paste event detected');
-  event.preventDefault(); // Prevent default paste behavior
-  
-  // Use the working manual paste logic
-  await manualPaste();
-}
-
-// Handle keyboard shortcuts including Ctrl+V/Cmd+V
-function handleKeyDown(event) {
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const isCtrlV = (isMac && event.metaKey && event.key === 'v') || 
-                  (!isMac && event.ctrlKey && event.key === 'v');
-  
-  if (isCtrlV) {
-    console.log('Ctrl+V detected, triggering manual paste');
-    event.preventDefault();
-    manualPaste();
-    return;
-  }
 }
 
 // Reset presets functionality
