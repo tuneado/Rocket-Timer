@@ -3,8 +3,9 @@
 ## 🎉 Refactoring Complete! 
 
 **Original Size:** 1750 lines (monolithic)  
-**Current Size:** 1092 lines (38% reduction)  
-**Extracted Modules:** 8 modules (1171 lines)  
+**Phase 1 Complete:** 1092 lines (38% reduction) - 8 modules extracted  
+**Phase 2 Complete:** 764 lines (56% total reduction) - IPC handlers extracted  
+**Extracted Modules:** 9 modules (1187 lines + ipcHandlers.js)  
 **Location:** `src/renderer/js/`
 
 ---
@@ -12,11 +13,11 @@
 ## 📦 Module Structure
 
 ### **Core File**
-- **countdown.js** (1092 lines) - Main application orchestrator
+- **countdown.js** (764 lines) - Main application orchestrator
   - Imports all modules
-  - DOM event listeners
+  - DOM event listeners  
   - State management wrappers
-  - IPC communication
+  - Button handlers (flash, feature image, mute)
   - App initialization
 
 ### **Extracted Modules**
@@ -77,6 +78,16 @@
 - `initializeVideoInputControls()` - Device detection and selection UI
 - `updateVideoStatus()` - Update status display in settings
 - Device persistence via localStorage
+
+#### **10. modules/ipcHandlers.js** (NEW - 400 lines)
+- `initializeIPCHandlers()` - Centralized IPC event handler setup
+- **Settings:** `apply-settings` handler
+- **Menu Commands:** toggle-display, toggle-clock, theme-change, start/stop, reset
+- **Companion API:** companion-command (start, stop, reset, setTime, loadPreset, changeLayout, setMessage)
+- **Display Sync:** display-window-closed, request-current-state-for-display
+- **State Requests:** request-clock-state, request-current-theme-for-display
+- **Video:** video-device-changed handler
+- Uses dependency injection for all state and action functions
 
 ---
 
@@ -154,6 +165,7 @@ import * as SettingsManager from './modules/settingsManager.js';
 import * as DisplayManager from './modules/displayManager.js';
 import * as TimerControls from './modules/timerControls.js';
 import * as VideoManager from './modules/videoManager.js';
+import { initializeIPCHandlers } from './modules/ipcHandlers.js';
 ```
 
 ---
@@ -208,6 +220,7 @@ After each module extraction:
 
 ## 🚀 Git History
 
+**Phase 1: Module Extraction (1750 → 1092 lines)**
 ```
 5d86ca1 - Refactor: Create preset, settings, and display manager modules
 628841d - Refactor: Extract clock and message modules
@@ -216,22 +229,41 @@ After each module extraction:
 (+ timer controls, video manager commits)
 ```
 
+**Phase 2: Code Reduction (1092 → 764 lines)**
+```
+954316e - refactor: Remove dead code and duplicate comments (71 lines saved)
+afd9638 - refactor: Extract IPC handlers to dedicated module (235 lines saved)
+0114693 - refactor: Consolidate 3 DOMContentLoaded listeners into one (22 lines saved)
+```
+
 **Safety Tag:** `api-integration-complete` (backup before modularization)  
-**Final Tag:** `modular-refactor-complete` (all modules extracted and tested)
+**Phase 1 Tag:** `modular-refactor-complete` (all 8 modules extracted)  
+**Phase 2 Tag:** `code-reduction-complete` (IPC extracted, dead code removed)
 
 ---
 
-## 📝 Remaining Inline Code
+## 📝 Remaining Inline Code (764 lines)
 
-**IPC Event Handlers** (~150 lines) - Left inline as they're tightly coupled:
-- `ipcRenderer.on('menu-toggle-display')` - Display window toggle
-- `ipcRenderer.on('menu-toggle-clock')` - Clock toggle
-- `ipcRenderer.on('companion-server-status')` - Server status
-- `ipcRenderer.on('companion-command')` - API command handler
-- `ipcRenderer.on('request-clock-state')` - Clock state sync
-- `ipcRenderer.on('request-current-theme-for-display')` - Theme sync
+**Button Event Handlers** (~100 lines) - UI interaction logic:
+- Flash button - manual flash trigger
+- Feature image toggle - enable/disable overlay
+- Mute sounds button - toggle notification sounds
+- Preset buttons - load/update presets
+- Time adjustment buttons - add/subtract minute
 
-These are small, event-driven, and better left as inline handlers.
+**Initialization Code** (~150 lines):
+- DOMContentLoaded unified listener (consolidated from 3 separate blocks)
+- DOM element references
+- State wrappers (timerState, clockState, messageState, displayState)
+- Wrapper functions for module calls
+
+**Helper Functions** (~100 lines):
+- `updateMuteButtonState()` - Update mute button UI
+- `updateFeatureImageButtonState()` - Update feature image button UI  
+- `updateMenuState()` - Sync menu checkbox states
+- `setTheme()` - Theme toggle logic
+
+This remaining code is intentionally inline as it's tightly coupled to DOM elements and UI state.
 
 ---
 
@@ -245,82 +277,22 @@ These are small, event-driven, and better left as inline handlers.
 
 ---
 
-**Refactoring Status:** ✅ **COMPLETE** (91% of planned tasks, 20/22)
-- Menu state updates
+**Refactoring Status:** ✅ **PHASE 2 COMPLETE** (100% of optimization tasks)
 
-### 7. **Timer Controls** (Lines 609-699)
-- Start/Stop button handler
-- Reset button handler  
-- Timer interval logic
-- Auto-stop functionality
+**Achievements:**
+- ✅ Consolidated 3 DOMContentLoaded listeners → 1 unified initialization
+- ✅ Extracted 14 IPC handlers to dedicated module  
+- ✅ Removed duplicate code and dead comments
+- ✅ **Total Reduction: 1750 → 764 lines (56% smaller)**
+- ✅ **9 modules created** for maximum maintainability
+- ✅ All features tested and working
 
-### 8. **Flash & Mute Buttons** (Lines 701-775)
-- Flash button - manual flash trigger
-- Mute sounds button - toggle notifications
-- `updateMuteButtonState()` - Update mute button UI
+**Next Steps:**
+- Consider extracting button handlers if further reduction needed (~100 lines potential)
+- Monitor for performance improvements from reduced code size
+- Continue with feature development on clean, modular codebase
 
-### 9. **Feature Image** (Lines 777-857)
-- Feature image toggle button
-- `updateFeatureImageButtonState()` - Update UI state
-- Image enable/disable logic
-
-### 10. **Preset Management** (Lines 859-923)
-- Preset button click handlers
-- `updatePresetFromInputs()` - Update preset with current time
-- Cmd/Ctrl+Click to update presets
-- `resetPresetsToDefault()` - Reset all presets
-- Preset persistence (localStorage)
-
-### 11. **Time Input Management** (Lines 925-991)
-- `normalizeTimeInputs()` - Handle overflow (60+ seconds/minutes)
-- `updateTimeFromInputs()` - Update timer from input fields
-- `addMinute()` / `subtractMinute()` - Adjust time buttons
-- Input change listeners
-
-### 12. **Message System** (Lines 993-1090)
-- `updateCharCounter()` - Character count display
-- `displayMessage()` - Show message on canvas
-- `hideMessage()` - Hide message
-- `clearMessage()` - Clear message input
-- Paste handling (Electron clipboard API)
-- `handlePaste()`, `handleKeyDown()`, `handleContextMenu()`
-- `manualPaste()` - Manual paste function
-
-### 13. **UI Helper Functions** (Lines 1069-1146)
-- `setInputsDisabled()` - Disable/enable inputs during countdown
-- `setTheme()` - Toggle dark/light theme
-- Button event listeners (add/subtract minute, message buttons)
-
-### 14. **Display Window Management** (Lines 1248-1358)
-- Display window IPC listeners
-- State synchronization
-- `request-current-state-for-display` handler
-- Clock state requests
-- Theme requests
-- `loadSavedPresets()` - Load presets from localStorage
-
-### 15. **Layout Management** (Lines 1359-1399)
-- Layout selector initialization
-- Layout change handler
-- Layout persistence
-
-### 16. **Initialization** (Lines 1401-1527)
-- DOMContentLoaded handler
-- Preset loading
-- Layout initialization
-- Theme initialization
-- Clock initialization
-- Menu event listeners
-
-### 17. **Video Input Management** (Lines 1530-1749)
-- `handleVideoInputForLayout()` - Auto-start/stop video based on layout
-- `initializeVideoInputControls()` - Setup video controls
-- `updateVideoStatus()` - Update video status UI
-- Device detection
-- Video start/stop handlers
-- Device change listeners
-
----
+````
 
 ## 🔄 Key Data Flow
 
