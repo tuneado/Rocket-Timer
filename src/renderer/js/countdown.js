@@ -1,5 +1,6 @@
 // Import canvas effects module
 import { createFlashAnimation } from './canvas/canvasEffects.js';
+import statusBar from './statusBar.js';
 
 let countdown;
 let remainingTime = 0;
@@ -154,6 +155,9 @@ if (window.electron && window.electron.settings) {
 
 // Initialize canvas renderer when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
+  // Initialize status bar
+  statusBar.init();
+  
   // Load and apply settings
   await loadAndApplySettings();
   
@@ -170,6 +174,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Update display to show initial time with correct progress (100%)
   updateDisplay();
+  
+  // Send initial state to companion server
+  sendStateUpdate();
   
   // Start clock if the layout has clock enabled
   if (layout.clock && layout.clock.enabled) {
@@ -439,6 +446,64 @@ function updateDisplay() {
   }
 }
 
+/**
+ * Send state update to companion server
+ */
+function sendStateUpdate() {
+  if (!window.electron || !window.electron.ipcRenderer) return;
+  
+  const hours = Math.floor(remainingTime / 3600);
+  const minutes = Math.floor((remainingTime % 3600) / 60);
+  const seconds = remainingTime % 60;
+  const formattedTime = formatTime(remainingTime);
+  const progressPercent = totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 0;
+  
+  const state = {
+    running,
+    paused: !running && remainingTime < totalTime && remainingTime > 0,
+    timeRemaining: remainingTime,
+    totalTime,
+    hours,
+    minutes,
+    seconds,
+    percentage: progressPercent,
+    formattedTime,
+    layout: canvasRenderer ? canvasRenderer.layout.name : 'detailed',
+    preset: 'custom'
+  };
+  
+  ipcRenderer.send('companion-state-update', state);
+}
+
+/**
+ * Change canvas layout by ID
+ */
+function changeLayout(layoutId) {
+  if (canvasRenderer) {
+    const layout = LayoutRegistry.getLayout(layoutId);
+    if (layout) {
+      canvasRenderer.setLayout(layout);
+      
+      // Update layout selector if it exists
+      const layoutSelector = document.getElementById('layoutSelector');
+      if (layoutSelector) {
+        layoutSelector.value = layoutId;
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('canvasLayout', layoutId);
+      
+      // Notify display window
+      if (window.electron && window.electron.ipcRenderer) {
+        ipcRenderer.send('layout-changed', layoutId);
+      }
+      
+      // Auto-manage video input based on layout
+      handleVideoInputForLayout(layout);
+    }
+  }
+}
+
 ipcRenderer.on('menu-toggle-display', (event, value) => {
   displayVisible = value;
   ipcRenderer.send('toggle-display', displayVisible);
@@ -453,6 +518,86 @@ ipcRenderer.on('menu-toggle-clock', (_, value) => {
     stopClock();
   }
   updateMenuState();
+});
+
+// Listen for companion server status updates
+ipcRenderer.on('companion-server-status', (status) => {
+  if (status.running) {
+    statusBar.setServerStatus('active', status.port);
+  } else if (status.error) {
+    statusBar.setServerStatus('error');
+    statusBar.error(`API Server Error: ${status.error}`, 5000);
+  } else {
+    statusBar.setServerStatus('inactive');
+  }
+});
+
+// Listen for companion commands from API
+ipcRenderer.on('companion-command', (command) => {
+  console.log('🎮 Received companion command:', command);
+  const { action, data } = command;
+  
+  switch (action) {
+    case 'start':
+      if (!running && remainingTime > 0) {
+        startStopBtn.click();
+      }
+      break;
+      
+    case 'stop':
+    case 'pause':
+      if (running) {
+        startStopBtn.click();
+      }
+      break;
+      
+    case 'reset':
+      resetBtn.click();
+      break;
+      
+    case 'setTime':
+      if (data) {
+        const { hours = 0, minutes = 0, seconds = 0 } = data;
+        
+        // Stop timer if running
+        if (running) {
+          startStopBtn.click();
+        }
+        
+        // Update input fields
+        document.getElementById('hours').value = hours;
+        document.getElementById('minutes').value = minutes;
+        document.getElementById('seconds').value = seconds;
+        
+        // Update time and send state
+        updateTimeFromInputs();
+        lastSetTime = totalTime; // Save as last set time
+      }
+      break;
+      
+    case 'loadPreset':
+      if (data && data.preset) {
+        const presetBtn = document.querySelector(`button[data-preset="${data.preset}"]`);
+        if (presetBtn) presetBtn.click();
+      }
+      break;
+      
+    case 'changeLayout':
+      if (data && data.layout) {
+        changeLayout(data.layout);
+      }
+      break;
+      
+    case 'setMessage':
+      if (data && data.message) {
+        document.getElementById('messageInput').value = data.message;
+        displayMessageBtn.click();
+      }
+      break;
+  }
+  
+  // Send state update after command
+  sendStateUpdate();
 });
 
 function updateMenuState() {
@@ -482,6 +627,7 @@ startStopBtn.addEventListener("click", () => {
       startStopBtn.classList.remove("start");
       startStopBtn.classList.add("stop");
       setInputsDisabled(true); // 🔧 Disable inputs while running
+      sendStateUpdate(); // Notify companion server
 
       countdown = setInterval(async () => {
         // Trigger completion actions when reaching exactly zero
@@ -510,6 +656,7 @@ startStopBtn.addEventListener("click", () => {
 
         remainingTime--;
         updateDisplay();
+        sendStateUpdate(); // Notify companion server of time change
       }, 1000);
     }
 
@@ -520,6 +667,7 @@ startStopBtn.addEventListener("click", () => {
     startStopBtn.classList.remove("stop");
     startStopBtn.classList.add("start");
     setInputsDisabled(false); // ✅ Re-enable inputs on stop
+    sendStateUpdate(); // Notify companion server
   }
 });
 
@@ -545,6 +693,7 @@ resetBtn.addEventListener("click", () => {
   startStopBtn.classList.remove("stop");
   startStopBtn.classList.add("start");
   setInputsDisabled(false);
+  sendStateUpdate(); // Notify companion server
 });
 
 
@@ -789,6 +938,7 @@ function updateTimeFromInputs() {
   totalTime = normalized.hours * 3600 + normalized.minutes * 60 + normalized.seconds;
   remainingTime = totalTime;
   updateDisplay();
+  sendStateUpdate(); // Notify companion server
 }
 
 // Minute adjustment functions
@@ -1247,6 +1397,9 @@ document.addEventListener('DOMContentLoaded', function() {
       if (window.electron && window.electron.ipcRenderer) {
         ipcRenderer.send('layout-changed', layoutId);
       }
+      
+      // Notify companion server
+      sendStateUpdate();
     });
   }
   

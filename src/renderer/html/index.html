@@ -237,10 +237,22 @@
 
     </div>
   </div>
+
+  <!-- Status Footer -->
+  <footer id="statusFooter" class="status-footer">
+    <div class="status-left">
+      <span id="statusMessage" class="status-message"></span>
+    </div>
+    <div class="status-right">
+      <i id="cameraStatus" class="bi bi-camera-video camera-inactive" title="Camera Inactive"></i>
+      <i id="serverStatus" class="bi bi-broadcast server-inactive" title="API Server Inactive"></i>
+    </div>
+  </footer>
   
   <script type="module" src="../layouts/layoutRegistry.js"></script>
   <script type="module" src="../js/videoInputManager.js"></script>
   <script type="module" src="../js/canvasRenderer.js"></script>
+  <script type="module" src="../js/statusBar.js"></script>
   <script type="module" src="../js/countdown.js"></script>
 </body>
 </html>

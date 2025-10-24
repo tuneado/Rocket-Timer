@@ -3,8 +3,10 @@ const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
 const { setupMenu } = require('./menu');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
+const CompanionServer = require('./companionServer');
 
 let mainWindow;
+let companionServer;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -23,8 +25,12 @@ app.on('ready', () => {
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow);
   
-  // Check if should auto-open external display
+  // Initialize Companion Server
+  companionServer = new CompanionServer(mainWindow);
   const settings = getSettings();
+  companionServer.start(9999, settings.companionEnabled !== false);
+  
+  // Check if should auto-open external display
   const displays = screen.getAllDisplays();
   
   if (settings.autoOpenDisplay && displays.length > 1) {
@@ -62,3 +68,6 @@ app.on('activate', () => {
     setupIpcHandlers(mainWindow);
   }
 });
+
+// Export companionServer for access from other modules
+module.exports = { getCompanionServer: () => companionServer };
