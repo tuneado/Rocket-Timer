@@ -92,6 +92,11 @@ class VideoInputManager {
       
       this.enabled = true;
       
+      // Update status bar camera icon
+      if (window.statusBar) {
+        window.statusBar.setCameraStatus(true);
+      }
+      
       return {
         width: this.videoElement.videoWidth,
         height: this.videoElement.videoHeight
@@ -119,6 +124,11 @@ class VideoInputManager {
     
     this.enabled = false;
     this.selectedDeviceId = null;
+    
+    // Update status bar camera icon
+    if (window.statusBar) {
+      window.statusBar.setCameraStatus(false);
+    }
     
     console.log('⏹️ Video input stopped');
   }

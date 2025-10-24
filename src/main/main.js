@@ -28,7 +28,34 @@ app.on('ready', () => {
   // Initialize Companion Server
   companionServer = new CompanionServer(mainWindow);
   const settings = getSettings();
-  companionServer.start(9999, settings.companionEnabled !== false);
+  
+  // Wait for main window to be ready before sending status
+  mainWindow.webContents.once('did-finish-load', () => {
+    companionServer.start(9999, settings.companionEnabled !== false)
+      .then((started) => {
+        // Send server status to renderer
+        if (started) {
+          mainWindow.webContents.send('companion-server-status', {
+            running: true,
+            port: companionServer.getPort(),
+            error: null
+          });
+        } else {
+          mainWindow.webContents.send('companion-server-status', {
+            running: false,
+            port: null,
+            error: null
+          });
+        }
+      })
+      .catch((error) => {
+        mainWindow.webContents.send('companion-server-status', {
+          running: false,
+          port: null,
+          error: error.message
+        });
+      });
+  });
   
   // Check if should auto-open external display
   const displays = screen.getAllDisplays();
