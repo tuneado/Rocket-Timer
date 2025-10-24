@@ -59,91 +59,14 @@ const messageState = {
  * Load settings and apply them to the application
  */
 async function loadAndApplySettings() {
-  try {
-    const settings = await window.electron.settings.getAll();
-    console.log('Loaded settings:', settings);
-    
-    // Apply default time
-    if (settings.defaultTime) {
-      const { hours, minutes, seconds } = settings.defaultTime;
-      const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
-      lastSetTime = timeInSeconds;
-      remainingTime = timeInSeconds;
-      totalTime = timeInSeconds;
-      
-      // Update input fields
-      const hoursInput = document.getElementById('hours');
-      const minutesInput = document.getElementById('minutes');
-      const secondsInput = document.getElementById('seconds');
-      if (hoursInput) hoursInput.value = hours;
-      if (minutesInput) minutesInput.value = minutes;
-      if (secondsInput) secondsInput.value = seconds;
-      
-      console.log('Applied default time:', hours, 'h', minutes, 'm', seconds, 's');
-    }
-    
-    // Apply default layout
-    if (settings.defaultLayout) {
-      localStorage.setItem('canvasLayout', settings.defaultLayout);
-      const layoutSelector = document.getElementById('layoutSelector');
-      if (layoutSelector) {
-        layoutSelector.value = settings.defaultLayout;
-      }
-    }
-    
-    // Apply default theme
-    if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto' 
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.defaultTheme;
-      
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
-      
-      const themeToggle = document.getElementById('themeToggle');
-      if (themeToggle) {
-        themeToggle.checked = theme === 'dark';
-      }
-    }
-    
-    // Apply canvas colors if they exist
-    if (settings.colors) {
-      applyCanvasColors(settings.colors);
-    }
-    
-  } catch (error) {
-    console.error('Error loading settings:', error);
-  }
+  await SettingsManager.loadAndApplySettings(timerState, { getElementById: document.getElementById.bind(document) });
 }
 
 /**
  * Apply canvas colors from settings
  */
 function applyCanvasColors(colors) {
-  const root = document.documentElement;
-  
-  if (colors.countdown) root.style.setProperty('--canvas-countdown-color', colors.countdown);
-  if (colors.clock) root.style.setProperty('--canvas-clock-color', colors.clock);
-  if (colors.elapsed) root.style.setProperty('--canvas-elapsed-color', colors.elapsed);
-  if (colors.message) root.style.setProperty('--canvas-message-color', colors.message);
-  if (colors.messageBackground) root.style.setProperty('--canvas-message-background-color', colors.messageBackground);
-  if (colors.separator) root.style.setProperty('--canvas-separator-color', colors.separator);
-  if (colors.background) root.style.setProperty('--canvas-background', colors.background);
-  
-  if (colors.progressSuccess) {
-    root.style.setProperty('--canvas-progress-success-start', colors.progressSuccess);
-    root.style.setProperty('--canvas-progress-success-end', colors.progressSuccess);
-  }
-  if (colors.progressWarning) {
-    root.style.setProperty('--canvas-progress-warning-start', colors.progressWarning);
-    root.style.setProperty('--canvas-progress-warning-end', colors.progressWarning);
-  }
-  if (colors.progressDanger) {
-    root.style.setProperty('--canvas-progress-danger-start', colors.progressDanger);
-    root.style.setProperty('--canvas-progress-danger-end', colors.progressDanger);
-  }
-  
-  console.log('Applied canvas colors from settings');
+  SettingsManager.applyCanvasColors(colors);
 }
 
 /**
@@ -486,93 +409,25 @@ async function handleTimerComplete() {
 }
 
 function updateDisplay() {
-  const formattedTime = formatTime(remainingTime);
-  
-  console.log('updateDisplay called - remainingTime:', remainingTime, 'formatted:', formattedTime);
-  
-  // Progress bar should go from 100% (full) to 0% (empty) as time runs down
-  const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
-  
-  // Calculate elapsed time (can go negative if timer exceeds set time)
-  const elapsedSeconds = totalTime - remainingTime;
-  const formattedElapsed = formatTime(Math.abs(elapsedSeconds));
-  const elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({
-      countdown: formattedTime,
-      progress: progressPercent,
-      elapsed: elapsedDisplay
-    });
-  }
-
-  // Send updates to display window
-  if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('timer-update', {
-      formattedTime,
-      progressPercent,
-      elapsed: elapsedDisplay
-    });
-  }
+  DisplayManager.updateDisplay(timerState, { canvasRenderer, ipcRenderer });
 }
 
 /**
  * Send state update to companion server
  */
 function sendStateUpdate() {
-  if (!window.electron || !window.electron.ipcRenderer) return;
-  
-  const hours = Math.floor(remainingTime / 3600);
-  const minutes = Math.floor((remainingTime % 3600) / 60);
-  const seconds = remainingTime % 60;
-  const formattedTime = formatTime(remainingTime);
-  const progressPercent = totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 0;
-  
-  const state = {
-    running,
-    paused: !running && remainingTime < totalTime && remainingTime > 0,
-    timeRemaining: remainingTime,
-    totalTime,
-    hours,
-    minutes,
-    seconds,
-    percentage: progressPercent,
-    formattedTime,
-    layout: canvasRenderer ? canvasRenderer.layout.name : 'detailed',
-    preset: 'custom'
-  };
-  
-  ipcRenderer.send('companion-state-update', state);
+  DisplayManager.sendStateUpdate(timerState, { canvasRenderer, ipcRenderer });
 }
 
 /**
  * Change canvas layout by ID
  */
 function changeLayout(layoutId) {
-  if (canvasRenderer) {
-    const layout = LayoutRegistry.getLayout(layoutId);
-    if (layout) {
-      canvasRenderer.setLayout(layout);
-      
-      // Update layout selector if it exists
-      const layoutSelector = document.getElementById('layoutSelector');
-      if (layoutSelector) {
-        layoutSelector.value = layoutId;
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('canvasLayout', layoutId);
-      
-      // Notify display window
-      if (window.electron && window.electron.ipcRenderer) {
-        ipcRenderer.send('layout-changed', layoutId);
-      }
-      
-      // Auto-manage video input based on layout
-      handleVideoInputForLayout(layout);
-    }
-  }
+  DisplayManager.changeLayout(layoutId, { 
+    canvasRenderer, 
+    LayoutRegistry, 
+    getElementById: document.getElementById.bind(document) 
+  });
 }
 
 ipcRenderer.on('menu-toggle-display', (event, value) => {
