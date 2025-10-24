@@ -58,9 +58,21 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
     }
     
   } else {
-    // Layout doesn't need video - stop it to save resources
-    if (videoManager.isEnabled()) {
-      console.log('⏹️ Layout doesn\'t use video, stopping to save resources...');
+    // Layout doesn't need video - check if we should stop it
+    
+    // Get the releaseCameraIdle setting (default: true)
+    let releaseCameraIdle = true;
+    if (window.electron && window.electron.settings) {
+      try {
+        const settings = await window.electron.settings.getAll();
+        releaseCameraIdle = settings.releaseCameraIdle !== false; // Default to true if not set
+      } catch (error) {
+        console.warn('Could not read releaseCameraIdle setting:', error);
+      }
+    }
+    
+    if (releaseCameraIdle && videoManager.isEnabled()) {
+      console.log('⏹️ Layout doesn\'t use video, stopping to save resources (releaseCameraIdle enabled)...');
       
       canvasRenderer.disableVideoInput();
       
@@ -70,6 +82,8 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
       }
       
       console.log('✅ Video input auto-stopped to save resources');
+    } else if (!releaseCameraIdle && videoManager.isEnabled()) {
+      console.log('📹 Video input kept active (releaseCameraIdle disabled)');
     }
   }
 }

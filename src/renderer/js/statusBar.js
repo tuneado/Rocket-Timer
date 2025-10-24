@@ -36,9 +36,9 @@ class StatusBar {
   }
 
   /**
-   * Show a message (warning or error)
+   * Show a message (warning, error, success, or info)
    * @param {string} message - The message to display
-   * @param {string} type - 'warning' or 'error'
+   * @param {string} type - 'success', 'info', 'warning', or 'danger'
    * @param {number} duration - Auto-clear duration in ms (0 = persistent)
    */
   showMessage(message, type = 'warning', duration = 0) {
@@ -51,13 +51,29 @@ class StatusBar {
     }
 
     // Remove existing color classes
-    this.messageElement.classList.remove('has-text-warning', 'has-text-danger');
+    this.messageElement.classList.remove(
+      'has-text-success', 
+      'has-text-info', 
+      'has-text-warning', 
+      'has-text-danger'
+    );
 
-    // Add appropriate color class
-    if (type === 'error') {
-      this.messageElement.classList.add('has-text-danger');
-    } else {
-      this.messageElement.classList.add('has-text-warning');
+    // Add appropriate Bulma color class
+    switch (type) {
+      case 'danger':
+      case 'error':
+        this.messageElement.classList.add('has-text-danger');
+        break;
+      case 'success':
+        this.messageElement.classList.add('has-text-success');
+        break;
+      case 'info':
+        this.messageElement.classList.add('has-text-info');
+        break;
+      case 'warning':
+      default:
+        this.messageElement.classList.add('has-text-warning');
+        break;
     }
 
     // Set message
@@ -86,7 +102,12 @@ class StatusBar {
     }
 
     this.messageElement.textContent = '';
-    this.messageElement.classList.remove('has-text-warning', 'has-text-danger');
+    this.messageElement.classList.remove(
+      'has-text-success', 
+      'has-text-info', 
+      'has-text-warning', 
+      'has-text-danger'
+    );
     this.currentMessage = null;
   }
 
@@ -150,11 +171,29 @@ class StatusBar {
    * @param {number} duration
    */
   error(message, duration = 0) {
-    this.showMessage(message, 'error', duration);
+    this.showMessage(message, 'danger', duration);
   }
 
   /**
-   * Show camera live status (just updates icon, optional message)
+   * Show info message
+   * @param {string} message
+   * @param {number} duration
+   */
+  info(message, duration = 5000) {
+    this.showMessage(message, 'info', duration);
+  }
+
+  /**
+   * Show success message
+   * @param {string} message
+   * @param {number} duration
+   */
+  success(message, duration = 5000) {
+    this.showMessage(message, 'success', duration);
+  }
+
+  /**
+   * Show camera live status (updates icon)
    * @param {string} message - Optional message to display
    * @param {number} duration - Auto-clear duration for message
    */
@@ -162,23 +201,7 @@ class StatusBar {
     this.setCameraStatus(true);
     
     if (message) {
-      // Clear any error/warning styling when camera is live
-      this.clearMessage();
-    }
-  }
-
-  /**
-   * Legacy methods for compatibility
-   */
-  info(message, duration = 5000) {
-    // Redirect to warning for visibility
-    this.warning(message, duration);
-  }
-
-  success(message, duration = 5000) {
-    // Clear message after success
-    if (duration > 0) {
-      setTimeout(() => this.clearMessage(), duration);
+      this.showMessage(message, 'info', duration);
     }
   }
 
