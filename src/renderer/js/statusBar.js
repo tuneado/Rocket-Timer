@@ -1,9 +1,11 @@
 /**
  * Status Footer Manager
  * Manages error/warning messages and status icons in persistent footer
+ * Subscribes to appState for automatic status updates
  */
 
 import logger from './utils/logger.js';
+import appState from './modules/appState.js';
 
 class StatusBar {
   constructor() {
@@ -12,6 +14,7 @@ class StatusBar {
     this.serverIcon = null;
     this.currentMessage = null;
     this.clearTimeout = null;
+    this.unsubscribers = []; // Store unsubscribe functions
   }
 
   /**
@@ -27,12 +30,85 @@ class StatusBar {
       return false;
     }
     
-    // Set initial states
-    this.setCameraStatus(false);
-    this.setServerStatus('inactive');
+    // Set initial states from appState
+    this.setCameraStatus(appState.get('camera.active'));
     
-    logger.info('SYSTEM', 'Status footer initialized');
+    const serverState = appState.get('server');
+    if (serverState.running) {
+      this.setServerStatus('active', serverState.port);
+    } else if (serverState.error) {
+      this.setServerStatus('error');
+    } else {
+      this.setServerStatus('inactive');
+    }
+    
+    // Subscribe to state changes for automatic updates
+    this.setupStateSubscriptions();
+    
+    logger.info('SYSTEM', 'Status footer initialized with state subscriptions');
     return true;
+  }
+
+  /**
+   * Setup subscriptions to appState for automatic updates
+   */
+  setupStateSubscriptions() {
+    // Camera status subscription
+    this.unsubscribers.push(
+      appState.subscribe('camera.active', (isActive) => {
+        this.setCameraStatus(isActive);
+        logger.debug('STATUSBAR', `Camera status updated: ${isActive}`);
+      })
+    );
+
+    // Server status subscription
+    this.unsubscribers.push(
+      appState.subscribe('server.running', (isRunning) => {
+        if (isRunning) {
+          const port = appState.get('server.port');
+          this.setServerStatus('active', port);
+        } else {
+          const error = appState.get('server.error');
+          this.setServerStatus(error ? 'error' : 'inactive');
+        }
+        logger.debug('STATUSBAR', `Server status updated: ${isRunning}`);
+      })
+    );
+
+    // Server error subscription
+    this.unsubscribers.push(
+      appState.subscribe('server.error', (error) => {
+        if (error) {
+          this.setServerStatus('error');
+          this.error(`API Server Error: ${error}`, 5000);
+        }
+      })
+    );
+
+    // Timer running subscription (for future enhancements)
+    this.unsubscribers.push(
+      appState.subscribe('timer.running', (isRunning) => {
+        logger.debug('STATUSBAR', `Timer running: ${isRunning}`);
+        // Could add a timer icon/indicator here in the future
+      })
+    );
+
+    logger.info('STATUSBAR', 'State subscriptions established (4 subscriptions)');
+  }
+
+  /**
+   * Cleanup subscriptions
+   */
+  destroy() {
+    // Unsubscribe from all state changes
+    this.unsubscribers.forEach(unsubscribe => unsubscribe());
+    this.unsubscribers = [];
+    
+    if (this.clearTimeout) {
+      clearTimeout(this.clearTimeout);
+    }
+    
+    logger.info('STATUSBAR', 'Status bar destroyed, subscriptions cleaned up');
   }
 
   /**

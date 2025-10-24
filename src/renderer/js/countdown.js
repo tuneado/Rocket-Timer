@@ -2,6 +2,7 @@
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 import statusBar from './statusBar.js';
 import { formatTime } from './utils/timeFormatter.js';
+import appState from './modules/appState.js';
 import * as TimeInputs from './modules/timeInputs.js';
 import * as ClockManager from './modules/clockManager.js';
 import * as MessageManager from './modules/messageManager.js';

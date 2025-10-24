@@ -4,6 +4,8 @@
  * Allows live video feed as canvas background with timer overlay
  */
 
+import appState from './modules/appState.js';
+
 class VideoInputManager {
   constructor(canvas) {
     this.canvas = canvas;
@@ -92,10 +94,12 @@ class VideoInputManager {
       
       this.enabled = true;
       
-      // Update status bar camera icon
-      if (window.statusBar) {
-        window.statusBar.setCameraStatus(true);
-      }
+      // Update appState (automatically updates status bar)
+      appState.update({
+        'camera.active': true,
+        'camera.deviceId': deviceId,
+        'camera.deviceLabel': this.devices.find(d => d.deviceId === deviceId)?.label || 'Unknown Device'
+      });
       
       return {
         width: this.videoElement.videoWidth,
@@ -125,10 +129,12 @@ class VideoInputManager {
     this.enabled = false;
     this.selectedDeviceId = null;
     
-    // Update status bar camera icon
-    if (window.statusBar) {
-      window.statusBar.setCameraStatus(false);
-    }
+    // Update appState (automatically updates status bar)
+    appState.update({
+      'camera.active': false,
+      'camera.deviceId': null,
+      'camera.deviceLabel': null
+    });
     
     console.log('⏹️ Video input stopped');
   }
@@ -172,6 +178,7 @@ class VideoInputManager {
    */
   setOpacity(opacity) {
     this.opacity = Math.max(0, Math.min(1, opacity));
+    appState.set('camera.opacity', this.opacity);
   }
 
   /**

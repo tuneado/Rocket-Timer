@@ -4,6 +4,7 @@
  */
 
 import { createFlashAnimation } from '../canvas/canvasEffects.js';
+import appState from './appState.js';
 
 /**
  * Flash red background with black text at timer completion
@@ -94,6 +95,10 @@ export function startTimer(timerState, {
   }
 
   timerState.setRunning(true);
+  
+  // Update appState
+  appState.set('timer.running', true);
+  
   updateButtonIcon(startStopBtn, 'pause-fill', 'Stop');
   startStopBtn.classList.remove("start");
   startStopBtn.classList.add("stop");
@@ -118,6 +123,10 @@ export function startTimer(timerState, {
     if (autoStopAtZero && timerState.remainingTime <= 0) {
       clearInterval(countdown);
       timerState.setRunning(false);
+      
+      // Update appState
+      appState.set('timer.running', false);
+      
       updateButtonIcon(startStopBtn, 'play-fill', 'Start');
       startStopBtn.classList.remove("stop");
       startStopBtn.classList.add("start");
@@ -126,6 +135,10 @@ export function startTimer(timerState, {
     }
 
     timerState.setRemainingTime(timerState.remainingTime - 1);
+    
+    // Update appState with remaining time
+    appState.set('timer.remainingTime', timerState.remainingTime * 1000); // Convert to ms
+    
     updateDisplay();
     sendStateUpdate();
   }, 1000);
@@ -151,6 +164,10 @@ export function stopTimer(countdown, timerState, {
 }) {
   clearInterval(countdown);
   timerState.setRunning(false);
+  
+  // Update appState
+  appState.set('timer.running', false);
+  
   updateButtonIcon(startStopBtn, 'play-fill', 'Start');
   startStopBtn.classList.remove("stop");
   startStopBtn.classList.add("start");
@@ -182,6 +199,13 @@ export function resetTimer(countdown, timerState, {
   timerState.setRunning(false);
   timerState.setTotalTime(timerState.lastSetTime);
   timerState.setRemainingTime(timerState.lastSetTime);
+
+  // Update appState
+  appState.update({
+    'timer.running': false,
+    'timer.remainingTime': timerState.lastSetTime * 1000,
+    'timer.totalTime': timerState.lastSetTime * 1000
+  });
 
   // Reflect last set time in UI
   const h = Math.floor(timerState.lastSetTime / 3600);

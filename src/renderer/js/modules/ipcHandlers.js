@@ -143,13 +143,18 @@ export function initializeIPCHandlers(deps) {
   // ===============================
   
   ipcRenderer.on('companion-server-status', (status) => {
-    if (status.running) {
-      statusBar.setServerStatus('active', status.port);
-    } else if (status.error) {
-      statusBar.setServerStatus('error');
+    // Update appState (automatically updates status bar)
+    appState.update({
+      'server.running': status.running,
+      'server.port': status.port,
+      'server.error': status.error
+    });
+
+    logger.info('IPC', `Companion server status: ${status.running ? 'running on port ' + status.port : 'inactive'}`);
+    
+    // Show error message if there is one
+    if (status.error && statusBar) {
       statusBar.error(`API Server Error: ${status.error}`, 5000);
-    } else {
-      statusBar.setServerStatus('inactive');
     }
   });
 

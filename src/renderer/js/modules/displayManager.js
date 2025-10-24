@@ -8,6 +8,7 @@
  */
 
 import { formatTime } from '../utils/timeFormatter.js';
+import appState from './appState.js';
 
 /**
  * Updates the display with current timer state
@@ -100,6 +101,12 @@ export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, getElem
     const layout = LayoutRegistry.getLayout(layoutId);
     if (layout) {
       canvasRenderer.setLayout(layout);
+      
+      // Update appState
+      appState.update({
+        'layout.previous': appState.get('layout.current'),
+        'layout.current': layoutId
+      });
       
       // Update layout selector if it exists
       const layoutSelector = getElementById('layoutSelector');
