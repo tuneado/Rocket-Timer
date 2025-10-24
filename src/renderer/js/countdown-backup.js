@@ -1,7 +1,6 @@
 // Import canvas effects module
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 import statusBar from './statusBar.js';
-import { formatTime } from './utils/timeFormatter.js';
 
 let countdown;
 let remainingTime = 0;
@@ -327,7 +326,14 @@ function stopClock() {
 // --------------------
 // Countdown functions
 // --------------------
-// Note: formatTime() now imported from ./utils/timeFormatter.js
+function formatTime(sec) {
+  const isNegative = sec < 0;
+  const absSec = Math.abs(sec);
+  const h = String(Math.floor(absSec / 3600)).padStart(2, "0");
+  const m = String(Math.floor((absSec % 3600) / 60)).padStart(2, "0");
+  const s = String(absSec % 60).padStart(2, "0");
+  return `${isNegative ? '-' : ''}${h}:${m}:${s}`;
+}
 
 // Helper function to update button icon and text using Bulma's button structure
 function updateButtonIcon(button, iconName, text) {
