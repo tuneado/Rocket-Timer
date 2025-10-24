@@ -2,6 +2,7 @@
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 import statusBar from './statusBar.js';
 import { formatTime } from './utils/timeFormatter.js';
+import * as TimeInputs from './modules/timeInputs.js';
 
 let countdown;
 let remainingTime = 0;
@@ -23,6 +24,18 @@ if (!window.electron || !window.electron.ipcRenderer) {
 }
 
 const { ipcRenderer } = window.electron;
+
+// State wrapper for passing to modules
+const timerState = {
+  get remainingTime() { return remainingTime; },
+  get totalTime() { return totalTime; },
+  get running() { return running; },
+  get lastSetTime() { return lastSetTime; },
+  setRemainingTime(value) { remainingTime = value; },
+  setTotalTime(value) { totalTime = value; },
+  setRunning(value) { running = value; },
+  setLastSetTime(value) { lastSetTime = value; }
+};
 
 /**
  * Load settings and apply them to the application
@@ -152,6 +165,29 @@ if (window.electron && window.electron.settings) {
       updateMuteButtonState();
     }
   });
+}
+
+// ============================================================================
+// TIME INPUT WRAPPER FUNCTIONS
+// ============================================================================
+// Note: These wrapper functions maintain compatibility with existing code
+// while delegating to the imported TimeInputs module. They must be defined
+// before DOMContentLoaded handlers so they're available to IPC listeners.
+
+function normalizeTimeInputs() {
+  return TimeInputs.normalizeTimeInputs();
+}
+
+function updateTimeFromInputs() {
+  TimeInputs.updateTimeFromInputs(timerState, updateDisplay, sendStateUpdate);
+}
+
+function addMinute() {
+  TimeInputs.addMinute(timerState, updateDisplay);
+}
+
+function subtractMinute() {
+  TimeInputs.subtractMinute(timerState, updateDisplay);
 }
 
 // Initialize canvas renderer when DOM is loaded
@@ -895,89 +931,6 @@ function updatePresetFromInputs(button) {
 
 //SET TIME
 const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
-
-function normalizeTimeInputs() {
-  const hoursInput = document.getElementById("hours");
-  const minutesInput = document.getElementById("minutes");
-  const secondsInput = document.getElementById("seconds");
-  
-  let h = parseInt(hoursInput.value) || 0;
-  let m = parseInt(minutesInput.value) || 0;
-  let s = parseInt(secondsInput.value) || 0;
-  
-  // Normalize seconds (carry over to minutes)
-  if (s >= 60) {
-    const extraMinutes = Math.floor(s / 60);
-    m += extraMinutes;
-    s = s % 60;
-  }
-  
-  // Normalize minutes (carry over to hours)
-  if (m >= 60) {
-    const extraHours = Math.floor(m / 60);
-    h += extraHours;
-    m = m % 60;
-  }
-  
-  // Update the input fields with normalized values
-  hoursInput.value = h.toString().padStart(2, '0');
-  minutesInput.value = m.toString().padStart(2, '0');
-  secondsInput.value = s.toString().padStart(2, '0');
-  
-  return { hours: h, minutes: m, seconds: s };
-}
-
-function updateTimeFromInputs() {
-  const normalized = normalizeTimeInputs();
-  totalTime = normalized.hours * 3600 + normalized.minutes * 60 + normalized.seconds;
-  remainingTime = totalTime;
-  updateDisplay();
-  sendStateUpdate(); // Notify companion server
-}
-
-// Minute adjustment functions
-function addMinute() {
-  // Add 60 seconds (1 minute) to remaining time
-  remainingTime += 60;
-  
-  // Also update total time if timer is not running (so progress bar works correctly)
-  if (!running) {
-    totalTime += 60;
-    // Update the minutes input field to reflect the change
-    const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-    document.getElementById("minutes").value = currentMinutes + 1;
-  }
-  
-  updateDisplay();
-}
-
-function subtractMinute() {
-  // Don't allow going below 0
-  if (remainingTime <= 60) {
-    remainingTime = 0;
-    if (!running) {
-      totalTime = 0;
-      document.getElementById("minutes").value = 0;
-      document.getElementById("hours").value = 0;
-      document.getElementById("seconds").value = 0;
-    }
-  } else {
-    // Subtract 60 seconds (1 minute) from remaining time
-    remainingTime -= 60;
-    
-    // Also update total time if timer is not running
-    if (!running) {
-      totalTime -= 60;
-      // Update the minutes input field to reflect the change
-      const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-      if (currentMinutes > 0) {
-        document.getElementById("minutes").value = currentMinutes - 1;
-      }
-    }
-  }
-  
-  updateDisplay();
-}
 
 // --------------------
 // Message functions
