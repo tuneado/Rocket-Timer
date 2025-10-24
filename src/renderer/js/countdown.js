@@ -8,6 +8,7 @@ import * as MessageManager from './modules/messageManager.js';
 import * as PresetManager from './modules/presetManager.js';
 import * as SettingsManager from './modules/settingsManager.js';
 import * as DisplayManager from './modules/displayManager.js';
+import * as TimerControls from './modules/timerControls.js';
 
 let countdown;
 let remainingTime = 0;
@@ -353,59 +354,14 @@ function updateButtonIcon(button, iconName, text) {
  * Flash red background with black text at timer completion
  */
 function flashAtZero() {
-  // Send flash event to display window
-  if (window.electron && window.electron.ipcRenderer) {
-    window.electron.ipcRenderer.send('flash-at-zero');
-  }
-  
-  // Trigger flash animation on main window
-  createFlashAnimation(canvasRenderer);
+  TimerControls.flashAtZero(canvasRenderer, ipcRenderer);
 }
 
 /**
  * Handle timer completion (when countdown reaches 0:00:00)
  */
 async function handleTimerComplete() {
-  try {
-    const settings = await window.electron.settings.getAll();
-    
-    // Flash at zero if enabled
-    if (settings.flashAtZero) {
-      flashAtZero();
-    }
-    
-    // Play sound notification if enabled
-    if (settings.soundNotification) {
-      // Create and play a beep sound
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.value = 800; // Hz
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-      
-      console.log('🔔 Timer complete sound played');
-    }
-    
-    // Auto-reset if enabled
-    if (settings.autoReset) {
-      setTimeout(() => {
-        resetBtn.click();
-        console.log('🔄 Timer auto-reset');
-      }, 1000); // Wait 1 second before resetting
-    }
-  } catch (error) {
-    console.error('Error handling timer completion:', error);
-  }
+  await TimerControls.handleTimerComplete(resetBtn, { flashAtZero });
 }
 
 function updateDisplay() {
@@ -548,78 +504,36 @@ startStopBtn.addEventListener("click", () => {
     }
 
     if (remainingTime > 0) {
-      running = true;
-      updateButtonIcon(startStopBtn, 'pause-fill', 'Stop');
-      startStopBtn.classList.remove("start");
-      startStopBtn.classList.add("stop");
-      setInputsDisabled(true); // 🔧 Disable inputs while running
-      sendStateUpdate(); // Notify companion server
-
-      countdown = setInterval(async () => {
-        // Trigger completion actions when reaching exactly zero
-        if (remainingTime === 0) {
-          handleTimerComplete();
-        }
-        
-        // Get auto-stop setting
-        let autoStopAtZero = true; // Default to true
-        try {
-          const settings = await window.electron.settings.getAll();
-          autoStopAtZero = settings.autoStopAtZero !== false;
-        } catch (error) {
-          console.error('Error getting autoStopAtZero setting:', error);
-        }
-
-        if (autoStopAtZero && remainingTime <= 0) {
-          clearInterval(countdown);
-          running = false;
-          updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-          startStopBtn.classList.remove("stop");
-          startStopBtn.classList.add("start");
-          setInputsDisabled(false); // ✅ Re-enable inputs
-          return;
-        }
-
-        remainingTime--;
-        updateDisplay();
-        sendStateUpdate(); // Notify companion server of time change
-      }, 1000);
+      countdown = TimerControls.startTimer(timerState, {
+        startStopBtn,
+        updateButtonIcon,
+        setInputsDisabled,
+        updateDisplay,
+        sendStateUpdate,
+        handleTimerComplete
+      });
     }
-
   } else {
-    clearInterval(countdown);
-    running = false;
-    updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-    startStopBtn.classList.remove("stop");
-    startStopBtn.classList.add("start");
-    setInputsDisabled(false); // ✅ Re-enable inputs on stop
-    sendStateUpdate(); // Notify companion server
+    TimerControls.stopTimer(countdown, timerState, {
+      startStopBtn,
+      updateButtonIcon,
+      setInputsDisabled,
+      sendStateUpdate
+    });
   }
 });
 
 
 // Reset
 resetBtn.addEventListener("click", () => {
-  clearInterval(countdown);
-  running = false;
-  totalTime = lastSetTime;
-  remainingTime = lastSetTime;
-
-  // Reflect last set time in UI
-  const h = Math.floor(lastSetTime / 3600);
-  const m = Math.floor((lastSetTime % 3600) / 60);
-  const s = lastSetTime % 60;
-
-  document.getElementById("hours").value = h;
-  document.getElementById("minutes").value = m;
-  document.getElementById("seconds").value = s;
-
-  updateDisplay();
-  updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-  startStopBtn.classList.remove("stop");
-  startStopBtn.classList.add("start");
-  setInputsDisabled(false);
-  sendStateUpdate(); // Notify companion server
+  countdown = TimerControls.resetTimer(countdown, timerState, {
+    startStopBtn,
+    getElementById: document.getElementById.bind(document),
+    updateButtonIcon,
+    setInputsDisabled,
+    updateDisplay,
+    sendStateUpdate
+  });
 });
 
 
