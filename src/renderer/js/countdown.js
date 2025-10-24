@@ -285,13 +285,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   ipcRenderer.send('main-window-ready');
 });
 
-// Note: IPC handlers are now initialized in modules/ipcHandlers.js
-// See initialization at the end of this file
+// IPC handlers initialized at end of file
 
-// Note: DOM elements for countdown/progress are no longer used in main window
-// They've been replaced by canvas rendering
-
-// Real DOM elements that still exist (controls)
+// Real DOM elements (controls)
 const startStopBtn = document.getElementById("startStop");
 const resetBtn = document.getElementById("reset");
 const addMinuteBtn = document.getElementById("addMinute");
@@ -356,10 +352,8 @@ handleKeyDown = (event) => {
 
 // --------------------
 // Countdown functions
-// --------------------
-// Note: formatTime() now imported from ./utils/timeFormatter.js
 
-// Helper function to update button icon and text using Bulma's button structure
+// Helper function to update button icon and text
 function updateButtonIcon(button, iconName, text) {
   // Find the icon element and update its Bootstrap Icons class
   const icon = button.querySelector('i.bi');
@@ -631,11 +625,7 @@ timeInputs.forEach(input => {
 });
 
 
-// Note: Default startup time is now set by loadAndApplySettings() from settings
-// This ensures the time inputs match the defaultTime setting
-
-
-// Theme toggle using Bulma's data-theme approach
+// Theme toggle
 function setTheme(dark) {
   const htmlElement = document.documentElement;
   const theme = dark ? 'dark' : 'light';
@@ -704,70 +694,9 @@ function loadSavedPresets() {
 
 // Init
 loadSavedPresets();
-// Note: updateDisplay() is now called in DOMContentLoaded after canvasRenderer is initialized
 
-// Bootstrap Icons work automatically with CSS classes - no initialization needed
+// Video input controls
 
-// Note: Video device change handler moved to modules/ipcHandlers.js
-
-// Init
-loadSavedPresets();
-// Note: updateDisplay() is now called in DOMContentLoaded after canvasRenderer is initialized
-
-// Bootstrap Icons work automatically with CSS classes - no initialization needed
-
-// Listen for device changes from settings window (global listener)
-if (window.electron && window.electron.ipcRenderer) {
-  ipcRenderer.on('video-device-changed', async (deviceId) => {
-    console.log('📹 Video device changed from settings:', deviceId);
-    
-    // Update localStorage
-    localStorage.setItem('selectedVideoDevice', deviceId);
-    
-    // If video is currently enabled, restart it with the new device
-    if (canvasRenderer) {
-      const videoManager = canvasRenderer.getVideoInputManager();
-      
-      if (videoManager && videoManager.isEnabled()) {
-        console.log('🔄 Restarting video input with new device:', deviceId);
-        
-        try {
-          // Stop current video
-          canvasRenderer.disableVideoInput();
-          
-          // Small delay to ensure cleanup
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
-          // Start with new device
-          await canvasRenderer.enableVideoInput(deviceId);
-          console.log('✅ Video input switched to new device successfully');
-          
-          // Force canvas redraw to show new video
-          updateDisplay();
-          
-          // Notify main process that video is active
-          if (window.electron && window.electron.ipcRenderer) {
-            ipcRenderer.send('video-input-started', deviceId);
-          }
-        } catch (error) {
-          console.error('Error switching video device:', error);
-          alert('Error switching video device: ' + error.message);
-        }
-      } else {
-        console.log('Video not currently active, device selection saved for next activation');
-      }
-    }
-  });
-}
-
-// --------------------
-// Video Input Controls (HDMI Capture)
-// --------------------
-
-/**
- * Automatically manage video input based on layout requirements
- * Starts video if layout has videoFrame enabled, stops if disabled
- */
 async function handleVideoInputForLayout(layout) {
   await VideoManager.handleVideoInputForLayout(layout, { canvasRenderer, ipcRenderer });
 }
