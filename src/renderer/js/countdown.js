@@ -10,6 +10,7 @@ import * as SettingsManager from './modules/settingsManager.js';
 import * as DisplayManager from './modules/displayManager.js';
 import * as TimerControls from './modules/timerControls.js';
 import * as VideoManager from './modules/videoManager.js';
+import { initializeIPCHandlers } from './modules/ipcHandlers.js';
 
 let countdown;
 let remainingTime = 0;
@@ -24,6 +25,10 @@ let canvasRenderer = null;
 // Sound notification state
 let soundsMuted = false;
 let muteSoundsBtn = null;
+
+// Menu state tracking
+let displayVisible = false;
+let clockVisible = false;
 
 // Check if window.electron is available
 if (!window.electron || !window.electron.ipcRenderer) {
@@ -280,65 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   ipcRenderer.send('main-window-ready');
 });
 
-// Listen for settings updates from settings window
-if (window.electron && window.electron.ipcRenderer) {
-  window.electron.ipcRenderer.on('apply-settings', (settings) => {
-    console.log('Received apply-settings event:', settings);
-    
-    // Apply default time
-    if (settings.defaultTime) {
-      const { hours, minutes, seconds } = settings.defaultTime;
-      const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
-      
-      // Only update if timer is not running
-      if (!running) {
-        lastSetTime = timeInSeconds;
-        remainingTime = timeInSeconds;
-        totalTime = timeInSeconds;
-        updateDisplay();
-      }
-    }
-    
-    // Note: We don't apply defaultLayout here because it's a preference for NEW sessions
-    // The user may have manually selected a different layout in the current session
-    // defaultLayout is only used on app startup (see DOMContentLoaded)
-    
-    // Apply theme
-    if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto' 
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.defaultTheme;
-      
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
-      
-      if (canvasRenderer) {
-        canvasRenderer.updateTheme(theme);
-        updateDisplay();
-      }
-      
-      const themeToggle = document.getElementById('themeToggle');
-      if (themeToggle) {
-        themeToggle.checked = theme === 'dark';
-      }
-    }
-    
-    // Apply canvas colors
-    if (settings.colors) {
-      applyCanvasColors(settings.colors);
-      if (canvasRenderer) {
-        updateDisplay();
-      }
-    }
-    
-    // Apply performance settings
-    if (canvasRenderer) {
-      canvasRenderer.applyPerformanceSettings(settings);
-    }
-    
-    console.log('Settings applied successfully');
-  });
-}
+// Note: IPC handlers are now initialized in modules/ipcHandlers.js
+// See initialization at the end of this file
 
 // Note: DOM elements for countdown/progress are no longer used in main window
 // They've been replaced by canvas rendering
@@ -466,111 +414,6 @@ function changeLayout(layoutId) {
     getElementById: document.getElementById.bind(document) 
   });
 }
-
-ipcRenderer.on('menu-toggle-display', (event, value) => {
-  displayVisible = value;
-  ipcRenderer.send('toggle-display', displayVisible);
-  updateMenuState();
-});
-
-ipcRenderer.on('menu-toggle-clock', (_, value) => {
-  clockVisible = value;
-  if (clockVisible) {
-    startClock();
-  } else {
-    stopClock();
-  }
-  updateMenuState();
-});
-
-// Listen for companion server status updates
-ipcRenderer.on('companion-server-status', (status) => {
-  if (status.running) {
-    statusBar.setServerStatus('active', status.port);
-  } else if (status.error) {
-    statusBar.setServerStatus('error');
-    statusBar.error(`API Server Error: ${status.error}`, 5000);
-  } else {
-    statusBar.setServerStatus('inactive');
-  }
-});
-
-// Listen for companion commands from API
-ipcRenderer.on('companion-command', (command) => {
-  console.log('🎮 Received companion command:', command);
-  const { action, data } = command;
-  
-  switch (action) {
-    case 'start':
-      if (!running && remainingTime > 0) {
-        startStopBtn.click();
-      }
-      break;
-      
-    case 'stop':
-    case 'pause':
-      if (running) {
-        startStopBtn.click();
-      }
-      break;
-      
-    case 'reset':
-      resetBtn.click();
-      break;
-      
-    case 'setTime':
-      if (data) {
-        const { hours = 0, minutes = 0, seconds = 0 } = data;
-        
-        // Stop timer if running
-        if (running) {
-          startStopBtn.click();
-        }
-        
-        // Update input fields
-        document.getElementById('hours').value = hours;
-        document.getElementById('minutes').value = minutes;
-        document.getElementById('seconds').value = seconds;
-        
-        // Update time and send state
-        updateTimeFromInputs();
-        lastSetTime = totalTime; // Save as last set time
-      }
-      break;
-      
-    case 'loadPreset':
-      if (data && data.preset) {
-        const presetBtn = document.querySelector(`button[data-preset="${data.preset}"]`);
-        if (presetBtn) presetBtn.click();
-      }
-      break;
-      
-    case 'changeLayout':
-      if (data && data.layout) {
-        changeLayout(data.layout);
-      }
-      break;
-      
-    case 'setMessage':
-      if (data && data.message) {
-        document.getElementById('messageInput').value = data.message;
-        displayMessageBtn.click();
-      }
-      break;
-  }
-  
-  // Send state update after command
-  sendStateUpdate();
-});
-
-function updateMenuState() {
-  ipcRenderer.send('update-menu-state', {
-    clockVisible,
-    displayVisible
-  });
-}
-
-
 
 // Start/Stop toggle
 startStopBtn.addEventListener("click", () => {
@@ -854,143 +697,18 @@ updateCharCounter();
 
 
 
-// Display window management (handled via menu)
-// Listen for display window state changes from main process
-if (window.electron && window.electron.ipcRenderer) {
-  // Listen for when display window is closed manually
-  ipcRenderer.on('display-window-closed', () => {
-    console.log('Display window was closed');
-  });
-  
-  // Listen for requests to sync current state to display window
-  ipcRenderer.on('request-current-state-for-display', () => {
-    console.log('Syncing current state to display window');
-    
-    // Get current state from canvas renderer (most reliable source)
-    const canvasState = canvasRenderer.state;
-    
-    console.log('Canvas state at sync:', canvasState);
-    console.log('remainingTime:', remainingTime, 'totalTime:', totalTime);
-    
-    // Get current timer state - use canvas state as fallback
-    const timerData = {
-      formattedTime: canvasState.countdown || formatTime(remainingTime),
-      progressPercent: canvasState.progress !== undefined ? canvasState.progress : (totalTime > 0 ? (remainingTime / totalTime * 100) : 0)
-    };
-    
-    // Get current clock state from canvasRenderer
-    const clockData = {
-      time: canvasState.clock || '--:--:--',
-      visible: canvasState.showClock || false
-    };
-    
-    // Get current message state from canvasRenderer
-    const messageData = {
-      visible: canvasState.showMessage || false,
-      text: canvasState.message || ''
-    };
-    
-    // Get current video input state
-    let videoData = null;
-    if (canvasRenderer) {
-      const videoManager = canvasRenderer.getVideoInputManager();
-      if (videoManager && videoManager.isEnabled()) {
-        const currentDevice = videoManager.getCurrentDevice();
-        videoData = {
-          enabled: true,
-          deviceId: currentDevice ? currentDevice.id : null,
-          opacity: videoManager.getOpacity()
-        };
-      }
-    }
-    
-    // Get current feature image state
-    let featureImageData = null;
-    if (canvasRenderer && canvasRenderer.featureImage.enabled) {
-      featureImageData = {
-        enabled: true,
-        path: canvasRenderer.featureImage.path
-      };
-    }
-
-    // Send all current state to main process for forwarding to display window
-    ipcRenderer.send('sync-current-state', {
-      timer: timerData,
-      clock: clockData,
-      message: messageData,
-      clockVisible: canvasState.showClock,
-      video: videoData,
-      featureImage: featureImageData
-    });
-  });
-}
-
-// Request initial display window state when app loads
-if (window.electron && window.electron.ipcRenderer) {
-  ipcRenderer.send('request-display-state');
-}
-
-// Listen for clock state requests
-ipcRenderer.on('request-clock-state', () => {
-  if (canvasRenderer && canvasRenderer.state) {
-    const state = canvasRenderer.state;
-    const isClockVisible = state.showClock;
-    const currentTime = state.clock || '';
-    
-    ipcRenderer.send('clock-state-response', { 
-      time: currentTime, 
-      visible: isClockVisible 
-    });
-  } else {
-    // Fallback if canvasRenderer not ready
-    ipcRenderer.send('clock-state-response', { 
-      time: '', 
-      visible: false 
-    });
-  }
-});
-
-// Listen for theme requests from display window
-ipcRenderer.on('request-current-theme-for-display', () => {
-  const isLight = document.body.classList.contains('light');
-  ipcRenderer.send('current-theme-response', isLight ? 'light' : 'dark');
-});
-
 // Function to load saved presets from localStorage
 function loadSavedPresets() {
   PresetManager.loadSavedPresets();
 }
 
-// Menu event listeners
-if (window.electron && window.electron.ipcRenderer) {
-  // Theme change from menu
-  ipcRenderer.on('menu-theme-change', (theme) => {
-    setTheme(theme === 'dark');
-  });
-  
-  // Clock toggle from menu
-  ipcRenderer.on('menu-toggle-clock', (visible) => {
-    if (visible) {
-      startClock();
-    } else {
-      stopClock();
-    }
-  });
-  
-  // Start/Stop from menu
-  ipcRenderer.on('menu-start-stop', () => {
-    if (startStopBtn) {
-      startStopBtn.click();
-    }
-  });
-  
-  // Reset from menu
-  ipcRenderer.on('menu-reset', () => {
-    if (resetBtn) {
-      resetBtn.click();
-    }
-  });
-}
+// Init
+loadSavedPresets();
+// Note: updateDisplay() is now called in DOMContentLoaded after canvasRenderer is initialized
+
+// Bootstrap Icons work automatically with CSS classes - no initialization needed
+
+// Note: Video device change handler moved to modules/ipcHandlers.js
 
 // Init
 loadSavedPresets();
@@ -1066,5 +784,52 @@ function initializeVideoInputControls() {
 function updateVideoStatus(text, colorClass) {
   VideoManager.updateVideoStatus(text, colorClass, { getElementById: document.getElementById.bind(document) });
 }
+
+// ===============================
+// IPC Handlers Initialization
+// ===============================
+
+/**
+ * Helper function to update menu state
+ */
+function updateMenuState() {
+  if (canvasRenderer && canvasRenderer.state) {
+    const clockVisible = canvasRenderer.state.showClock;
+    ipcRenderer.send('update-menu-state', {
+      clockVisible,
+      displayVisible
+    });
+  }
+}
+
+// Initialize all IPC handlers with dependencies
+initializeIPCHandlers({
+  ipcRenderer,
+  statusBar,
+  timerState,
+  clockState,
+  displayState: {
+    get visible() { return displayVisible; },
+    setVisible(value) { displayVisible = value; }
+  },
+  getCanvasRenderer: () => canvasRenderer,
+  getElements: () => ({
+    startStopBtn,
+    resetBtn,
+    displayMessageBtn
+  }),
+  actions: {
+    updateDisplay,
+    formatTime,
+    updateTimeFromInputs,
+    sendStateUpdate,
+    changeLayout,
+    applyCanvasColors,
+    setTheme,
+    startClock,
+    stopClock,
+    updateMenuState
+  }
+});
 
 
