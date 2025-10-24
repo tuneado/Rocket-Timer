@@ -166,37 +166,117 @@ let manualPaste = async () => {};
 let handlePaste = async () => {};
 let handleKeyDown = () => {};
 
-// Initialize canvas renderer when DOM is loaded
+// ============================================================================
+// DOM INITIALIZATION - Consolidated from 3 separate listeners
+// ============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize status bar
+  // 1. Initialize status bar
   statusBar.init();
   
-  // Load and apply settings
+  // 2. Load and apply settings
   await loadAndApplySettings();
   
-  // Load saved layout or use default from settings
+  // 3. Load saved layout or use default from settings
   const savedLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
   const layout = LayoutRegistry.getLayout(savedLayoutId);
   
-  // Create canvas renderer with layout
+  // 4. Create canvas renderer with layout
   canvasRenderer = new CanvasRenderer('timerCanvas', layout);
   
-  // Apply theme to canvas (already set by loadAndApplySettings)
+  // 5. Apply theme to canvas
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   canvasRenderer.updateTheme(currentTheme);
   
-  // Update display to show initial time with correct progress (100%)
+  // 6. Initialize theme toggle
+  if (localStorage.getItem("theme") === "light") {
+    setTheme(false);
+  } else {
+    setTheme(true); // Default to dark mode
+  }
+  
+  // 7. Update display to show initial time with correct progress (100%)
   updateDisplay();
   
-  // Send initial state to companion server
+  // 8. Send initial state to companion server
   sendStateUpdate();
   
-  // Start clock if the layout has clock enabled
+  // 9. Start clock if enabled
   if (layout.clock && layout.clock.enabled) {
     startClock();
   }
   
-  // Notify main process that renderer is ready
+  // Initialize clock state from localStorage
+  if (localStorage.getItem("clock") === "on") {
+    startClock();
+  } else {
+    stopClock();
+  }
+  
+  // 10. Load saved presets from localStorage
+  loadSavedPresets();
+  
+  // 11. Initialize layout selector
+  const layoutSelector = document.getElementById('layoutSelector');
+  if (layoutSelector) {
+    layoutSelector.value = savedLayoutId;
+    
+    layoutSelector.addEventListener('change', async (e) => {
+      const layoutId = e.target.value;
+      
+      if (canvasRenderer) {
+        const layout = LayoutRegistry.getLayout(layoutId);
+        canvasRenderer.setLayout(layout);
+        await handleVideoInputForLayout(layout);
+      }
+      
+      localStorage.setItem('canvasLayout', layoutId);
+      
+      if (window.electron && window.electron.ipcRenderer) {
+        ipcRenderer.send('layout-changed', layoutId);
+      }
+      
+      sendStateUpdate();
+    });
+  }
+  
+  // 12. Initialize mute sounds button
+  muteSoundsBtn = document.getElementById("muteSounds");
+  if (muteSoundsBtn) {
+    try {
+      const settings = await window.electron.settings.getAll();
+      soundsMuted = !settings.soundNotification;
+      updateMuteButtonState();
+    } catch (error) {
+      console.error('Error loading sound settings:', error);
+    }
+
+    muteSoundsBtn.addEventListener("click", async () => {
+      soundsMuted = !soundsMuted;
+      
+      try {
+        await window.electron.settings.save('soundNotification', !soundsMuted);
+        updateMuteButtonState();
+        console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
+      } catch (error) {
+        console.error('Error updating sound settings:', error);
+      }
+    });
+  }
+  
+  // 13. Auto-start video input if current layout uses video
+  setTimeout(async () => {
+    await handleVideoInputForLayout(layout);
+  }, 500);
+  
+  // 14. Send initial menu state
+  setTimeout(() => {
+    if (window.electron && window.electron.ipcRenderer && canvasRenderer && canvasRenderer.state) {
+      const clockVisible = canvasRenderer.state.showClock;
+      ipcRenderer.send('update-menu-states', currentTheme, clockVisible);
+    }
+  }, 100);
+  
+  // 15. Notify main process that renderer is ready
   ipcRenderer.send('main-window-ready');
 });
 
@@ -547,36 +627,7 @@ if (flashBtn) {
   });
 }
 
-
-// Mute Sounds Button - Toggle sound notifications
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  muteSoundsBtn = document.getElementById("muteSounds");
-
-  if (muteSoundsBtn) {
-    // Load initial mute state from settings
-    window.electron.settings.getAll().then(settings => {
-      soundsMuted = !settings.soundNotification;
-      updateMuteButtonState();
-    }).catch(error => {
-      console.error('Error loading sound settings:', error);
-    });
-
-    muteSoundsBtn.addEventListener("click", async () => {
-      soundsMuted = !soundsMuted;
-      
-      // Update settings
-      try {
-        await window.electron.settings.save('soundNotification', !soundsMuted);
-        updateMuteButtonState();
-        console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
-      } catch (error) {
-        console.error('Error updating sound settings:', error);
-      }
-    });
-  }
-});
-
+// Mute button state updater
 function updateMuteButtonState() {
   if (!muteSoundsBtn) return;
   
@@ -909,79 +960,6 @@ ipcRenderer.on('request-current-theme-for-display', () => {
 function loadSavedPresets() {
   PresetManager.loadSavedPresets();
 }
-
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  // Load saved presets from localStorage
-  loadSavedPresets();
-  
-  // Initialize layout selector
-  const layoutSelector = document.getElementById('layoutSelector');
-  if (layoutSelector) {
-    // Set saved layout
-    const savedLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
-    layoutSelector.value = savedLayoutId;
-    
-    // Handle layout changes
-    layoutSelector.addEventListener('change', async (e) => {
-      const layoutId = e.target.value;
-      
-      // Update canvas renderer
-      if (canvasRenderer) {
-        const layout = LayoutRegistry.getLayout(layoutId);
-        canvasRenderer.setLayout(layout);
-        
-        // Auto-manage video input based on layout
-        await handleVideoInputForLayout(layout);
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('canvasLayout', layoutId);
-      
-      // Notify display window
-      if (window.electron && window.electron.ipcRenderer) {
-        ipcRenderer.send('layout-changed', layoutId);
-      }
-      
-      // Notify companion server
-      sendStateUpdate();
-    });
-  }
-  
-  // Note: Video input controls have been moved to the settings page
-  // They are no longer in the main window, so we don't initialize them here
-  
-  // Auto-start video input if current layout uses video
-  setTimeout(async () => {
-    const currentLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
-    const currentLayout = LayoutRegistry.getLayout(currentLayoutId);
-    await handleVideoInputForLayout(currentLayout);
-  }, 500); // Small delay to ensure canvas is ready
-  
-  // Initialize theme based on stored preference or default to dark
-  if (localStorage.getItem("theme") === "light") {
-    setTheme(false);
-  } else {
-    setTheme(true); // Default to dark mode
-  }
-  
-  // Initialize clock state and update menu
-  if (localStorage.getItem("clock") === "on") {
-    startClock();
-  } else {
-    stopClock();
-  }
-  
-  // Send initial menu state after theme is set
-  setTimeout(() => {
-    if (window.electron && window.electron.ipcRenderer && canvasRenderer && canvasRenderer.state) {
-      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-      const state = canvasRenderer.state;
-      const clockVisible = state.showClock;
-      ipcRenderer.send('update-menu-states', currentTheme, clockVisible);
-    }
-  }, 100);
-});
 
 // Menu event listeners
 if (window.electron && window.electron.ipcRenderer) {
