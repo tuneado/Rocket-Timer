@@ -18,20 +18,8 @@ class CompanionServer {
     this.port = 9999;
     this.enabled = false;
     
-    // Timer state that gets broadcast to clients
-    this.timerState = {
-      running: false,
-      paused: false,
-      timeRemaining: 0,
-      totalTime: 0,
-      hours: 0,
-      minutes: 0,
-      seconds: 0,
-      percentage: 0,
-      layout: 'standard',
-      preset: null,
-      timestamp: Date.now()
-    };
+    // Cached application state from renderer (single source of truth)
+    this.currentState = null;
   }
 
   /**
@@ -122,7 +110,7 @@ class CompanionServer {
 
     // Get current state
     this.app.get('/api/state', (req, res) => {
-      res.json(this.timerState);
+      res.json(this.formatStateForAPI(this.currentState || {}));
     });
 
     // Timer controls
@@ -414,7 +402,7 @@ curl -X POST http://localhost:${this.port}/api/timer/time \\
       console.log(`✅ Socket.IO client connected: ${socket.id}`);
       
       // Send initial state immediately
-      socket.emit('state', this.timerState);
+      socket.emit('state', this.formatStateForAPI(this.currentState || {}));
 
       // Handle commands
       socket.on('command', (data) => {
@@ -424,7 +412,7 @@ curl -X POST http://localhost:${this.port}/api/timer/time \\
 
       // Request state
       socket.on('getState', () => {
-        socket.emit('state', this.timerState);
+        socket.emit('state', this.formatStateForAPI(this.currentState || {}));
       });
 
       // Ping/pong for connection health
@@ -485,38 +473,105 @@ curl -X POST http://localhost:${this.port}/api/timer/time \\
    * Setup IPC listeners for state updates from renderer
    */
   setupIPCListeners() {
-    // Listen for state updates from renderer
+    // Listen for state updates from renderer (appState)
     ipcMain.on('companion-state-update', (event, state) => {
-      console.log('📊 Received state update from renderer:', state);
-      this.updateTimerState(state);
+      console.log('📊 Received state update from renderer');
+      
+      // Cache the state directly (appState is single source of truth)
+      this.currentState = state;
+      
+      // Format and broadcast to all Socket.IO clients
+      if (this.io) {
+        const apiState = this.formatStateForAPI(state);
+        this.io.emit('stateUpdate', apiState);
+      }
     });
   }
 
   /**
-   * Update timer state and broadcast to all clients
+   * Transform appState to API-compatible format
+   * Converts internal state structure to external API format
    */
-  updateTimerState(updates) {
-    // Map renderer state to API state format
-    const mappedUpdates = {
-      running: updates.running !== undefined ? updates.running : this.timerState.running,
-      paused: updates.paused !== undefined ? updates.paused : this.timerState.paused,
-      timeRemaining: updates.timeRemaining !== undefined ? updates.timeRemaining : this.timerState.timeRemaining,
-      totalTime: updates.totalTime !== undefined ? updates.totalTime : this.timerState.totalTime,
-      hours: updates.hours !== undefined ? updates.hours : this.timerState.hours,
-      minutes: updates.minutes !== undefined ? updates.minutes : this.timerState.minutes,
-      seconds: updates.seconds !== undefined ? updates.seconds : this.timerState.seconds,
-      percentage: updates.percentage !== undefined ? updates.percentage : this.timerState.percentage,
-      layout: updates.layout !== undefined ? updates.layout : this.timerState.layout,
-      preset: updates.preset !== undefined ? updates.preset : this.timerState.preset,
+  formatStateForAPI(appState) {
+    if (!appState || !appState.timer) {
+      return {
+        running: false,
+        paused: false,
+        timeRemaining: 0,
+        totalTime: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        percentage: 0,
+        formattedTime: '00:00:00',
+        layout: 'classic',
+        preset: null,
+        timestamp: Date.now()
+      };
+    }
+
+    const { timer, camera, server, display, clock, layout, message, featureImage, theme } = appState;
+    
+    // Calculate time components from milliseconds
+    const remainingSeconds = Math.floor(timer.remainingTime / 1000);
+    const hours = Math.floor(remainingSeconds / 3600);
+    const minutes = Math.floor((remainingSeconds % 3600) / 60);
+    const seconds = remainingSeconds % 60;
+    
+    // Calculate percentage
+    const percentage = timer.totalTime > 0 
+      ? Math.round((timer.remainingTime / timer.totalTime) * 100) 
+      : 0;
+
+    return {
+      // Timer state
+      running: timer.running,
+      paused: timer.paused,
+      timeRemaining: remainingSeconds,
+      totalTime: Math.floor(timer.totalTime / 1000),
+      hours,
+      minutes,
+      seconds,
+      percentage,
+      formattedTime: timer.formattedTime,
+      preset: timer.preset,
+      
+      // Layout
+      layout: layout.current,
+      previousLayout: layout.previous,
+      
+      // Camera
+      cameraActive: camera.active,
+      cameraDevice: camera.deviceLabel,
+      cameraOpacity: camera.opacity,
+      
+      // Server
+      serverRunning: server.running,
+      serverPort: server.port,
+      serverError: server.error,
+      
+      // Display
+      displayVisible: display.visible,
+      
+      // Clock
+      clockVisible: clock.visible,
+      clockTime: clock.time,
+      clock24h: clock.format24h,
+      
+      // Message
+      messageVisible: message.visible,
+      messageText: message.text,
+      
+      // Feature Image
+      featureImageEnabled: featureImage.enabled,
+      featureImagePath: featureImage.path,
+      
+      // Theme
+      theme,
+      
+      // Metadata
       timestamp: Date.now()
     };
-    
-    this.timerState = mappedUpdates;
-    
-    // Broadcast to all Socket.IO clients
-    if (this.io) {
-      this.io.emit('stateUpdate', this.timerState);
-    }
   }
 
   /**

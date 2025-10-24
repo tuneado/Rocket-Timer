@@ -284,6 +284,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // 15. Notify main process that renderer is ready
   ipcRenderer.send('main-window-ready');
+  
+  // 16. Setup throttled appState subscription for companion server updates
+  let stateUpdateThrottle = null;
+  appState.subscribe('*', (newValue, oldValue, path) => {
+    // Throttle updates to max 10 per second (100ms interval)
+    // This reduces IPC traffic from 60fps to 10fps
+    if (stateUpdateThrottle) return;
+    
+    stateUpdateThrottle = setTimeout(() => {
+      // Send complete appState to companion server
+      const state = appState.getState();
+      ipcRenderer.send('companion-state-update', state);
+      stateUpdateThrottle = null;
+    }, 100);
+  });
+  
+  console.log('✅ AppState subscriber initialized for companion server updates');
+  
+  // 17. Initialize appState with current timer values
+  appState.update({
+    'timer.remainingTime': remainingTime * 1000, // Convert to ms
+    'timer.totalTime': totalTime * 1000,
+    'timer.lastSetTime': lastSetTime * 1000,
+    'timer.running': running,
+    'timer.paused': false,
+    'timer.hours': Math.floor(remainingTime / 3600),
+    'timer.minutes': Math.floor((remainingTime % 3600) / 60),
+    'timer.seconds': remainingTime % 60,
+    'timer.percentage': totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 100,
+    'timer.formattedTime': formatTime(remainingTime),
+    'layout.current': savedLayoutId || 'classic',
+    'theme': localStorage.getItem("theme") === "light" ? 'light' : 'dark',
+    'clock.visible': localStorage.getItem("clock") === "on"
+  });
+  
+  // Send initial state immediately
+  ipcRenderer.send('companion-state-update', appState.getState());
+  
+  console.log('✅ Initial appState synchronized');
 });
 
 // IPC handlers initialized at end of file
