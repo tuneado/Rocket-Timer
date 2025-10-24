@@ -5,6 +5,9 @@ import { formatTime } from './utils/timeFormatter.js';
 import * as TimeInputs from './modules/timeInputs.js';
 import * as ClockManager from './modules/clockManager.js';
 import * as MessageManager from './modules/messageManager.js';
+import * as PresetManager from './modules/presetManager.js';
+import * as SettingsManager from './modules/settingsManager.js';
+import * as DisplayManager from './modules/displayManager.js';
 
 let countdown;
 let remainingTime = 0;
