@@ -29,6 +29,8 @@ class RestApiServer {
     this.app = express();
     
     // Middleware
+    // Note: CORS is permissive by default to allow local network access
+    // In production, configure corsOrigins in settings to restrict origins
     this.app.use(cors({ origin: this.config.corsOrigins }));
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
