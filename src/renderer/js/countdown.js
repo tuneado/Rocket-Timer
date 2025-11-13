@@ -7,6 +7,7 @@ let totalTime = 0;
 let running = false;
 let clockInterval;
 let lastSetTime = 45 * 60; // default to 45 minutes for first launch.
+let tickCount = 0; // Track 100ms ticks for higher resolution timer
 
 // Initialize Canvas Renderer
 let canvasRenderer = null;
@@ -493,34 +494,43 @@ startStopBtn.addEventListener("click", () => {
       startStopBtn.classList.add("stop");
       setInputsDisabled(true); // 🔧 Disable inputs while running
 
+      tickCount = 0; // Reset tick counter
+      
       countdown = setInterval(async () => {
-        // Trigger completion actions when reaching exactly zero
-        if (remainingTime === 0) {
-          handleTimerComplete();
-        }
+        tickCount++;
         
-        // Get auto-stop setting
-        let autoStopAtZero = true; // Default to true
-        try {
-          const settings = await window.electron.settings.getAll();
-          autoStopAtZero = settings.autoStopAtZero !== false;
-        } catch (error) {
-          console.error('Error getting autoStopAtZero setting:', error);
-        }
+        // Only decrement remaining time every 10 ticks (every second)
+        if (tickCount >= 10) {
+          tickCount = 0;
+          
+          // Trigger completion actions when reaching exactly zero
+          if (remainingTime === 0) {
+            handleTimerComplete();
+          }
+          
+          // Get auto-stop setting
+          let autoStopAtZero = true; // Default to true
+          try {
+            const settings = await window.electron.settings.getAll();
+            autoStopAtZero = settings.autoStopAtZero !== false;
+          } catch (error) {
+            console.error('Error getting autoStopAtZero setting:', error);
+          }
 
-        if (autoStopAtZero && remainingTime <= 0) {
-          clearInterval(countdown);
-          running = false;
-          updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-          startStopBtn.classList.remove("stop");
-          startStopBtn.classList.add("start");
-          setInputsDisabled(false); // ✅ Re-enable inputs
-          return;
-        }
+          if (autoStopAtZero && remainingTime <= 0) {
+            clearInterval(countdown);
+            running = false;
+            updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+            startStopBtn.classList.remove("stop");
+            startStopBtn.classList.add("start");
+            setInputsDisabled(false); // ✅ Re-enable inputs
+            return;
+          }
 
-        remainingTime--;
-        updateDisplay();
-      }, 1000);
+          remainingTime--;
+          updateDisplay();
+        }
+      }, 100); // Update every 100ms for higher resolution
     }
 
   } else {
