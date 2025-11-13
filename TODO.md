@@ -5,33 +5,33 @@ This document tracks planned improvements and features for the Countdown Timer a
 ## High Priority
 
 ### Timer Improvements
-- [ ] **Higher Resolution Timer**: Implement 100ms interval updates instead of 1000ms
-  - Update countdown interval from 1000ms to 100ms
-  - Adjust display formatting to show milliseconds (optional display mode)
-  - Test performance impact on canvas rendering
+- [x] **Higher Resolution Timer**: Implement 100ms interval updates instead of 1000ms
+  - Updated countdown interval from 1000ms to 100ms
+  - Timer now ticks every 100ms for better precision
+  - Display updates every second (10 ticks) to maintain performance
   
-- [ ] **Advanced Timer Controls**: Add +5 min and +10 min buttons
-  - Add +5 minute button next to existing +1 minute button
-  - Add +10 minute button for longer adjustments
-  - Implement corresponding -5 min and -10 min buttons
-  - Update UI layout to accommodate new controls
+- [x] **Advanced Timer Controls**: Add +5 min and +10 min buttons
+  - Added +5 minute button next to existing +1 minute button
+  - Added +10 minute button for longer adjustments
+  - Implemented corresponding -5 min and -10 min buttons
+  - Updated UI layout to accommodate new controls
   
-- [ ] **Consolidate Time Adjustment Functions**
-  - Refactor `addMinute()` and `subtractMinute()` into a single reusable function
-  - Create `adjustTime(seconds)` that accepts positive or negative values
-  - Reduce code duplication and improve maintainability
+- [x] **Consolidate Time Adjustment Functions**
+  - Refactored into a single reusable `adjustTime(seconds)` function
+  - Function accepts positive or negative values for add/subtract
+  - Created convenience functions: addMinute(), subtractMinute(), addFiveMinutes(), etc.
+  - Reduced code duplication and improved maintainability
 
 ### Code Quality
-- [ ] **Reduce Console Logging**
-  - Review all console.log statements
-  - Remove debug logs from production code
-  - Keep only essential logs (errors, warnings, critical events)
-  - Consider adding a debug mode flag for verbose logging
-
-- [ ] **Elapsed Time Display**
-  - Ensure elapsed time always shows seconds format (HH:MM:SS)
-  - Fix any formatting inconsistencies
-  - Test with various time ranges (short and long durations)
+- [x] **Reduce Console Logging**
+  - Reviewed all console.log statements
+  - Removed ~15 debug logs from production code
+  - Kept only essential logs (errors, warnings, critical events)
+  
+- [x] **Elapsed Time Display**
+  - Verified elapsed time shows seconds format (HH:MM:SS)
+  - Uses consistent formatTime() function for all time displays
+  - Handles both positive and negative elapsed time correctly
 
 ### UI/UX Enhancements
 - [ ] **Clock Format Toggle**: Add 12-hour/24-hour clock format switching
