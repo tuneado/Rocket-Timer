@@ -1,10 +1,12 @@
 const { app } = require('electron');
-const { createMainWindow } = require('./windows');
+const { createMainWindow, getDisplayWindow, getSettingsWindow } = require('./windows');
 const { setupMenu } = require('./menu');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
+const ApiManager = require('./api/apiManager');
 
 let mainWindow;
+let apiManager;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -17,10 +19,23 @@ if (settings.hardwareAcceleration === false) {
 }
 
 // Launch
-app.on('ready', () => {
+app.on('ready', async () => {
   mainWindow = createMainWindow();
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow);
+  
+  // Initialize and start API servers
+  try {
+    apiManager = new ApiManager(
+      mainWindow,
+      getDisplayWindow,
+      getSettingsWindow,
+      settingsManager
+    );
+    await apiManager.startAll();
+  } catch (err) {
+    console.error('Failed to start API servers:', err);
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -34,5 +49,12 @@ app.on('activate', () => {
     mainWindow = createMainWindow();
     setupMenu(mainWindow);
     setupIpcHandlers(mainWindow);
+  }
+});
+
+// Cleanup on quit
+app.on('before-quit', async () => {
+  if (apiManager) {
+    await apiManager.stopAll();
   }
 });

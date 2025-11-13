@@ -1635,3 +1635,54 @@ function updateVideoStatus(text, colorClass) {
 }
 
 
+// ==================== API Command Handlers ====================
+// These handlers respond to commands from the unified API (REST, WebSocket, OSC)
+
+if (window.electron && window.electron.ipcRenderer) {
+  // Set timer from API
+  ipcRenderer.on('api-set-timer', (data) => {
+    const { hours, minutes, seconds } = data;
+    
+    // Update input fields
+    document.getElementById('hours').value = hours || 0;
+    document.getElementById('minutes').value = minutes || 0;
+    document.getElementById('seconds').value = seconds || 0;
+    
+    // Update time
+    totalTime = (hours * 3600) + (minutes * 60) + seconds;
+    remainingTime = totalTime;
+    lastSetTime = totalTime;
+    updateDisplay();
+  });
+  
+  // Adjust timer from API
+  ipcRenderer.on('api-adjust-timer', (data) => {
+    adjustTime(data.seconds);
+  });
+  
+  // Display message from API
+  ipcRenderer.on('api-display-message', (data) => {
+    messageInput.value = data.text;
+    displayMessage();
+  });
+  
+  // Clear message from API
+  ipcRenderer.on('api-clear-message', () => {
+    clearMessage();
+  });
+  
+  // Trigger flash from API
+  ipcRenderer.on('api-trigger-flash', () => {
+    flashAtZero();
+  });
+  
+  // Load preset from API
+  ipcRenderer.on('api-load-preset', (data) => {
+    const presetButtons = document.querySelectorAll('.preset');
+    if (data.index >= 0 && data.index < presetButtons.length) {
+      presetButtons[data.index].click();
+    }
+  });
+}
+
+
