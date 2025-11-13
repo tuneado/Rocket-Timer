@@ -28,7 +28,6 @@ const { ipcRenderer } = window.electron;
 async function loadAndApplySettings() {
   try {
     const settings = await window.electron.settings.getAll();
-    console.log('Loaded settings:', settings);
     
     // Apply default time
     if (settings.defaultTime) {
@@ -45,8 +44,6 @@ async function loadAndApplySettings() {
       if (hoursInput) hoursInput.value = hours;
       if (minutesInput) minutesInput.value = minutes;
       if (secondsInput) secondsInput.value = seconds;
-      
-      console.log('Applied default time:', hours, 'h', minutes, 'm', seconds, 's');
     }
     
     // Apply default layout
@@ -109,8 +106,6 @@ function applyCanvasColors(colors) {
     root.style.setProperty('--canvas-progress-danger-start', colors.progressDanger);
     root.style.setProperty('--canvas-progress-danger-end', colors.progressDanger);
   }
-  
-  console.log('Applied canvas colors from settings');
 }
 
 /**
@@ -118,8 +113,6 @@ function applyCanvasColors(colors) {
  */
 if (window.electron && window.electron.settings) {
   window.electron.settings.onUpdate((settings) => {
-    console.log('Settings updated, reapplying...', settings);
-    
     // Reapply colors
     if (settings.colors) {
       applyCanvasColors(settings.colors);
@@ -163,19 +156,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Create canvas renderer with layout
   canvasRenderer = new CanvasRenderer('timerCanvas', layout);
-  console.log('Canvas renderer initialized with layout:', savedLayoutId);
   
   // Apply theme to canvas (already set by loadAndApplySettings)
   const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
   canvasRenderer.updateTheme(currentTheme);
   
   // Update display to show initial time with correct progress (100%)
-  console.log('Calling updateDisplay - totalTime:', totalTime, 'remainingTime:', remainingTime);
   updateDisplay();
   
   // Start clock if the layout has clock enabled
   if (layout.clock && layout.clock.enabled) {
-    console.log('Layout has clock enabled, starting clock');
     startClock();
   }
 });
@@ -183,8 +173,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Listen for settings updates from settings window
 if (window.electron && window.electron.ipcRenderer) {
   window.electron.ipcRenderer.on('apply-settings', (settings) => {
-    console.log('Received apply-settings event:', settings);
-    
     // Apply default time
     if (settings.defaultTime) {
       const { hours, minutes, seconds } = settings.defaultTime;
@@ -235,8 +223,6 @@ if (window.electron && window.electron.ipcRenderer) {
     if (canvasRenderer) {
       canvasRenderer.applyPerformanceSettings(settings);
     }
-    
-    console.log('Settings applied successfully');
   });
 }
 
@@ -254,10 +240,15 @@ const startStopBtn = document.getElementById("startStop");
 const resetBtn = document.getElementById("reset");
 const addMinuteBtn = document.getElementById("addMinute");
 const subtractMinuteBtn = document.getElementById("subtractMinute");
+const addFiveMinutesBtn = document.getElementById("addFiveMinutes");
+const subtractFiveMinutesBtn = document.getElementById("subtractFiveMinutes");
+const addTenMinutesBtn = document.getElementById("addTenMinutes");
+const subtractTenMinutesBtn = document.getElementById("subtractTenMinutes");
 const messageInput = document.getElementById("messageInput");
 const displayMessageBtn = document.getElementById("displayMessage");
 const clearMessageBtn = document.getElementById("clearMessage");
 const charCounter = document.getElementById("charCounter");
+
 
 
 // --------------------
@@ -269,8 +260,6 @@ function updateClock() {
   const m = String(now.getMinutes()).padStart(2, "0");
   const s = String(now.getSeconds()).padStart(2, "0");
   const timeString = `${h}:${m}:${s}`;
-  
-  console.log('updateClock called, time:', timeString, 'canvasRenderer exists:', !!canvasRenderer);
   
   // Update canvas renderer
   if (canvasRenderer) {
@@ -284,14 +273,12 @@ function updateClock() {
 }
 
 function startClock() {
-  console.log('startClock called, canvasRenderer exists:', !!canvasRenderer);
   updateClock();
   clockInterval = setInterval(updateClock, 1000);
   
   // Update canvas renderer
   if (canvasRenderer) {
     canvasRenderer.setState({ showClock: true });
-    console.log('Clock state set to true, triggering updateDisplay');
     updateDisplay(); // Force immediate redraw
   }
   
@@ -438,8 +425,6 @@ function updateDisplay() {
   // Progress bar should go from 100% (full) to 0% (empty) as time runs down
   const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
   
-  console.log('updateDisplay called - totalTime:', totalTime, 'remainingTime:', remainingTime, 'progressPercent:', progressPercent);
-  
   // Calculate elapsed time (can go negative if timer exceeds set time)
   const elapsedSeconds = totalTime - remainingTime;
   const formattedElapsed = formatTime(Math.abs(elapsedSeconds));
@@ -577,7 +562,6 @@ resetBtn.addEventListener("click", () => {
 const flashBtn = document.getElementById("flashButton");
 if (flashBtn) {
   flashBtn.addEventListener("click", () => {
-    console.log('🔥 Manual flash triggered');
     flashAtZero();
   });
 }
@@ -604,7 +588,6 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         await window.electron.settings.save('soundNotification', !soundsMuted);
         updateMuteButtonState();
-        console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
       } catch (error) {
         console.error('Error updating sound settings:', error);
       }
@@ -682,7 +665,6 @@ if (featureImageBtn) {
       window.electron.ipcRenderer.send('toggle-feature-image', featureImageEnabled);
       
       updateFeatureImageButtonState();
-      console.log('📷 Feature image:', featureImageEnabled ? 'enabled' : 'disabled');
     } catch (error) {
       console.error('Error toggling feature image:', error);
     }
@@ -773,8 +755,6 @@ function updatePresetFromInputs(button) {
     button.style.backgroundColor = '';
     button.style.color = '';
   }, 200);
-  
-  console.log(`Preset updated: ${displayText} (${totalSeconds} seconds)`);
 }
 
 //SET TIME
@@ -818,49 +798,58 @@ function updateTimeFromInputs() {
   updateDisplay();
 }
 
-// Minute adjustment functions
-function addMinute() {
-  // Add 60 seconds (1 minute) to remaining time
-  remainingTime += 60;
+// Consolidated time adjustment function
+function adjustTime(seconds) {
+  // Adjust remaining time
+  remainingTime += seconds;
+  
+  // Don't allow going below 0
+  if (remainingTime < 0) {
+    remainingTime = 0;
+  }
   
   // Also update total time if timer is not running (so progress bar works correctly)
   if (!running) {
-    totalTime += 60;
-    // Update the minutes input field to reflect the change
-    const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-    document.getElementById("minutes").value = currentMinutes + 1;
+    totalTime = remainingTime;
+    
+    // Update the input fields to reflect the change
+    const h = Math.floor(remainingTime / 3600);
+    const m = Math.floor((remainingTime % 3600) / 60);
+    const s = remainingTime % 60;
+    
+    document.getElementById("hours").value = h;
+    document.getElementById("minutes").value = m;
+    document.getElementById("seconds").value = s;
   }
   
   updateDisplay();
 }
 
-function subtractMinute() {
-  // Don't allow going below 0
-  if (remainingTime <= 60) {
-    remainingTime = 0;
-    if (!running) {
-      totalTime = 0;
-      document.getElementById("minutes").value = 0;
-      document.getElementById("hours").value = 0;
-      document.getElementById("seconds").value = 0;
-    }
-  } else {
-    // Subtract 60 seconds (1 minute) from remaining time
-    remainingTime -= 60;
-    
-    // Also update total time if timer is not running
-    if (!running) {
-      totalTime -= 60;
-      // Update the minutes input field to reflect the change
-      const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-      if (currentMinutes > 0) {
-        document.getElementById("minutes").value = currentMinutes - 1;
-      }
-    }
-  }
-  
-  updateDisplay();
+// Convenience functions for common time adjustments
+function addMinute() {
+  adjustTime(60);
 }
+
+function subtractMinute() {
+  adjustTime(-60);
+}
+
+function addFiveMinutes() {
+  adjustTime(300);
+}
+
+function subtractFiveMinutes() {
+  adjustTime(-300);
+}
+
+function addTenMinutes() {
+  adjustTime(600);
+}
+
+function subtractTenMinutes() {
+  adjustTime(-600);
+}
+
 
 // --------------------
 // Message functions
@@ -1015,6 +1004,10 @@ function setTheme(dark) {
 // Minute adjustment button event listeners
 addMinuteBtn.addEventListener("click", addMinute);
 subtractMinuteBtn.addEventListener("click", subtractMinute);
+addFiveMinutesBtn.addEventListener("click", addFiveMinutes);
+subtractFiveMinutesBtn.addEventListener("click", subtractFiveMinutes);
+addTenMinutesBtn.addEventListener("click", addTenMinutes);
+subtractTenMinutesBtn.addEventListener("click", subtractTenMinutes);
 
 // Message input event listeners
 messageInput.addEventListener("input", updateCharCounter);
