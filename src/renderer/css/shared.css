@@ -1,163 +1,20 @@
 /* ===================================
-   SHARED CSS FOR BOTH MAIN AND DISPLAY WINDOWS
+   SHARED CSS - MINIMAL
+   Design tokens are in design-tokens.css
    =================================== */
-
-/* Base theme variables */
-:root {
-  --bg: #121212;
-  --fg: #f1f1f1;
-  --card-bg: #1e1e1e;
-  --border: #333;
-  --countdown: #4caf50;
-  --progress-bg: #4caf50;
-  
-  /* Canvas rendering variables */
-  --canvas-countdown-color: #4caf50;
-  --canvas-clock-color: #999999;
-  --canvas-message-color: #f1f1f1;
-  --canvas-progress-bg: #2a2a2a;
-  --canvas-progress-success-start: #4caf50;
-  --canvas-progress-success-end: #66bb6a;
-  --canvas-progress-warning-start: #ff9500;
-  --canvas-progress-warning-end: #ffb340;
-  --canvas-progress-danger-start: #ff4757;
-  --canvas-progress-danger-end: #ff6b7a;
-  --canvas-separator-color: #444444;
-  --canvas-background: #121212;
-  --canvas-font-family: var(--font-mono);
-  --canvas-countdown-weight: bold;
-  --canvas-clock-weight: bold;
-  --canvas-message-weight: 600;
-  --canvas-elapsed-color: #999999;
-  --canvas-elapsed-weight: 600;
-  --canvas-remaining-color: #999999;
-  --canvas-remaining-weight: 600;
-}
-
-/* Light mode overrides using Bulma's data-theme */
-[data-theme="light"] {
-  --bg: #f7f7f7 !important;
-  --fg: #333 !important;
-  --card-bg: #fff !important;
-  --border: #ddd !important;
-  --countdown: #4caf50 !important;
-  --progress-bg: #4caf50 !important;
-  
-  /* Canvas light mode overrides */
-  --canvas-countdown-color: #4caf50 !important;
-  --canvas-clock-color: #666666 !important;
-  --canvas-message-color: #333333 !important;
-  --canvas-progress-bg: #e8e8e8 !important;
-  --canvas-separator-color: #dddddd !important;
-  --canvas-background: #f7f7f7 !important;
-  --canvas-elapsed-color: #ff9500 !important;
-  --canvas-remaining-color: #1976d2 !important;
-}
-
-/* Dark mode using Bulma's data-theme */
-[data-theme="dark"] {
-  --bg: #121212 !important;
-  --fg: #f1f1f1 !important;
-  --card-bg: #1e1e1e !important;
-  --border: #333 !important;
-  --countdown: #4caf50 !important;
-  --progress-bg: #4caf50 !important;
-}
 
 /* ===================================
    GLOBAL STYLES
    =================================== */
 
-/* Apply UI font to body */
 body {
-  font-family: var(--font-ui) !important;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* ===================================
-   BULMA THEME INTEGRATION
-   =================================== */
-
-/* Bulma component theming using data-theme */
-[data-theme="dark"] {
-  background-color: var(--bg) !important;
-  color: var(--fg) !important;
-}
-
-[data-theme="dark"] .card {
-  background-color: var(--card-bg) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-}
-
-[data-theme="dark"] .card-header {
-  background-color: var(--card-bg) !important;
-  border-bottom-color: var(--border) !important;
-}
-
-[data-theme="dark"] .card-header-title {
-  color: var(--fg) !important;
-}
-
-[data-theme="dark"] .input, 
-[data-theme="dark"] .textarea,
-[data-theme="dark"] .select select {
-  background-color: var(--bg) !important;
-  color: var(--fg) !important;
-  border-color: var(--border) !important;
-}
-
-[data-theme="dark"] .input:focus,
-[data-theme="dark"] .textarea:focus,
-[data-theme="dark"] .select select:focus {
-  border-color: var(--countdown) !important;
-  box-shadow: 0 0 0 0.125em rgba(76, 175, 80, 0.25) !important;
-}
-
-[data-theme="dark"] .label {
-  color: var(--fg) !important;
-}
-
-[data-theme="dark"] .tag.is-light {
-  background-color: var(--border) !important;
-  color: var(--fg) !important;
-}
-
-[data-theme="dark"] .button.is-light {
-  background-color: var(--border) !important;
-  color: var(--fg) !important;
-  border-color: var(--border) !important;
-}
-
-[data-theme="dark"] .button.is-light:hover {
-  background-color: #444 !important;
-  border-color: #444 !important;
-}
-
-[data-theme="dark"] .notification.is-info.is-light {
-  background-color: rgba(76, 175, 80, 0.1) !important;
-  color: var(--countdown) !important;
-  border: 1px solid rgba(76, 175, 80, 0.2) !important;
-}
-
-[data-theme="dark"] .progress {
-  background-color: var(--border) !important;
-}
-
-[data-theme="dark"] .hero {
-  background-color: transparent !important;
-}
-
-/* Light mode overrides for better contrast */
-[data-theme="light"] .card {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
-}
-
-[data-theme="light"] .card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
 }
 
 /* ===================================
@@ -166,108 +23,28 @@ body {
 
 /* Duration input fields - keep them narrow */
 #hours, #minutes, #seconds {
-  width: 70px !important;
-  text-align: center !important;
-  font-weight: 500 !important;
+  width: 70px;
+  text-align: center;
+  font-weight: 500;
 }
 
 /* Preset buttons styling */
 .preset {
-  min-width: 60px !important;
-  font-family: var(--font-mono) !important;
-  font-size: 0.85rem !important;
-  font-weight: 500 !important;
+  min-width: 60px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 /* Remove pointer cursor from character counter */
 #charCounter {
-  cursor: default !important;
-  user-select: none !important;
-}
-
-/* Compact layout - reduced padding throughout */
-.card {
-  margin-bottom: 1rem !important; /* Reduce space between cards */
-}
-
-.card-header {
-  align-items: center !important; /* Ensure vertical alignment */
-}
-
-.card-header-title {
-  align-items: center !important; /* Align title content */
-  margin-bottom: 0 !important; /* Remove bottom margin */
-  font-size: 1rem !important; /* Slightly smaller title */
-}
-
-.card-header-icon {
-  align-items: center !important; /* Align icon content */
-  display: flex !important;
-}
-
-.card-content {
-  padding: 0.75rem !important; /* Reduce content padding from 1.25rem */
-}
-
-/* Compact overall layout */
-.container.is-fluid {
-  padding: 0.75rem !important; /* Reduce container padding */
-}
-
-.columns {
-  margin: 0 !important; /* Remove column margins */
-}
-
-.column {
-  padding: 0.5rem !important; /* Reduce column padding */
-}
-
-/* Compact buttons */
-.buttons {
-  margin-bottom: 0.5rem !important; /* Reduce button group spacing */
+  cursor: default;
+  user-select: none;
 }
 
 /* ===================================
-   UNIFIED DISPLAY LAYOUT SYSTEM
+   DISPLAY WINDOW LAYOUT
    =================================== */
-
-/* Container for the monitor display on main interface */
-.timer-monitor-container {
-  width: 100%;
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 0;
-  position: relative;
-}
-
-/* Canvas element styling - 16:9 aspect ratio with border */
-#timerCanvas {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  border: 3px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  display: block;
-  margin: 0 auto;
-  background: var(--bg);
-}
-
-[data-theme="dark"] #timerCanvas {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* Base display section - used by both display window and main interface */
-.display-section {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 40px;
-  box-sizing: border-box;
-  background: var(--bg);
-  color: var(--fg);
-}
 
 /* Display window layout (external display) - fullscreen */
 .display-window-layout {
@@ -276,466 +53,146 @@ body {
   margin: 0;
   border: none;
   border-radius: 0;
+  background: var(--canvas-background);
 }
 
-/* Remove default body margin for display window */
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* Monitor layout (main interface) - 16:9 aspect ratio with border */
-.display-monitor-layout {
+/* Canvas element styling */
+#timerCanvas {
+  display: block;
   width: 100%;
-  height: 0;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio (9/16 = 0.5625) */
-  border: 3px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  height: 100%;
+  object-fit: contain;
 }
 
-.display-monitor-layout > * {
-  position: absolute;
-}
+/* ===================================
+   STATUS BAR (FOOTER)
+   =================================== */
 
-/* Progress bar area - consistent for both layouts */
-.progress-area {
-  display: flex;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.display-monitor-layout .progress-area {
-  top: 10%;
-  left: 10%;
-  width: 80%;
-  height: 8%;
-  margin-bottom: 0;
-}
-
-/* Progress bar sizing */
-.progress-area .progress {
-  width: 100%;
-}
-
-/* Fullscreen display progress bar height */
-.display-window-layout .progress-area .progress {
-  height: 2rem !important; /* Give proper height for fullscreen display */
-}
-
-/* Monitor layout progress bar height */
-.display-monitor-layout .progress-area .progress {
-  height: 100% !important;
-}
-
-/* Timer area - consistent for both layouts */
-.timer-area {
-  text-align: center;
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.display-monitor-layout .timer-area {
-  top: 25%;
+.status-footer {
+  position: fixed;
+  bottom: 0;
   left: 0;
-  width: 100%;
-  height: 50%;
-}
-
-/* Countdown styling - unified */
-.timer-area #countdown {
-  color: var(--countdown) !important;
-  font-weight: bold !important;
-  font-family: var(--font-mono) !important;
-  letter-spacing: -0.05em !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  margin: 0 !important;
-  line-height: 1 !important;
-}
-
-.display-window-layout #countdown {
-  font-size: clamp(6em, 15vw, 12em) !important;
-}
-
-.display-monitor-layout #countdown {
-  font-size: clamp(2rem, 6vw, 4rem) !important;
-}
-
-/* Clock styling - unified */
-.timer-area #clock {
-  font-family: var(--font-mono) !important;
-  color: #888 !important;
-  opacity: 0.7;
-  margin-top: 0.5rem !important;
-}
-
-.display-window-layout #clock {
-  font-size: clamp(1.5em, 4vw, 2.5em) !important;
-  opacity: 0.8 !important;
-}
-
-.display-monitor-layout #clock {
-  font-size: clamp(0.8rem, 2vw, 1.2rem) !important;
-}
-
-[data-theme="light"] .timer-area #clock {
-  color: #555 !important;
-}
-
-[data-theme="light"] .display-window-layout #clock {
-  color: #333 !important;
-  opacity: 0.9 !important;
-}
-
-/* Display separator - always visible */
-.display-separator {
-  border-top: 2px solid var(--border);
-  margin: 2rem 0 1rem 0;
-  width: 100%;
-}
-
-.display-monitor-layout .display-separator {
-  position: absolute;
-  top: 75%;
-  left: 5%;
-  width: 90%;
-  margin: 0;
-}
-
-/* Message area - clean without border */
-.message-area {
-  text-align: center;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0;
-  padding: 1rem;
-  margin: 0;
-  min-height: 4rem; /* Fixed height to prevent layout shift */
+  right: 0;
+  height: 32px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-default);
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: opacity 0.3s ease;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  z-index: 1000;
 }
 
-.display-monitor-layout .message-area {
-  position: absolute;
-  top: 78%;
-  left: 5%;
-  width: 90%;
-  height: 17%;
-  min-height: auto; /* Use percentage height for monitor layout */
-}
-
-/* Message text styling - unified */
-.message-text {
-  font-family: var(--font-mono) !important;
-  font-weight: 600 !important;
-  color: var(--fg) !important;
-  text-align: center !important;
-  line-height: 1.3 !important;
-  word-wrap: break-word !important;
-  margin: 0 !important;
-}
-
-.display-window-layout .message-text {
-  font-size: clamp(1.2em, 3vw, 1.8em) !important;
-  font-weight: 700 !important;
-  max-height: 2.6em !important; /* Limit to approximately 2 lines */
-  overflow: hidden !important;
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  line-clamp: 2 !important; /* Standard property for compatibility */
-  -webkit-box-orient: vertical !important;
-}
-
-.display-monitor-layout .message-text {
-  font-size: clamp(0.9rem, 2.5vw, 1.3rem) !important;
-}
-
-/* Dark mode styling */
-[data-theme="dark"] .display-monitor-layout {
-  background: var(--bg) !important;
-  border-color: var(--border) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* Message area visibility states */
-.message-area {
-  opacity: 0; /* Text hidden by default */
-}
-
-.message-area.fade-out {
-  opacity: 0 !important;
-  transition: opacity 0.5s ease-out !important;
-}
-
-/* Separator styling for both themes */
-[data-theme="light"] .display-separator {
-  border-top-color: #ddd;
-}
-
-[data-theme="dark"] .display-separator {
-  border-top-color: #444;
-}
-
-/* ===================================
-   COUNTDOWN TIMER STYLING
-   =================================== */
-
-/* Large countdown display */
-#countdown {
-  font-size: 4rem !important;
-  color: var(--countdown) !important;
-  font-weight: bold !important;
-  font-family: var(--font-mono) !important;
-  letter-spacing: -0.05em !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Clock display */
-#clock {
-  font-size: 1.25rem !important;
-  color: #888 !important;
-  font-family: var(--font-mono) !important;
-  opacity: 0.7;
-  margin-top: 1rem !important;
-}
-
-[data-theme="light"] #clock {
-  color: #555 !important;
-}
-
-/* ===================================
-   PROGRESS BAR THEMING
-   =================================== */
-
-/* Enhanced Bulma progress bar styling */
-.progress {
-  height: 1.5rem !important;
-  border-radius: 50px !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  transition: all 0.3s ease !important;
-  background-color: transparent !important; /* Ensure no default grey background */
-}
-
-/* Light mode progress bar background */
-[data-theme="light"] .progress::-webkit-progress-bar {
-  background-color: #e8e8e8 !important;
-  border-radius: 50px !important;
-  border: 1px solid #ddd !important;
-}
-
-/* Dark mode progress bar background */
-[data-theme="dark"] .progress::-webkit-progress-bar {
-  background-color: #2a2a2a !important;
-  border-radius: 50px !important;
-  border: 1px solid #444 !important;
-}
-
-/* Progress bar value styling */
-.progress::-webkit-progress-value {
-  border-radius: 50px !important;
-  transition: all 0.3s ease !important;
-}
-
-/* Progress bar value styling */
-.progress.is-success::-webkit-progress-value {
-  background: linear-gradient(45deg, #4caf50, #66bb6a) !important;
-  border-radius: 50px !important;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
-}
-
-/* Display window specific progress styling */
-.display-window-layout .progress {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-}
-
-[data-theme="dark"] .display-window-layout .progress {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-}
-
-.progress.is-warning::-webkit-progress-value {
-  background: linear-gradient(45deg, #ff9500, #ffb340) !important;
-  border-radius: 50px !important;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
-}
-
-.progress.is-danger::-webkit-progress-value {
-  background: linear-gradient(45deg, #ff4757, #ff6b7a) !important;
-  border-radius: 50px !important;
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3) !important;
-}
-
-/* Firefox progress styling */
-.progress.is-success::-moz-progress-bar {
-  background: linear-gradient(45deg, #48c774, #5dd894) !important;
-  border-radius: 50px !important;
-}
-
-.progress.is-warning::-moz-progress-bar {
-  background: linear-gradient(45deg, #ff9500, #ffb340) !important;
-  border-radius: 50px !important;
-}
-
-.progress.is-danger::-moz-progress-bar {
-  background: linear-gradient(45deg, #ff4757, #ff6b7a) !important;
-  border-radius: 50px !important;
-}
-
-
-
-
-
-/* ===================================
-   TIME PICKER STYLES
-   =================================== */
-
-/* Time picker container */
-.time-picker {
+.status-left {
+  flex: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 1rem 0;
+  overflow: hidden;
 }
 
-/* Time input group (number + label) */
-.time-input-group {
+.status-right {
+  flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: flex-end;
+  gap: 1rem;
 }
 
-/* Time input field */
-.time-input {
-  width: 4rem;
-  height: 4rem;
-  font-size: 2rem;
-  font-weight: 600;
-  text-align: center;
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-mono);
-  transition: all 0.2s ease;
-  appearance: textfield;
-  -moz-appearance: textfield;
+.status-message {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.875rem;
 }
 
-/* Remove number input arrows */
-.time-input::-webkit-outer-spin-button,
-.time-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.status-right i {
+  font-size: 1rem;
+  transition: color 0.2s ease;
 }
 
-/* Focus state */
-.time-input:focus {
-  outline: none;
-  border-color: var(--countdown);
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
-  background: var(--card-bg);
+/* Camera status states */
+.camera-inactive {
+  color: var(--text-muted);
 }
 
-/* Hover state */
-.time-input:hover:not(:focus) {
-  border-color: var(--countdown);
+.camera-live,
+.camera-active {
+  color: var(--timer-danger);
+  animation: pulse-camera 2s ease-in-out infinite;
 }
 
-/* Disabled state */
-.time-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: var(--border);
+/* Server/API status states */
+.server-inactive {
+  color: var(--text-muted);
 }
 
-/* Time label */
-.time-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--fg);
-  opacity: 0.7;
-  text-transform: capitalize;
-  letter-spacing: 0.05em;
+.server-active {
+  color: var(--timer-success);
 }
 
-/* Time separator */
-.time-separator {
-  font-size: 2rem;
-  font-weight: 300;
-  color: var(--fg);
-  opacity: 0.5;
-  margin: 0 0.25rem;
-  padding-bottom: 1.5rem;
-  font-family: var(--font-mono);
+.server-error {
+  color: var(--timer-danger);
+  animation: pulse-error 1s ease-in-out infinite;
 }
 
-/* Dark mode adjustments */
-[data-theme="dark"] .time-input {
-  background: #1a1a1a;
-}
-
-[data-theme="dark"] .time-input:focus {
-  background: var(--card-bg);
-}
-
-/* Light mode adjustments */
-[data-theme="light"] .time-input {
-  background: #ffffff;
-  border-color: #ddd;
-}
-
-[data-theme="light"] .time-input:focus {
-  background: #ffffff;
-  border-color: var(--countdown);
+/* Add padding to body to account for fixed footer */
+body.has-status-footer {
+  padding-bottom: 32px;
 }
 
 /* ===================================
-   UTILITY CLASSES
+   ANIMATIONS
    =================================== */
-.preset.muted {
-  opacity: 0.6;
-  cursor: not-allowed;
-  pointer-events: none;
+
+@keyframes pulse-camera {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
-/* Control buttons unified height */
-.control-button {
-  height: 4rem !important;
+@keyframes pulse-error {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-/* Quick adjust buttons container */
-.quick-adjust-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  height: 4rem;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Quick adjust individual buttons */
-.quick-adjust-button {
-  margin: 0 !important;
-  min-height: 0 !important;
-  height: calc((4rem - 0.125rem) / 2) !important;
+/* Preset button hold state */
+.preset.holding {
+  background: var(--timer-success) !important;
+  color: white !important;
+  animation: pulse 0.5s infinite;
 }
 
-/* Control buttons separator */
-.control-separator {
-  width: 2px;
-  height: 4rem;
-  background-color: var(--border);
-  margin: 0 0.5rem;
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
 }
 
 /* ===================================
-   REDUCE MOTION (PERFORMANCE)
+   ACCESSIBILITY
    =================================== */
+
+/* Reduce motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 [data-reduce-motion="true"] *,
 [data-reduce-motion="true"] *::before,
 [data-reduce-motion="true"] *::after {
@@ -745,116 +202,11 @@ body {
   scroll-behavior: auto !important;
 }
 
-/* ===================================
-   STATUS BAR (FOOTER)
-   =================================== */
-.status-footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 32px;
-  background: var(--card-bg);
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  font-size: 0.875rem;
-  z-index: 1000;
-  font-family: var(--font-sans);
-}
-
-/* Left column: 2/3 width - messages */
-.status-left {
-  flex: 2;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-}
-
-/* Right column: 1/3 width - status icons */
-.status-right {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-/* Status message text */
-.status-message {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.875rem;
-}
-
-/* Status icons */
-.status-right i {
-  font-size: 1rem;
-  transition: all 0.2s ease;
-}
-
-/* Camera status states */
-.camera-inactive {
-  color: var(--fg);
-  opacity: 0.3;
-}
-
-.camera-live {
-  color: #ff3860; /* Bulma danger red - "recording" */
-  opacity: 1;
-  animation: pulse-camera 2s ease-in-out infinite;
-}
-
-@keyframes pulse-camera {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
-}
-
-/* Server/API status states */
-.server-inactive {
-  color: var(--fg);
-  opacity: 0.3;
-}
-
-.server-active {
-  color: #48c774; /* Bulma success green */
-  opacity: 1;
-}
-
-.server-error {
-  color: #ff3860; /* Bulma danger red */
-  opacity: 1;
-  animation: pulse-error 1s ease-in-out infinite;
-}
-
-@keyframes pulse-error {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Add padding to body to account for fixed footer */
-body {
-  padding-bottom: 32px;
-}
-
-/* Dark mode adjustments */
-[data-theme="dark"] .status-footer {
-  background: #1a1a1a;
-  border-top-color: #333;
-}
-
-/* Light mode adjustments */
-[data-theme="light"] .status-footer {
-  background: #f5f5f5;
-  border-top-color: #ddd;
+/* Focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }

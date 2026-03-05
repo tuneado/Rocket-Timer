@@ -36,7 +36,7 @@ class StatusBar {
     const serverState = appState.get('server');
     if (serverState.running) {
       this.setServerStatus('active', serverState.port);
-    } else if (serverState.error) {
+    } else if (serverState.error && serverState.error !== 'Disabled in settings') {
       this.setServerStatus('error');
     } else {
       this.setServerStatus('inactive');
@@ -69,7 +69,9 @@ class StatusBar {
           this.setServerStatus('active', port);
         } else {
           const error = appState.get('server.error');
-          this.setServerStatus(error ? 'error' : 'inactive');
+          // Treat "Disabled in settings" as inactive, not error
+          const isActualError = error && error !== 'Disabled in settings';
+          this.setServerStatus(isActualError ? 'error' : 'inactive');
         }
         logger.debug('STATUSBAR', `Server status updated: ${isRunning}`);
       })
@@ -78,9 +80,12 @@ class StatusBar {
     // Server error subscription
     this.unsubscribers.push(
       appState.subscribe('server.error', (error) => {
-        if (error) {
+        if (error && error !== 'Disabled in settings') {
           this.setServerStatus('error');
           this.error(`API Server Error: ${error}`, 5000);
+        } else if (error === 'Disabled in settings') {
+          // Don't show error message for disabled state
+          this.setServerStatus('inactive');
         }
       })
     );
@@ -218,16 +223,18 @@ class StatusBar {
     switch (status) {
       case 'active':
         this.serverIcon.classList.add('server-active');
-        this.serverIcon.title = port ? `API Server Running (Port ${port})` : 'API Server Running';
+        this.serverIcon.title = port ? 
+          `Unified API Server Running\nREST: :${port} | WebSocket: :8080 | OSC: :7000` : 
+          'Unified API Server Running (REST, WebSocket, OSC)';
         break;
       case 'error':
         this.serverIcon.classList.add('server-error');
-        this.serverIcon.title = 'API Server Error';
+        this.serverIcon.title = 'Unified API Server Error';
         break;
       case 'inactive':
       default:
         this.serverIcon.classList.add('server-inactive');
-        this.serverIcon.title = 'API Server Inactive';
+        this.serverIcon.title = 'Unified API Server Inactive';
         break;
     }
   }

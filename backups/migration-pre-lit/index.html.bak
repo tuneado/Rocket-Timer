@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>Countdown Timer</title>
+  <link rel="stylesheet" href="../css/fonts.css">
+  <link rel="stylesheet" href="../css/bulma.min.css">
+  <link rel="stylesheet" href="../css/bootstrap-icons.css">
+  <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
+  <link rel="stylesheet" href="../css/shared.css">
+</head>
+<body>
+  <main class="app-grid" role="main" aria-label="Countdown Timer Interface">
+    <!-- Left Panel: Configuration -->
+    <div class="panel-left">
+      <div class="content">
+            
+            <!-- Duration Inputs Card -->
+            <div class="card mb-3">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-stopwatch-fill"></i>
+                  </span>
+                  Set Duration
+                </p>
+              </header>
+              <div class="card-content">
+                <div class="time-picker">
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="hours" value="0" min="0" max="99"
+                           aria-label="Hours" aria-describedby="hours-desc">
+                    <label class="time-label" id="hours-desc">Hours</label>
+                  </div>
+                  <div class="time-separator">:</div>
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="minutes" value="5" min="0" max="59"
+                           aria-label="Minutes" aria-describedby="minutes-desc">
+                    <label class="time-label" id="minutes-desc">Minutes</label>
+                  </div>
+                  <div class="time-separator">:</div>
+                  <div class="time-input-group">
+                    <input class="time-input" type="number" id="seconds" value="0" min="0" max="59"
+                           aria-label="Seconds" aria-describedby="seconds-desc">
+                    <label class="time-label" id="seconds-desc">Seconds</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Presets Card -->
+            <div class="card mb-3">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-lightning-fill"></i>
+                  </span>
+                  Quick Presets
+                </p>
+                <div class="card-header-icon">
+                  <span id="resetPresets" class="has-text-grey" style="cursor: pointer;">
+                    <span class="icon">
+                      <i class="bi bi-arrow-counterclockwise"></i>
+                    </span>
+                    <span>Reset</span>
+                  </span>
+                </div>
+              </header>
+              <div class="card-content">
+                <div class="buttons are-small">
+                  <button class="button is-light preset" data-minutes="5" style="flex: 1;" 
+                          aria-label="Set timer to 5 minutes" title="Click to set, hold to save">05:00</button>
+                  <button class="button is-light preset" data-minutes="10" style="flex: 1;"
+                          aria-label="Set timer to 10 minutes" title="Click to set, hold to save">10:00</button>
+                  <button class="button is-light preset" data-minutes="15" style="flex: 1;"
+                          aria-label="Set timer to 15 minutes" title="Click to set, hold to save">15:00</button>
+                  <button class="button is-light preset" data-minutes="20" style="flex: 1;"
+                          aria-label="Set timer to 20 minutes" title="Click to set, hold to save">20:00</button>
+                </div>
+                <div class="buttons are-small mt-2">
+                  <button class="button is-light preset" data-minutes="25" style="flex: 1;"
+                          aria-label="Set timer to 25 minutes" title="Click to set, hold to save">25:00</button>
+                  <button class="button is-light preset" data-minutes="30" style="flex: 1;"
+                          aria-label="Set timer to 30 minutes" title="Click to set, hold to save">30:00</button>
+                  <button class="button is-light preset" data-minutes="45" style="flex: 1;"
+                          aria-label="Set timer to 45 minutes" title="Click to set, hold to save">45:00</button>
+                  <button class="button is-light preset" data-minutes="60" style="flex: 1;"
+                          aria-label="Set timer to 60 minutes" title="Click to set, hold to save">60:00</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Message Card -->
+            <div class="card mb-3">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-chat-square-text-fill"></i>
+                  </span>
+                  Display Message
+                </p>
+                <div class="card-header-icon">
+                  <span id="charCounter" class="has-text-grey">0/100</span>
+                </div>
+              </header>
+              <div class="card-content">
+                <div class="field">
+                  <div class="control">
+                    <textarea id="messageInput" 
+                              class="textarea" 
+                              placeholder="Enter message to display..." 
+                              maxlength="100" 
+                              rows="2"
+                              aria-label="Display message"
+                              aria-describedby="charCounter"></textarea>
+                  </div>
+                </div>
+                <div class="field is-grouped">
+                  <div class="control">
+                    <button id="displayMessage" class="button is-light" aria-label="Display message on timer">
+                      <span class="icon">
+                        <i class="bi bi-display-fill"></i>
+                      </span>
+                      <span>Display</span>
+                    </button>
+                  </div>
+                  <div class="control">
+                    <button id="clearMessage" class="button is-light" aria-label="Clear displayed message">
+                      <span class="icon">
+                        <i class="bi bi-trash-fill"></i>
+                      </span>
+                      <span>Clear</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Canvas Layout Selector Card -->
+            <div class="card" style="margin-bottom: 0;">
+              <header class="card-header">
+                <p class="card-header-title">
+                  <span class="icon mr-2">
+                    <i class="bi bi-layout-three-columns"></i>
+                  </span>
+                  Canvas Layout
+                </p>
+              </header>
+              <div class="card-content">
+                <div class="field">
+                  <div class="control">
+                    <div class="select is-fullwidth">
+                      <select id="layoutSelector">
+                        <!-- Options populated dynamically from LayoutRegistry -->
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+      </div>
+    </div>
+
+    <!-- Right Panel: Preview & Controls -->
+    <div class="panel-right">
+      <div class="preview-wrapper">
+        <div class="preview-frame">
+          <canvas id="timerCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Control Buttons Card -->
+      <div class="controls-card">
+        <div class="card-content">
+            <!-- All Controls in One Row -->
+            <div class="field is-grouped is-grouped-centered">
+              <div class="control">
+                <button id="startStop" class="button is-large is-success control-button" 
+                        aria-label="Start timer" aria-keyshortcut="Space">
+                  <span class="icon">
+                    <i class="bi bi-play-fill"></i>
+                  </span>
+                  <span>Start</span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="reset" class="button is-large is-danger control-button"
+                        aria-label="Reset timer to set duration" aria-keyshortcut="r">
+                  <span class="icon">
+                    <i class="bi bi-arrow-clockwise"></i>
+                  </span>
+                  <span>Reset</span>
+                </button>
+              </div>
+              <!-- Quick Adjust buttons stacked on the right -->
+              <div class="control">
+                <div class="quick-adjust-container">
+                  <button id="addMinute" class="button is-light quick-adjust-button"
+                          aria-label="Add one minute" aria-keyshortcut="ArrowUp">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-up-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">+1</span>
+                  </button>
+                  <button id="subtractMinute" class="button is-light quick-adjust-button"
+                          aria-label="Subtract one minute" aria-keyshortcut="ArrowDown">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-down-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">-1</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Advanced Adjust buttons: 5 minutes -->
+              <div class="control">
+                <div class="quick-adjust-container">
+                  <button id="addFive" class="button is-light quick-adjust-button"
+                          aria-label="Add five minutes" aria-keyshortcut="Shift+ArrowUp">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-up-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">+5</span>
+                  </button>
+                  <button id="subtractFive" class="button is-light quick-adjust-button"
+                          aria-label="Subtract five minutes" aria-keyshortcut="Shift+ArrowDown">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-down-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">-5</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Advanced Adjust buttons: 10 minutes -->
+              <div class="control">
+                <div class="quick-adjust-container">
+                  <button id="addTen" class="button is-light quick-adjust-button"
+                          aria-label="Add ten minutes" aria-keyshortcut="Ctrl+ArrowUp">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-up-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">+10</span>
+                  </button>
+                  <button id="subtractTen" class="button is-light quick-adjust-button"
+                          aria-label="Subtract ten minutes" aria-keyshortcut="Ctrl+ArrowDown">
+                    <span class="icon is-small">
+                      <i class="bi bi-caret-down-fill"></i>
+                    </span>
+                    <span style="font-size: 0.9rem; font-weight: 600;">-10</span>
+                  </button>
+                </div>
+              </div>
+              <!-- Vertical Separator -->
+              <div class="control" style="display: flex; align-items: stretch;">
+                <div class="control-separator"></div>
+              </div>
+              <div class="control">
+                <button id="flashButton" class="button is-large is-light control-button" 
+                        title="Flash screen" aria-label="Flash screen" aria-keyshortcut="f">
+                  <span class="icon">
+                    <i class="bi bi-lightning-fill"></i>
+                  </span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="muteSounds" class="button is-large is-danger control-button" 
+                        title="Unmute" aria-label="Toggle sound mute" aria-keyshortcut="m">
+                  <span class="icon">
+                    <i class="bi bi-volume-mute-fill"></i>
+                  </span>
+                </button>
+              </div>
+              <div class="control">
+                <button id="featureImage" class="button is-large is-light control-button" 
+                        title="Feature Image" aria-label="Toggle feature image" aria-keyshortcut="i">
+                  <span class="icon">
+                    <i class="bi bi-image-fill"></i>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      <!-- Timer Information Card -->
+      <div class="card info-stats-card">
+        <div class="card-content">
+            <div class="field is-grouped is-grouped-multiline" style="gap: 1rem;">
+              <div class="control" style="flex: 1; min-width: 150px;">
+                <label class="label is-small has-text-grey">Clock Time</label>
+                <div class="has-text-weight-semibold is-size-5 has-text-white" id="clockTime">--:--:--</div>
+              </div>
+              <div class="control" style="flex: 1; min-width: 150px;">
+                <label class="label is-small has-text-grey">Timer Value</label>
+                <div class="has-text-weight-semibold is-size-5 has-text-white" id="timerValue">00:00:00</div>
+              </div>
+              <div class="control" style="flex: 1; min-width: 150px;">
+                <label class="label is-small has-text-grey">Elapsed Time</label>
+                <div class="has-text-weight-semibold is-size-5 has-text-white" id="elapsedTime">00:00:00</div>
+              </div>
+              <div class="control" style="flex: 1; min-width: 150px;">
+                <label class="label is-small has-text-grey">Ends At</label>
+                <div class="has-text-weight-semibold is-size-5 has-text-white" id="endsAtTime">--:--</div>
+              </div>
+            </div>
+        </div>
+    </div>
+  </div>
+  </main>
+
+  <!-- Status Footer -->
+  <footer id="statusFooter" class="status-footer">
+    <div class="status-left">
+      <span id="statusMessage" class="status-message"></span>
+    </div>
+    <div class="status-right">
+      <i id="cameraStatus" class="bi bi-camera-video camera-inactive" title="Camera Inactive"></i>
+      <i id="serverStatus" class="bi bi-broadcast server-inactive" title="API Server Inactive"></i>
+    </div>
+  </footer>
+  
+  <script type="module" src="../layouts/layoutRegistry.js"></script>
+  <script type="module" src="../js/videoInputManager.js"></script>
+  <script type="module" src="../js/UnifiedCanvasRenderer.js"></script>
+  <script type="module" src="../js/statusBar.js"></script>
+  <script type="module" src="../js/countdown.js"></script>
+</body>
+</html>

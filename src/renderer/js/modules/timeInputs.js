@@ -3,6 +3,9 @@
  * Functions for handling time input normalization and updates
  */
 
+import { formatTime } from '../utils/timeFormatter.js';
+import appState from './appState.js';
+
 /**
  * Normalize time inputs (handle overflow of seconds/minutes)
  * @returns {Object} Normalized time values {hours, minutes, seconds}
@@ -51,6 +54,19 @@ export function updateTimeFromInputs(state, updateDisplay, sendStateUpdate) {
   state.setTotalTime(timeInSeconds);
   state.setRemainingTime(timeInSeconds);
   
+  // Manual time input = custom preset (null)
+  appState.update({
+    'timer.preset': null,
+    'timer.totalTime': timeInSeconds * 1000,
+    'timer.remainingTime': timeInSeconds * 1000,
+    'timer.lastSetTime': timeInSeconds * 1000,
+    'timer.hours': normalized.hours,
+    'timer.minutes': normalized.minutes,
+    'timer.seconds': normalized.seconds,
+    'timer.percentage': 100,
+    'timer.formattedTime': formatTime(timeInSeconds)
+  });
+  
   updateDisplay();
   sendStateUpdate();
 }
@@ -61,18 +77,61 @@ export function updateTimeFromInputs(state, updateDisplay, sendStateUpdate) {
  * @param {Function} updateDisplay - Function to update display
  */
 export function addMinute(state, updateDisplay) {
+  // Don't allow adding time when stopped at zero (but allow when running)
+  if (state.stoppedAtZero) {
+    return;
+  }
+  
   // Add 60 seconds (1 minute) to remaining time
   state.setRemainingTime(state.remainingTime + 60);
   
-  // Also update total time if timer is not running (so progress bar works correctly)
+  // Only update total time if timer is NOT running
+  // When running, totalTime should stay fixed so elapsed time tracks correctly
   if (!state.running) {
-    state.setTotalTime(state.totalTime + 60);
-    // Update the minutes input field to reflect the change
-    const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-    document.getElementById("minutes").value = currentMinutes + 1;
+    // If we're coming back from negative time, update totalTime appropriately
+    const newRemainingTime = state.remainingTime;
+    if (newRemainingTime > 0) {
+      state.setTotalTime(Math.max(state.totalTime + 60, newRemainingTime));
+      
+      // Update input fields with the new positive time
+      const hours = Math.floor(newRemainingTime / 3600);
+      const minutes = Math.floor((newRemainingTime % 3600) / 60);
+      const seconds = newRemainingTime % 60;
+      
+      document.getElementById("hours").value = hours;
+      document.getElementById("minutes").value = minutes;
+      document.getElementById("seconds").value = seconds;
+    } else {
+      // Still negative - keep inputs at 00:00:00
+      document.getElementById("hours").value = 0;
+      document.getElementById("minutes").value = 0;
+      document.getElementById("seconds").value = 0;
+    }
   }
+  // When timer IS running, we don't adjust totalTime
+  // This preserves elapsed time calculation (totalTime - remainingTime)
   
   updateDisplay();
+  
+  // Update appState with new values for API consistency
+  const formattedTime = formatTime(state.remainingTime);
+  const updateData = {
+    'timer.remainingTime': state.remainingTime * 1000,
+    'timer.hours': Math.floor(Math.abs(state.remainingTime) / 3600),
+    'timer.minutes': Math.floor((Math.abs(state.remainingTime) % 3600) / 60),
+    'timer.seconds': Math.abs(state.remainingTime) % 60,
+    'timer.formattedTime': formattedTime,
+    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.round((state.remainingTime / state.totalTime) * 100)) : 100
+  };
+  
+  // Only update totalTime and preset when timer is not running
+  // When running, totalTime must stay fixed so elapsed time tracks correctly
+  if (!state.running) {
+    updateData['timer.totalTime'] = state.totalTime * 1000;
+    updateData['timer.preset'] = null;
+  }
+  
+  appState.update(updateData);
 }
 
 /**
@@ -81,29 +140,62 @@ export function addMinute(state, updateDisplay) {
  * @param {Function} updateDisplay - Function to update display
  */
 export function subtractMinute(state, updateDisplay) {
-  // Don't allow going below 0
-  if (state.remainingTime <= 60) {
-    state.setRemainingTime(0);
-    if (!state.running) {
-      state.setTotalTime(0);
-      document.getElementById("minutes").value = 0;
-      document.getElementById("hours").value = 0;
-      document.getElementById("seconds").value = 0;
-    }
-  } else {
-    // Subtract 60 seconds (1 minute) from remaining time
-    state.setRemainingTime(state.remainingTime - 60);
+  // Don't allow subtracting time when stopped at zero (but allow when running)
+  if (state.stoppedAtZero) {
+    return;
+  }
+  
+  // Subtract 60 seconds (1 minute) from remaining time (allow negative values)
+  state.setRemainingTime(state.remainingTime - 60);
+  
+  // Also update total time if timer is not running
+  if (!state.running) {
+    state.setTotalTime(Math.max(0, state.totalTime - 60)); // Keep totalTime non-negative for progress calculation
     
-    // Also update total time if timer is not running
-    if (!state.running) {
-      state.setTotalTime(state.totalTime - 60);
-      // Update the minutes input field to reflect the change
-      const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
-      if (currentMinutes > 0) {
-        document.getElementById("minutes").value = currentMinutes - 1;
-      }
+    // Update the input fields to reflect the change
+    const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
+    const currentHours = parseInt(document.getElementById("hours").value) || 0;
+    const currentSeconds = parseInt(document.getElementById("seconds").value) || 0;
+    
+    // Calculate new time values
+    let totalSeconds = (currentHours * 3600) + (currentMinutes * 60) + currentSeconds - 60;
+    
+    if (totalSeconds >= 0) {
+      // Positive time - update inputs normally
+      const newHours = Math.floor(totalSeconds / 3600);
+      const newMinutes = Math.floor((totalSeconds % 3600) / 60);
+      const newSecs = totalSeconds % 60;
+      
+      document.getElementById("hours").value = newHours;
+      document.getElementById("minutes").value = newMinutes;
+      document.getElementById("seconds").value = newSecs;
+    } else {
+      // Negative time - show 00:00:00 in inputs but keep negative remainingTime
+      document.getElementById("hours").value = 0;
+      document.getElementById("minutes").value = 0;
+      document.getElementById("seconds").value = 0;
     }
   }
   
   updateDisplay();
+  
+  // Update appState with new values for API consistency
+  const formattedTime = formatTime(state.remainingTime);
+  const updateData = {
+    'timer.remainingTime': state.remainingTime * 1000,
+    'timer.hours': Math.floor(Math.abs(state.remainingTime) / 3600),
+    'timer.minutes': Math.floor((Math.abs(state.remainingTime) % 3600) / 60),
+    'timer.seconds': Math.abs(state.remainingTime) % 60,
+    'timer.formattedTime': formattedTime,
+    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.round((state.remainingTime / state.totalTime) * 100)) : 100
+  };
+  
+  // Only update totalTime and preset when timer is not running
+  // When running, totalTime must stay fixed so elapsed time tracks correctly
+  if (!state.running) {
+    updateData['timer.totalTime'] = state.totalTime * 1000;
+    updateData['timer.preset'] = null;
+  }
+  
+  appState.update(updateData);
 }

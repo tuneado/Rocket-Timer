@@ -1,0 +1,494 @@
+const { ipcMain, clipboard, dialog } = require('electron');
+const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow } = require('./windows');
+const { updateDisplayMenuItems } = require('./menu');
+const SettingsManager = require('./settingsManager');
+
+let settingsManager;
+
+function setupIpcHandlers(mainWindow) {
+  // Initialize settings manager
+  settingsManager = new SettingsManager();
+
+  // Settings handlers
+  ipcMain.handle('get-settings', async () => {
+    return settingsManager.getSettings();
+  });
+
+  ipcMain.handle('get-setting', async (event, key) => {
+    return settingsManager.getSetting(key);
+  });
+
+  ipcMain.handle('save-settings', async (event, settings) => {
+    const success = settingsManager.saveSettings(settings);
+    
+    // Notify all windows of settings change
+    if (success) {
+      const updatedSettings = settingsManager.getSettings();
+      
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const displayWindow = getDisplayWindow();
+      if (displayWindow && !displayWindow.isDestroyed()) {
+        displayWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const settingsWindow = getSettingsWindow();
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+    }
+    
+    return success;
+  });
+
+  ipcMain.handle('save-setting', async (event, key, value) => {
+    const success = settingsManager.setSetting(key, value);
+    
+    // Notify all windows of settings change
+    if (success) {
+      const updatedSettings = settingsManager.getSettings();
+      
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const displayWindow = getDisplayWindow();
+      if (displayWindow && !displayWindow.isDestroyed()) {
+        displayWindow.webContents.send('settings-updated', updatedSettings);
+      }
+      
+      const settingsWindow = getSettingsWindow();
+      if (settingsWindow && !settingsWindow.isDestroyed()) {
+        settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+    }
+    
+    return success;
+  });
+
+  ipcMain.handle('reset-settings', async () => {
+    return settingsManager.resetSettings();
+  });
+
+  // Handle apply-settings (when settings window closes)
+  ipcMain.on('apply-settings', (event, settings) => {
+    console.log('Applying settings from settings window');
+    
+    // Notify main window to apply settings
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('apply-settings', settings);
+    }
+    
+    // Notify display window if open
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed()) {
+      displayWindow.webContents.send('apply-settings', settings);
+    }
+  });
+
+  // Handle display window toggle
+  ipcMain.on('toggle-display-window', (event) => {
+    try {
+      console.log('toggle-display-window event received');
+      const isVisible = toggleDisplayWindow();
+      console.log('Display window toggled. Now visible:', isVisible);
+      
+      // Send the new state back to the main window
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('display-window-state-changed', isVisible);
+        
+        // If window is now visible, request current state sync
+        if (isVisible) {
+          mainWindow.webContents.send('request-current-state-for-display');
+        }
+      }
+      
+      // Update menu items
+      updateDisplayMenuItems();
+    } catch (error) {
+      console.error('Error while toggling display window:', error);
+    }
+  });
+
+  // Handle clock updates
+  ipcMain.on('clock-update', (event, data) => {
+    if (!data || typeof data !== 'object') {
+      console.warn('Invalid clock-update data received:', data);
+      return;
+    }
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('update-clock', data);
+    }
+  });
+  
+  // Handle clock visibility toggle
+  ipcMain.on('toggle-clock-visibility', (event, visible) => {
+    console.log('Received toggle-clock-visibility:', visible);
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('toggle-clock-display', visible);
+    }
+  });
+
+  // Handle timer updates
+  ipcMain.on('timer-update', (event, data) => {
+    if (!data || typeof data !== 'object') {
+      console.warn('Invalid timer-update data received:', data);
+      return;
+    }
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('update-display', data);
+    }
+  });
+
+  ipcMain.on('update-theme', (event, theme) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('theme-updated', theme);
+    }
+    
+    // Also send theme to display window if it's visible
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('theme-updated', theme);
+    }
+  });
+
+  // Handle theme requests from display window
+  ipcMain.on('request-current-theme', (event) => {
+    // Request current theme from main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('request-current-theme-for-display');
+    }
+  });
+
+  // Forward theme response to display window
+  ipcMain.on('current-theme-response', (event, theme) => {
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('theme-updated', theme);
+    }
+  });
+
+  // Handle clock state requests
+  ipcMain.on('request-clock-state', (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('request-clock-state');
+    }
+  });
+
+  // Handle menu state updates
+  ipcMain.on('update-menu-states', (event, themeState, clockState) => {
+    const { updateMenuStates } = require('./menu');
+    updateMenuStates(themeState, clockState);
+  });
+
+  // Add handler to respond with clock state
+  ipcMain.on('clock-state-response', (event, data) => {
+    console.log('Received clock-state-response:', data);
+    
+    if (!data || typeof data !== 'object') {
+      console.warn('Invalid clock-state-response data received:', data);
+      return;
+    }
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('update-clock', data);
+    }
+  });
+
+  // Handle display window state requests
+  ipcMain.on('request-display-state', (event) => {
+    const isVisible = isDisplayWindowVisible();
+    console.log('Display window state requested, visible:', isVisible);
+    
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('display-window-state-changed', isVisible);
+    }
+  });
+
+  // Handle syncing current state to display window
+  ipcMain.on('sync-current-state', (event, data) => {
+    console.log('Syncing current state to display window:', data);
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      // Send current timer state
+      if (data.timer) {
+        displayWindow.webContents.send('update-display', data.timer);
+      }
+      // Send current clock state
+      if (data.clock) {
+        displayWindow.webContents.send('update-clock', data.clock);
+      }
+      // Send clock visibility state
+      if (data.clockVisible !== undefined) {
+        displayWindow.webContents.send('toggle-clock-display', data.clockVisible);
+      }
+      // Send current message state
+      if (data.message) {
+        if (data.message.visible && data.message.text) {
+          displayWindow.webContents.send('show-message', data.message.text);
+        } else {
+          displayWindow.webContents.send('clear-message');
+        }
+      }
+      // Send current video input state
+      if (data.video && data.video.enabled) {
+        console.log('Syncing video input to display window:', data.video);
+        displayWindow.webContents.send('video-input-start', data.video.deviceId);
+        if (data.video.opacity !== undefined) {
+          displayWindow.webContents.send('video-opacity-change', data.video.opacity);
+        }
+      }
+      // Send current feature image state
+      if (data.featureImage && data.featureImage.enabled) {
+        console.log('Syncing feature image to display window:', data.featureImage);
+        displayWindow.webContents.send('sync-feature-image', data.featureImage);
+      }
+    }
+  });
+
+  // Handle display message
+  ipcMain.on('display-message', (event, message) => {
+    if (!message || typeof message !== 'string') {
+      console.warn('Invalid display-message data received:', message);
+      return;
+    }
+    
+    console.log('Displaying message on display window:', message);
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('show-message', message);
+    }
+  });
+
+  // Handle clear message
+  ipcMain.on('clear-message', (event) => {
+    console.log('Clearing message from display window');
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('clear-message');
+    }
+  });
+
+  // Handle flash at zero
+  ipcMain.on('flash-at-zero', (event) => {
+    console.log('Flash at zero triggered');
+    
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('flash-at-zero');
+    }
+  });
+
+  // Handle clipboard read requests
+  ipcMain.handle('clipboard-read-text', async () => {
+    try {
+      return clipboard.readText();
+    } catch (error) {
+      console.error('Error reading clipboard:', error);
+      return '';
+    }
+  });
+
+  // Handle display sync request (when external display opens)
+  ipcMain.on('request-display-sync', (event) => {
+    console.log('Display sync requested');
+    
+    // Only sync if main window is ready
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.mainWindowReady) {
+        console.log('Main window is ready, requesting sync');
+        mainWindow.webContents.send('request-current-state-for-display');
+      } else {
+        console.log('Main window not ready yet, waiting...');
+        // Wait for main window to be ready
+        const checkReady = () => {
+          if (mainWindow.mainWindowReady) {
+            console.log('Main window now ready, requesting sync');
+            mainWindow.webContents.send('request-current-state-for-display');
+          } else {
+            setTimeout(checkReady, 100);
+          }
+        };
+        checkReady();
+      }
+    }
+  });
+
+  // Handle layout changes
+  ipcMain.on('layout-changed', (event, layoutId) => {
+    console.log('Layout changed to:', layoutId);
+    
+    // Forward layout change to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('layout-changed', layoutId);
+    }
+  });
+
+  // Handle video input start
+  ipcMain.on('video-input-started', (event, deviceId) => {
+    console.log('Video input started with device:', deviceId);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-input-start', deviceId);
+    }
+    
+    // Notify settings window with device info
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('video-input-live', {
+        isLive: true,
+        deviceId: deviceId
+      });
+    }
+  });
+
+  // Handle video input stop
+  ipcMain.on('video-input-stopped', (event) => {
+    console.log('Video input stopped');
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-input-stop');
+    }
+    
+    // Notify settings window
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('video-input-live', {
+        isLive: false,
+        deviceId: null
+      });
+    }
+  });
+
+  // Handle video device selection from settings window
+  ipcMain.on('video-device-selected', (event, deviceId) => {
+    console.log('Video device selected in settings:', deviceId);
+    
+    // Forward to main window so it knows which device to use
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('video-device-changed', deviceId);
+    }
+    
+    // Also forward to display window if it exists
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-device-changed', deviceId);
+    }
+  });
+
+  // Handle video opacity change
+  ipcMain.on('video-opacity-changed', (event, opacity) => {
+    console.log('Video opacity changed to:', opacity);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('video-opacity-change', opacity);
+    }
+  });
+
+  // Handle restart notification for hardware acceleration changes
+  ipcMain.on('show-restart-notification', (event) => {
+    const { dialog } = require('electron');
+    const settingsWindow = getSettingsWindow();
+    
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      dialog.showMessageBox(settingsWindow, {
+        type: 'info',
+        title: 'Restart Required',
+        message: 'Hardware Acceleration Setting Changed',
+        detail: 'Please restart the application for the hardware acceleration changes to take effect.',
+        buttons: ['OK']
+      });
+    }
+  });
+
+  // Handle feature image selection
+  ipcMain.handle('select-feature-image', async (event) => {
+    const settingsWindow = getSettingsWindow();
+    
+    const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
+      title: 'Select Feature Image',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    return result;
+  });
+
+  // Handle feature image toggle
+  ipcMain.on('toggle-feature-image', (event, enabled) => {
+    console.log('Feature image toggled:', enabled);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('toggle-feature-image', enabled);
+    }
+  });
+  
+  // Handle open API documentation request
+  ipcMain.on('open-api-docs', (event) => {
+    const { shell } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Try to open COMPANION_API.md
+    const docsPath = path.join(__dirname, '../../COMPANION_API.md');
+    
+    if (fs.existsSync(docsPath)) {
+      shell.openPath(docsPath);
+    } else {
+      console.error('API documentation file not found:', docsPath);
+      // Fallback: show dialog
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'API Documentation',
+        message: 'API documentation not found',
+        detail: 'The COMPANION_API.md file could not be found in the project directory.',
+        buttons: ['OK']
+      });
+    }
+  });
+  
+    // Handle main window ready notification
+  ipcMain.on('main-window-ready', (event) => {
+    console.log('Main window renderer is ready');
+    mainWindow.mainWindowReady = true;
+    
+    // If display window is already open and waiting, sync it now
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      mainWindow.webContents.send('request-current-state-for-display');
+    }
+  });
+}
+
+module.exports = { setupIpcHandlers };
+
+}
+
+module.exports = { setupIpcHandlers };
+}
+
+module.exports = { setupIpcHandlers };

@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* Source paths for class detection */
+@source "../**/*.{html,js,jsx}";
+
+@theme {
+  /* Color palette for dark theme */
+  --color-dark-bg: #121212;
+  --color-dark-fg: #f1f1f1;
+  --color-dark-card: #1e1e1e;
+  --color-dark-border: #333;
+  
+  /* Timer colors */
+  --color-timer-success: #4caf50;
+  --color-timer-warning: #ff9500;
+  --color-timer-danger: #ff4757;
+  --color-timer-overtime: #991b1b;
+}
+
+/* ===================================
+   DARK THEME STYLES
+   =================================== */
+
+.dark {
+  background-color: #121212;
+  color: #f1f1f1;
+}
+
+.dark .card {
+  background-color: #1e1e1e;
+  border-color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Button styles */
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 150ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.btn-success {
+  background-color: #4caf50;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #45a049;
+}
+
+.btn-danger {
+  background-color: #ff4757;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #e63946;
+}
+
+.btn-light {
+  background-color: #2a2a2a;
+  color: #f1f1f1;
+}
+
+.btn-light:hover {
+  background-color: #353535;
+}
+
+/* ===================================
+   CANVAS & STATUS CUSTOM STYLES
+   =================================== */
+
+/* Canvas variables used by UnifiedCanvasRenderer */
+:root {
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+  
+  /* Canvas rendering variables (dark theme) */
+  --canvas-countdown-color: #4caf50;
+  --canvas-clock-color: #999999;
+  --canvas-message-color: #f1f1f1;
+  --canvas-progress-bg: #2a2a2a;
+  --canvas-progress-success-start: #4caf50;
+  --canvas-progress-success-end: #66bb6a;
+  --canvas-progress-warning-start: #ff9500;
+  --canvas-progress-warning-end: #ffb340;
+  --canvas-progress-danger-start: #ff4757;
+  --canvas-progress-danger-end: #ff6b7a;
+  --canvas-progress-overtime-start: #991b1b;
+  --canvas-progress-overtime-end: #7f1d1d;
+  --canvas-separator-color: #444444;
+  --canvas-background: #121212;
+  --canvas-font-family: var(--font-mono);
+  --canvas-countdown-weight: bold;
+  --canvas-clock-weight: bold;
+  --canvas-message-weight: 600;
+  --canvas-elapsed-color: #999999;
+  --canvas-elapsed-weight: 600;
+  --canvas-remaining-color: #999999;
+  --canvas-remaining-weight: 600;
+}
+
+/* Canvas light mode overrides */
+[data-theme="light"] {
+  --canvas-countdown-color: #4caf50 !important;
+  --canvas-clock-color: #666666 !important;
+  --canvas-message-color: #333333 !important;
+  --canvas-progress-bg: #e8e8e8 !important;
+  --canvas-separator-color: #dddddd !important;
+  --canvas-background: #f7f7f7 !important;
+  --canvas-elapsed-color: #ff9500 !important;
+  --canvas-remaining-color: #1976d2 !important;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+}
+
+/* Canvas container */
+#timerCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Status footer active states */
+.camera-active {
+  color: #4caf50;
+}
+
+.camera-inactive {
+  color: #666;
+}
+
+.server-active {
+  color: #4caf50;
+}
+
+.server-inactive {
+  color: #666;
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+

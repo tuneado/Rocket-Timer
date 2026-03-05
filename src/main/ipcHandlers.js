@@ -216,12 +216,15 @@ function setupIpcHandlers(mainWindow) {
 
   // Handle syncing current state to display window
   ipcMain.on('sync-current-state', (event, data) => {
-    console.log('Syncing current state to display window:', data);
+    console.log('📨 Main process received sync-current-state:', data);
     
     const displayWindow = getDisplayWindow();
+    console.log('📺 Display window exists?', !!displayWindow, 'destroyed?', displayWindow?.isDestroyed(), 'visible?', isDisplayWindowVisible());
+    
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       // Send current timer state
       if (data.timer) {
+        console.log('📤 Main process sending update-display to display window:', data.timer);
         displayWindow.webContents.send('update-display', data.timer);
       }
       // Send current clock state
@@ -248,10 +251,15 @@ function setupIpcHandlers(mainWindow) {
           displayWindow.webContents.send('video-opacity-change', data.video.opacity);
         }
       }
-      // Send current feature image state
-      if (data.featureImage && data.featureImage.enabled) {
-        console.log('Syncing feature image to display window:', data.featureImage);
-        displayWindow.webContents.send('sync-feature-image', data.featureImage);
+      // Send current cover image state
+      if (data.coverImage && data.coverImage.enabled) {
+        console.log('Syncing cover image to display window:', data.coverImage);
+        displayWindow.webContents.send('sync-cover-image', data.coverImage);
+      }
+      // Send current background image state
+      if (data.backgroundImage && data.backgroundImage.enabled) {
+        console.log('Syncing background image to display window:', data.backgroundImage);
+        displayWindow.webContents.send('sync-background-image', data.backgroundImage);
       }
     }
   });
@@ -301,30 +309,7 @@ function setupIpcHandlers(mainWindow) {
     }
   });
 
-  // Handle display sync request (when external display opens)
-  ipcMain.on('request-display-sync', (event) => {
-    console.log('Display sync requested');
-    
-    // Only sync if main window is ready
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.mainWindowReady) {
-        console.log('Main window is ready, requesting sync');
-        mainWindow.webContents.send('request-current-state-for-display');
-      } else {
-        console.log('Main window not ready yet, waiting...');
-        // Wait for main window to be ready
-        const checkReady = () => {
-          if (mainWindow.mainWindowReady) {
-            console.log('Main window now ready, requesting sync');
-            mainWindow.webContents.send('request-current-state-for-display');
-          } else {
-            setTimeout(checkReady, 100);
-          }
-        };
-        checkReady();
-      }
-    }
-  });
+  // Handle display sync request (when external display opens) - REMOVED - See consolidated handler below
 
   // Handle layout changes
   ipcMain.on('layout-changed', (event, layoutId) => {
@@ -420,12 +405,12 @@ function setupIpcHandlers(mainWindow) {
     }
   });
 
-  // Handle feature image selection
-  ipcMain.handle('select-feature-image', async (event) => {
+  // Handle cover image selection
+  ipcMain.handle('select-cover-image', async (event) => {
     const settingsWindow = getSettingsWindow();
     
     const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
-      title: 'Select Feature Image',
+      title: 'Select Cover Image',
       properties: ['openFile'],
       filters: [
         { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
@@ -436,15 +421,195 @@ function setupIpcHandlers(mainWindow) {
     return result;
   });
 
-  // Handle feature image toggle
-  ipcMain.on('toggle-feature-image', (event, enabled) => {
-    console.log('Feature image toggled:', enabled);
+  // Handle background image selection
+  ipcMain.handle('select-background-image', async (event) => {
+    const settingsWindow = getSettingsWindow();
+    
+    const result = await dialog.showOpenDialog(settingsWindow || mainWindow, {
+      title: 'Select Background Image',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    return result;
+  });
+
+  // Handle cover image toggle
+  ipcMain.on('toggle-cover-image', (event, enabled) => {
+    console.log('Cover image toggled:', enabled);
     
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('toggle-feature-image', enabled);
+      displayWindow.webContents.send('toggle-cover-image', enabled);
     }
+  });
+  
+  // Handle background image updates
+  ipcMain.on('sync-background-image-update', (event, data) => {
+    console.log('Background image updated:', data);
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
+      displayWindow.webContents.send('sync-background-image', data);
+    }
+    
+    // Forward to main window (for preview canvas)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('sync-background-image', data);
+    }
+  });
+  
+  // Handle display window initialization sync (consolidated handler)
+  ipcMain.on('request-display-sync', async (event) => {
+    console.log('Display window requesting sync');
+    const displayWindow = getDisplayWindow();
+    
+    // Request timer state sync from main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.mainWindowReady) {
+        console.log('Main window is ready, requesting timer state sync');
+        mainWindow.webContents.send('request-current-state-for-display');
+      } else {
+        console.log('Main window not ready yet, waiting...');
+        // Wait for main window to be ready
+        const checkReady = () => {
+          if (mainWindow.mainWindowReady) {
+            console.log('Main window now ready, requesting timer state sync');
+            mainWindow.webContents.send('request-current-state-for-display');
+          } else {
+            setTimeout(checkReady, 100);
+          }
+        };
+        checkReady();
+      }
+    }
+    
+    // Sync images to display window
+    if (displayWindow && !displayWindow.isDestroyed()) {
+      const settings = settingsManager.getSettings();
+      
+      // Sync cover image
+      if (settings.coverImage && settings.coverImage.enabled && settings.coverImage.path) {
+        displayWindow.webContents.send('sync-cover-image', {
+          enabled: true,
+          path: settings.coverImage.path
+        });
+      }
+      
+      // Sync background image
+      if (settings.backgroundImage && settings.backgroundImage.enabled && settings.backgroundImage.path) {
+        displayWindow.webContents.send('sync-background-image', {
+          enabled: true,
+          path: settings.backgroundImage.path,
+          opacity: settings.backgroundImage.opacity || 1.0
+        });
+      }
+    }
+  });
+  
+  // Handle open API documentation request
+  ipcMain.on('open-api-docs', (event) => {
+    const { shell } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // Try to open REST_API_SERVER_GUIDE.md
+    const docsPath = path.join(__dirname, '../../REST_API_SERVER_GUIDE.md');
+    
+    if (fs.existsSync(docsPath)) {
+      shell.openPath(docsPath);
+    } else {
+      console.error('API documentation file not found:', docsPath);
+      // Fallback: show dialog
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'API Documentation',
+        message: 'API documentation not found',
+        detail: 'The REST_API_SERVER_GUIDE.md file could not be found in the project directory.',
+        buttons: ['OK']
+      });
+    }
+  });
+  
+  // Handle request for current server status
+  ipcMain.on('request-server-status', (event) => {
+    const { getApiServer } = require('./main');
+    const apiServer = getApiServer();
+    
+    // Check if server is enabled in settings
+    const settings = settingsManager.getSettings();
+    const serverEnabled = settings.companionServerEnabled !== false;
+    
+    if (apiServer && serverEnabled) {
+      const status = apiServer.getStatus();
+      
+      // Send to requesting window
+      event.sender.send('companion-server-status', status);
+      
+      console.log('Server status requested (enabled):', status);
+    } else {
+      // Server not initialized or disabled in settings
+      const reason = !apiServer ? 'not initialized' : 'disabled in settings';
+      const statusResponse = {
+        running: false,
+        port: null,
+        error: serverEnabled ? null : 'Disabled in settings'
+      };
+      
+      event.sender.send('companion-server-status', statusResponse);
+      
+      console.log(`Server status requested (${reason}):`, statusResponse);
+    }
+  });
+  
+  // Handle request for network addresses
+  ipcMain.handle('get-network-addresses', async () => {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+
+    Object.keys(interfaces).forEach((ifname) => {
+      interfaces[ifname].forEach((iface) => {
+        // Skip internal and non-IPv4 addresses
+        if (iface.family !== 'IPv4' || iface.internal !== false) {
+          return;
+        }
+        addresses.push({ name: ifname, address: iface.address });
+      });
+    });
+
+    return addresses;
+  });
+  
+  // Layout management handlers
+  ipcMain.on('layout-list-updated', () => {
+    // Notify main window that layout list was updated
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('layout-list-updated');
+    }
+  });
+  
+  ipcMain.handle('get-current-layout', async () => {
+    // Request current layout from main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        return await mainWindow.webContents.executeJavaScript(`
+          (() => {
+            const layoutSelector = document.getElementById('layoutSelector');
+            return layoutSelector ? layoutSelector.value : (window.LayoutRegistry ? window.LayoutRegistry.getDefaultLayout() : 'classic');
+          })()
+        `);
+      } catch (error) {
+        console.error('Error getting current layout:', error);
+        return 'classic';
+      }
+    }
+    return 'classic'; // Default fallback
   });
   
   // Handle main window ready notification

@@ -50,13 +50,35 @@ export function initializeIPCHandlers(deps) {
       const { hours, minutes, seconds } = settings.defaultTime;
       const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
       
-      // Only update if timer is not running
-      if (!timerState.running) {
-        timerState.setLastSetTime(timeInSeconds);
-        timerState.setRemainingTime(timeInSeconds);
-        timerState.setTotalTime(timeInSeconds);
-        actions.updateDisplay();
+      // Stop any running timer first
+      if (timerState.running || timerState.stoppedAtZero) {
+        // Use the stopTimer action if available
+        if (actions.stopTimer) {
+          actions.stopTimer();
+        }
       }
+      
+      // Reset timer state and apply new time
+      timerState.setRunning(false);
+      timerState.setStoppedAtZero(false);
+      timerState.setLastSetTime(timeInSeconds);
+      timerState.setRemainingTime(timeInSeconds);
+      timerState.setTotalTime(timeInSeconds);
+      
+      // Reset button to start state
+      const { startStopBtn, updateButtonIcon, setInputsDisabled } = actions.getElements();
+      if (startStopBtn && updateButtonIcon) {
+        updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+        startStopBtn.classList.remove("stop");
+        startStopBtn.classList.add("start");
+      }
+      
+      // Enable all inputs
+      if (setInputsDisabled) {
+        setInputsDisabled(false);
+      }
+      
+      actions.updateDisplay();
     }
     
     // Note: We don't apply defaultLayout here because it's a preference for NEW sessions
@@ -98,6 +120,12 @@ export function initializeIPCHandlers(deps) {
     if (canvasRenderer && settings.performance) {
       canvasRenderer.applyPerformanceSettings(settings.performance);
     }
+    
+    // Apply timer threshold settings
+    if (canvasRenderer) {
+      canvasRenderer.applyTimerThresholds(settings);
+      console.log('Applied timer thresholds from settings update');
+    }
   });
 
   // ===============================
@@ -113,8 +141,10 @@ export function initializeIPCHandlers(deps) {
   ipcRenderer.on('menu-toggle-clock', (_, value) => {
     clockState.setVisible(value);
     if (clockState.visible) {
+      // Start main clock (will stop lightweight info clock internally)
       actions.startClock();
     } else {
+      // Stop main clock (will restart lightweight info clock internally)
       actions.stopClock();
     }
     actions.updateMenuState();
@@ -205,6 +235,54 @@ export function initializeIPCHandlers(deps) {
         }
         break;
         
+      case 'setHours':
+        if (data && typeof data.hours === 'number') {
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Update only hours field, keep current minutes and seconds
+          document.getElementById('hours').value = data.hours;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'setMinutes':
+        if (data && typeof data.minutes === 'number') {
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Update only minutes field, keep current hours and seconds
+          document.getElementById('minutes').value = data.minutes;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'setSeconds':
+        if (data && typeof data.seconds === 'number') {
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Update only seconds field, keep current hours and minutes
+          document.getElementById('seconds').value = data.seconds;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
       case 'loadPreset':
         if (data && data.preset) {
           const presetBtn = document.querySelector(`button[data-preset="${data.preset}"]`);
@@ -224,10 +302,267 @@ export function initializeIPCHandlers(deps) {
           displayMessageBtn.click();
         }
         break;
+
+      case 'addMinute':
+        if (!timerState.running) {
+          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
+          const newMinutes = Math.min(59, currentMinutes + 1);
+          document.getElementById('minutes').value = newMinutes;
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+
+      case 'subtractMinute':
+        if (!timerState.running) {
+          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
+          const newMinutes = Math.max(0, currentMinutes - 1);
+          document.getElementById('minutes').value = newMinutes;
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+
+      case 'toggleFeatureImage':
+        // Toggle feature image using the same logic as the feature image button
+        const { featureImageBtn } = getElements();
+        if (featureImageBtn) {
+          featureImageBtn.click();
+        }
+        break;
+
+      case 'flashScreen':
+        // Use the same flash function as the flash button
+        if (actions.flashAtZero) {
+          actions.flashAtZero();
+        }
+        break;
+
+      case 'muteSound':
+        // Set mute state
+        if (actions.setMuteState) {
+          actions.setMuteState(true);
+        }
+        break;
+
+      case 'unmuteSound':
+        // Unmute sound
+        if (actions.setMuteState) {
+          actions.setMuteState(false);
+        }
+        break;
+
+      case 'toggleSound':
+        // Toggle mute state
+        if (actions.toggleMuteState) {
+          actions.toggleMuteState();
+        }
+        break;
     }
     
-    // Send state update after command
-    actions.sendStateUpdate();
+    // Send immediate state update after command
+    setTimeout(() => {
+      actions.sendStateUpdate();
+    }, 10); // Small delay to ensure DOM updates are processed
+  });
+
+  // ===============================
+  // Unified API Commands (New)
+  // ===============================
+  
+  ipcRenderer.on('api-command', (command) => {
+    console.log('🌐 Received unified API command:', command);
+    const { action, data } = command;
+    const { startStopBtn, resetBtn, displayMessageBtn } = getElements();
+    
+    switch (action) {
+      case 'start-timer':
+        if (!timerState.running && timerState.remainingTime > 0) {
+          console.log('⏰ API: Starting timer');
+          startStopBtn.click();
+        }
+        break;
+        
+      case 'stop-timer':
+        if (timerState.running) {
+          console.log('⏹️ API: Stopping timer');
+          startStopBtn.click();
+        }
+        break;
+        
+      case 'pause-timer':
+        if (timerState.running && !timerState.paused) {
+          console.log('⏸️ API: Pausing timer');
+          startStopBtn.click();
+        }
+        break;
+        
+      case 'resume-timer':
+        if (timerState.paused) {
+          console.log('▶️ API: Resuming timer');
+          startStopBtn.click();
+        }
+        break;
+        
+      case 'reset-timer':
+        console.log('🔄 API: Resetting timer');
+        resetBtn.click();
+        break;
+        
+      case 'adjust-time':
+        if (data && typeof data.seconds === 'number') {
+          console.log(`⏱️ API: Adjusting time by ${data.seconds} seconds`);
+          
+          // Adjust only the remaining time, keep total time unchanged
+          const currentRemainingTime = timerState.remainingTime;
+          const adjustment = data.seconds;
+          const newRemainingTime = Math.max(0, currentRemainingTime + adjustment);
+          
+          // Update the timer state directly (don't change total time)
+          timerState.remainingTime = newRemainingTime;
+          
+          // Update the display to reflect the change
+          actions.updateDisplay();
+          
+          console.log(`⏱️ Adjusted from ${currentRemainingTime}s to ${newRemainingTime}s (${adjustment >= 0 ? '+' : ''}${adjustment}s)`);
+        }
+        break;
+        
+      case 'set-time':
+        if (data && typeof data.totalSeconds === 'number') {
+          console.log(`⏱️ API: Setting time to ${data.totalSeconds} seconds`);
+          
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Convert to hours, minutes, seconds
+          const hours = Math.floor(data.totalSeconds / 3600);
+          const minutes = Math.floor((data.totalSeconds % 3600) / 60);
+          const seconds = Math.floor(data.totalSeconds % 60);
+          
+          // Update input fields
+          document.getElementById('hours').value = hours;
+          document.getElementById('minutes').value = minutes;
+          document.getElementById('seconds').value = seconds;
+          
+          // Update time
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'load-preset':
+        if (data && data.presetId) {
+          console.log(`📋 API: Loading preset ${data.presetId}`);
+          // TODO: Implement preset loading from settings
+        }
+        break;
+        
+      case 'create-preset':
+        if (data) {
+          console.log('📋 API: Creating preset:', data.name);
+          // TODO: Implement preset creation
+        }
+        break;
+        
+      case 'update-settings':
+        if (data) {
+          console.log('⚙️ API: Updating settings');
+          // TODO: Implement settings update
+        }
+        break;
+        
+      case 'trigger-flash':
+        if (data) {
+          console.log(`⚡ API: Triggering flash - ${data.cycles} cycles`);
+          const canvasRenderer = getCanvasRenderer();
+          if (canvasRenderer && canvasRenderer.triggerFlash) {
+            canvasRenderer.triggerFlash(data.cycles || 3, data.duration || 500);
+          }
+        }
+        break;
+        
+      default:
+        console.warn('Unknown API command:', action);
+    }
+    
+    // Send immediate state update after command
+    setTimeout(async () => {
+      actions.sendStateUpdate();
+      
+      // Import calculateWarningLevel for consistent state updates
+      const { calculateWarningLevel } = await import('./displayManager.js');
+      const warningLevel = await calculateWarningLevel(timerState.remainingTime, timerState.totalTime);
+      
+      // Get current settings colors
+      const currentColors = {
+        progressSuccess: '#4ade80',
+        progressWarning: '#f59e0b', 
+        progressDanger: '#ef4444'
+      };
+      
+      ipcRenderer.send('companion-state-update', {
+        timer: {
+          totalTime: timerState.totalTime,
+          remainingTime: timerState.remainingTime,
+          running: timerState.running,
+          paused: timerState.paused,
+          startTime: timerState.startTime,
+          endTime: timerState.endTime,
+          endTimeFormatted: timerState.endTimeFormatted,
+          formattedTime: actions.formatTime(timerState.remainingTime),
+          percentage: timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0,
+          warningLevel: warningLevel
+        },
+        settings: {
+          colors: currentColors
+        }
+      });
+    }, 10);
+  });
+
+  // ===============================
+  // API Timer State Updates
+  // ===============================
+  
+  ipcRenderer.on('api-timer-state-update', (timerState) => {
+    // Update canvas renderer with warning level and color information
+    const canvasRenderer = getCanvasRenderer();
+    if (canvasRenderer) {
+      // Update canvas state with API-calculated values
+      // NOTE: Do NOT update elapsed here - displayManager handles it with millisecond precision
+      canvasRenderer.setState({
+        countdown: timerState.formattedTime,
+        progress: timerState.remainingPercentage, // Use remaining percentage
+        // elapsed: timerState.formattedElapsed, // REMOVED - displayManager calculates this correctly
+        endTime: timerState.endTimeFormatted,
+        warningLevel: timerState.warningLevel,
+        warningColor: timerState.warningColor
+      });
+      
+      // Trigger color update if timer color matching is enabled
+      const matchTimerColor = localStorage.getItem('matchTimerColor') === 'true';
+      if (matchTimerColor) {
+        // Force canvas to use the API-calculated warning color
+        canvasRenderer.updateDynamicColors(timerState.warningColor);
+      }
+    }
+    
+    // Update any other UI elements that need warning level information
+    const statusBar = deps.statusBar;
+    if (statusBar && timerState.warningLevel !== 'normal') {
+      const levelMessages = {
+        'warning': '⚠️ Timer entering warning zone',
+        'critical': '🚨 Timer critical - time running low',
+        'overtime': '⏰ Timer exceeded - in overtime'
+      };
+      
+      if (levelMessages[timerState.warningLevel]) {
+        statusBar.info(levelMessages[timerState.warningLevel], 2000);
+      }
+    }
   });
 
   // ===============================
@@ -239,24 +574,31 @@ export function initializeIPCHandlers(deps) {
   });
   
   ipcRenderer.on('request-current-state-for-display', () => {
-    console.log('Syncing current state to display window');
+    console.log('🔄 Syncing current state to display window');
     
     const canvasRenderer = getCanvasRenderer();
-    if (!canvasRenderer) return;
+    if (!canvasRenderer) {
+      console.error('❌ Canvas renderer not available for sync');
+      return;
+    }
     
     // Get current state from canvas renderer (most reliable source)
     const canvasState = canvasRenderer.state;
     
-    console.log('Canvas state at sync:', canvasState);
-    console.log('remainingTime:', timerState.remainingTime, 'totalTime:', timerState.totalTime);
+    console.log('📊 Canvas state at sync:', canvasState);
+    console.log('⏱️ Timer values - remainingTime:', timerState.remainingTime, 'totalTime:', timerState.totalTime);
     
     // Get current timer state - use canvas state as fallback
     const timerData = {
       formattedTime: canvasState.countdown || actions.formatTime(timerState.remainingTime),
       progressPercent: canvasState.progress !== undefined 
         ? canvasState.progress 
-        : (timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0)
+        : (timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0),
+      remainingTime: timerState.remainingTime,
+      totalTime: timerState.totalTime
     };
+    
+    console.log('📤 Sending timer data to display:', timerData);
     
     // Get current clock state from canvasRenderer
     const clockData = {
@@ -284,7 +626,7 @@ export function initializeIPCHandlers(deps) {
     
     // Get current feature image state
     let featureImageData = null;
-    if (canvasRenderer.featureImage.enabled) {
+    if (canvasRenderer.featureImage && canvasRenderer.featureImage.enabled) {
       featureImageData = {
         enabled: true,
         path: canvasRenderer.featureImage.path
@@ -292,14 +634,17 @@ export function initializeIPCHandlers(deps) {
     }
 
     // Send all current state to main process for forwarding to display window
-    ipcRenderer.send('sync-current-state', {
+    const syncData = {
       timer: timerData,
       clock: clockData,
       message: messageData,
       clockVisible: canvasState.showClock,
       video: videoData,
       featureImage: featureImageData
-    });
+    };
+    
+    console.log('📤 Sending sync-current-state to main process:', syncData);
+    ipcRenderer.send('sync-current-state', syncData);
   });
 
   // ===============================

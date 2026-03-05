@@ -107,9 +107,10 @@ export function createFlashAnimation(renderer, options = {}) {
     root.style.setProperty('--canvas-message-color', originalColors.message);
     root.style.setProperty('--canvas-separator-color', originalColors.separator);
     
-    // Force final redraw
+    // Force final redraw - UnifiedCanvasRenderer automatically renders
     renderer.updateStyleCache();
-    renderer.draw();
+    
+    // No need to call renderer.draw() as UnifiedCanvasRenderer handles its own rendering loop
   }
   
   // Start animation

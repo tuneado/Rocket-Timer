@@ -8,6 +8,8 @@
  * - Clipboard paste integration (Cmd+V / Ctrl+V)
  */
 
+import appState from './appState.js';
+
 /**
  * Updates the character counter display with color coding
  * @param {HTMLInputElement} messageInput - The message input element
@@ -41,13 +43,13 @@ export function updateCharCounter(messageInput, charCounter) {
  * @param {Function} dependencies.updateButtonIcon - Function to update button icon/text
  * @param {Function} dependencies.hideMessage - Function to hide the message
  */
-export function displayMessage(messageState, { messageInput, displayMessageBtn, canvasRenderer, ipcRenderer, updateButtonIcon, hideMessage }) {
+export function displayMessage(messageState, { messageInput, displayMessageBtn, canvasRenderer, ipcRenderer, updateButtonIcon, hideMessage, statusBar }) {
   const message = messageInput.value.trim();
   
   if (!messageState.isDisplayed()) {
     // Display message
     if (!message) {
-      alert('Please enter a message to display.');
+      statusBar.warning('Please enter a message to display.', 5000);
       return;
     }
     
@@ -67,6 +69,12 @@ export function displayMessage(messageState, { messageInput, displayMessageBtn, 
     // Update button state
     updateButtonIcon(displayMessageBtn, 'eye-slash-fill', 'Hide Message');
     messageState.setDisplayed(true);
+    
+    // Update appState for API consistency
+    appState.update({
+      'message.visible': true,
+      'message.text': message
+    });
   } else {
     // Hide message
     hideMessage();
@@ -100,6 +108,12 @@ export function hideMessage(messageState, { displayMessageBtn, canvasRenderer, i
   // Update button state
   updateButtonIcon(displayMessageBtn, 'display-fill', 'Display Message');
   messageState.setDisplayed(false);
+  
+  // Update appState for API consistency
+  appState.update({
+    'message.visible': false,
+    'message.text': ''
+  });
 }
 
 /**

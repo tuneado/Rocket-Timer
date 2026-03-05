@@ -20,7 +20,9 @@ class AppState {
         minutes: 0,
         seconds: 0,
         percentage: 100,
-        formattedTime: '00:00:00',
+        formattedTime: '--:--:--', // formatted time string
+        endTime: null,         // Date object when timer will finish
+        endTimeFormatted: '--:--:--', // formatted end time string
         preset: null           // null or preset index (0-7), null = custom
       },
 
@@ -153,7 +155,10 @@ class AppState {
       this.notify(path, value, oldValue);
     }
     
-    logger.debug('STATE', `Updated ${path}:`, { old: oldValue, new: value });
+    // Only log non-timer updates to reduce noise (timer updates happen every frame)
+    if (!path.startsWith('timer.')) {
+      logger.debug('STATE', `Updated ${path}:`, { old: oldValue, new: value });
+    }
     
     return true;
   }

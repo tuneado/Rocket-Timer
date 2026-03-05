@@ -1,0 +1,269 @@
+/**
+ * Design Tokens - Single Source of Truth
+ * 
+ * This file defines all design tokens for the Countdown Timer application.
+ * All CSS variables are defined here and imported everywhere.
+ * 
+ * Usage:
+ * - Import this file FIRST in all HTML pages
+ * - Reference variables using var(--token-name)
+ * - Theme switching uses .dark class on <html> element
+ */
+
+/* ============================================
+   BASE TOKENS (Theme Independent)
+   ============================================ */
+
+:root {
+  /* ---------- Typography ---------- */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', 'Monaco', monospace;
+  
+  /* Font Sizes */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+  
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  
+  /* ---------- Spacing Scale ---------- */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;    /* 4px */
+  --spacing-2: 0.5rem;     /* 8px */
+  --spacing-3: 0.75rem;    /* 12px */
+  --spacing-4: 1rem;       /* 16px */
+  --spacing-5: 1.25rem;    /* 20px */
+  --spacing-6: 1.5rem;     /* 24px */
+  --spacing-8: 2rem;       /* 32px */
+  --spacing-10: 2.5rem;    /* 40px */
+  --spacing-12: 3rem;      /* 48px */
+  
+  /* ---------- Border Radius ---------- */
+  --radius-sm: 0.25rem;    /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-full: 9999px;
+  
+  /* ---------- Shadows ---------- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  /* ---------- Transitions ---------- */
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+  
+  /* ---------- Z-Index Scale ---------- */
+  --z-dropdown: 1000;
+  --z-modal: 1100;
+  --z-toast: 1200;
+  --z-tooltip: 1300;
+  
+  /* ---------- Timer State Colors (Always Same) ---------- */
+  --color-success: #4caf50;
+  --color-success-light: #66bb6a;
+  --color-warning: #ff9500;
+  --color-warning-light: #ffb340;
+  --color-danger: #ff4757;
+  --color-danger-light: #ff6b7a;
+  --color-overtime: #991b1b;
+  --color-overtime-light: #b91c1c;
+  
+  /* ---------- Primary Brand Color ---------- */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-active: #1d4ed8;
+}
+
+/* ============================================
+   LIGHT THEME (Default)
+   ============================================ */
+
+:root {
+  /* Background colors */
+  --bg-base: #f5f5f7;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f0f0f2;
+  --bg-input: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.05);
+  --bg-active: rgba(0, 0, 0, 0.1);
+  
+  /* Text colors */
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-muted: #8e8e93;
+  --text-inverse: #ffffff;
+  
+  /* Border colors */
+  --border-default: #d1d1d6;
+  --border-muted: #e5e5ea;
+  --border-focus: var(--color-primary);
+  
+  /* Component-specific */
+  --sidebar-bg: #e8e8ed;
+  --nav-hover: #d2d2d7;
+  --nav-active: var(--color-primary);
+  --nav-active-text: #ffffff;
+  
+  /* Switch */
+  --switch-off-bg: #d1d1d6;
+  --switch-on-bg: var(--color-primary);
+  --switch-knob: #ffffff;
+  
+  /* Shadows for light theme */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   DARK THEME
+   ============================================ */
+
+.dark {
+  /* Background colors */
+  --bg-base: #121212;
+  --bg-surface: #1e1e1e;
+  --bg-elevated: #252525;
+  --bg-muted: #2a2a2a;
+  --bg-input: #2a2a2a;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.1);
+  
+  /* Text colors */
+  --text-primary: #f1f1f1;
+  --text-secondary: #a0a0a0;
+  --text-muted: #666666;
+  --text-inverse: #121212;
+  
+  /* Border colors */
+  --border-default: #333333;
+  --border-muted: #2a2a2a;
+  --border-focus: var(--color-primary);
+  
+  /* Component-specific */
+  --sidebar-bg: #1a1a1a;
+  --nav-hover: #2a2a2a;
+  --nav-active: var(--color-primary);
+  --nav-active-text: #ffffff;
+  
+  /* Switch */
+  --switch-off-bg: #4a4a4a;
+  --switch-on-bg: var(--color-primary);
+  --switch-knob: #ffffff;
+  
+  /* Shadows for dark theme */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   CANVAS RENDERING TOKENS
+   ============================================ */
+
+:root {
+  /* Canvas colors (used by UnifiedCanvasRenderer) */
+  --canvas-background: #121212;
+  --canvas-countdown-color: var(--color-success);
+  --canvas-clock-color: #999999;
+  --canvas-message-color: #f1f1f1;
+  --canvas-message-background-color: rgba(0, 0, 0, 0.7);
+  --canvas-elapsed-color: #999999;
+  --canvas-separator-color: #444444;
+  
+  /* Progress bar gradients */
+  --canvas-progress-bg: #2a2a2a;
+  --canvas-progress-success-start: #4caf50;
+  --canvas-progress-success-end: #66bb6a;
+  --canvas-progress-warning-start: #ff9500;
+  --canvas-progress-warning-end: #ffb340;
+  --canvas-progress-danger-start: #ff4757;
+  --canvas-progress-danger-end: #ff6b7a;
+  --canvas-progress-overtime-start: #991b1b;
+  --canvas-progress-overtime-end: #7f1d1d;
+  
+  /* Canvas typography */
+  --canvas-font-family: var(--font-mono);
+  --canvas-countdown-weight: bold;
+  --canvas-clock-weight: bold;
+  --canvas-message-weight: 600;
+  --canvas-elapsed-weight: 600;
+}
+
+/* ============================================
+   COMPONENT TOKENS
+   ============================================ */
+
+:root {
+  /* Button sizes */
+  --btn-height-sm: 2rem;       /* 32px */
+  --btn-height-md: 2.5rem;     /* 40px */
+  --btn-height-lg: 3rem;       /* 48px */
+  --btn-height-xl: 4rem;       /* 64px - for main controls */
+  
+  /* Input sizes */
+  --input-height-sm: 2rem;     /* 32px */
+  --input-height-md: 2.5rem;   /* 40px */
+  --input-height-lg: 3rem;     /* 48px */
+  
+  /* Card settings */
+  --card-padding: var(--spacing-4);
+  --card-radius: var(--radius-xl);
+  
+  /* Settings layout */
+  --settings-sidebar-width: 200px;
+  --settings-content-max-width: 700px;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Focus ring utility */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--color-primary);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Switch knob animation - responds to sibling input:checked state */
+.switch-knob {
+  transform: translateX(0);
+  transition: transform 0.15s ease-in-out;
+}
+
+input:checked ~ div .switch-knob {
+  transform: translateX(var(--switch-translate, 20px));
+}
+
+/* Switch track color when checked */
+.switch-track {
+  background-color: var(--switch-off-bg);
+  transition: background-color 0.15s ease-in-out;
+}
+
+input:checked ~ .switch-track {
+  background-color: var(--color-primary);
+}

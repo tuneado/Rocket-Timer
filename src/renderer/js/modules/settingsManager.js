@@ -17,6 +17,7 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
   try {
     const settings = await window.electron.settings.getAll();
     console.log('Loaded settings:', settings);
+    console.log('🔍 DEBUGGING: settings.defaultLayout =', settings.defaultLayout);
     
     // Apply default time
     if (settings.defaultTime) {
@@ -35,14 +36,17 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
       if (secondsInput) secondsInput.value = seconds;
       
       console.log('Applied default time:', hours, 'h', minutes, 'm', seconds, 's');
+      console.log('Timer state after applying default time - remaining:', timerState.remainingTime, 'total:', timerState.totalTime);
     }
     
     // Apply default layout
     if (settings.defaultLayout) {
+      console.log('🔧 SettingsManager: Setting canvasLayout to:', settings.defaultLayout);
       localStorage.setItem('canvasLayout', settings.defaultLayout);
       const layoutSelector = getElementById('layoutSelector');
       if (layoutSelector) {
         layoutSelector.value = settings.defaultLayout;
+        console.log('🔧 SettingsManager: Layout selector set to:', settings.defaultLayout);
       }
     }
     
@@ -66,6 +70,23 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
       applyCanvasColors(settings.colors);
     }
     
+    // Store matchTimerColor in localStorage for canvas access
+    if (typeof settings.matchTimerColor !== 'undefined') {
+      localStorage.setItem('matchTimerColor', settings.matchTimerColor.toString());
+    }
+    
+    // Store clockFormat in localStorage for fast access from clock and timer managers
+    if (settings.clockFormat) {
+      localStorage.setItem('clockFormat', settings.clockFormat);
+    }
+    
+    // Store clock format in localStorage for cross-window access
+    if (settings.clockFormat) {
+      localStorage.setItem('clockFormat', settings.clockFormat);
+    } else {
+      localStorage.setItem('clockFormat', '24h'); // Default
+    }
+    
   } catch (error) {
     console.error('Error loading settings:', error);
   }
@@ -85,9 +106,9 @@ export function applyCanvasColors(colors) {
   if (colors.messageBackground) root.style.setProperty('--canvas-message-background-color', colors.messageBackground);
   if (colors.separator) root.style.setProperty('--canvas-separator-color', colors.separator);
   if (colors.background) root.style.setProperty('--canvas-background', colors.background);
-  if (colors.progressNormal) {
-    root.style.setProperty('--canvas-progress-normal-start', colors.progressNormal);
-    root.style.setProperty('--canvas-progress-normal-end', colors.progressNormal);
+  if (colors.progressSuccess) {
+    root.style.setProperty('--canvas-progress-success-start', colors.progressSuccess);
+    root.style.setProperty('--canvas-progress-success-end', colors.progressSuccess);
   }
   if (colors.progressWarning) {
     root.style.setProperty('--canvas-progress-warning-start', colors.progressWarning);

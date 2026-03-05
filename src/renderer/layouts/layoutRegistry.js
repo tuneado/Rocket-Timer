@@ -17,30 +17,72 @@ const classicLayout = {
   },
   "progressBar": {
     "enabled": true,
+    "zIndex": 20,
     "position": { "x": "5%", "y": "15%" },
     "size": { "width": "90%", "height": "4%" },
     "cornerRadius": 25
   },
   "countdown": {
     "enabled": true,
+    "zIndex": 40,
     "position": { "x": "center", "y": "middle" },
     "fontSize": 250,
-    "alignment": "center"
+    "alignment": "center",
+    "opacity": 1.0,
+    "background": {
+      "enabled": false,
+      "color": "rgba(0, 0, 0, 0.7)",
+      "padding": 20,
+      "borderRadius": 15
+    }
   },
   "clock": {
     "enabled": true,
+    "zIndex": 50,
     "position": { "x": "center", "y": "67%" },
     "fontSize": 90,
-    "alignment": "center"
+    "alignment": "center",
+    "opacity": 0.8,
+    "background": {
+      "enabled": false,
+      "color": "rgba(0, 0, 0, 0.6)",
+      "padding": 15,
+      "borderRadius": 10
+    }
   },
   "elapsed": {
     "enabled": false,
+    "zIndex": 60,
     "position": { "x": "25%", "y": "15%" },
     "fontSize": 40,
-    "alignment": "center"
+    "alignment": "center",
+    "opacity": 1.0,
+    "background": {
+      "enabled": false,
+      "color": "rgba(0, 0, 0, 0.6)",
+      "padding": 10,
+      "borderRadius": 8
+    }
+  },
+  "endTime": {
+    "enabled": false,
+    "zIndex": 70,
+    "position": { "x": "85%", "y": "15%" },
+    "fontSize": 40,
+    "alignment": "center",
+    "format": "HH:MM:SS",
+    "label": "Ends at:",
+    "opacity": 0.8,
+    "background": {
+      "enabled": false,
+      "color": "rgba(0, 0, 0, 0.6)",
+      "padding": 10,
+      "borderRadius": 8
+    }
   },
   "separator": {
     "enabled": true,
+    "zIndex": 30,
     "position": { "y": "75%" },
     "width": "90%",
     "thickness": 3,
@@ -48,12 +90,14 @@ const classicLayout = {
   },
   "message": {
     "enabled": true,
+    "zIndex": 80,
     "position": { "x": "center", "y": "85%" },
     "fontSize": 60,
     "alignment": "center",
     "maxLines": 2,
     "lineHeight": 1.3,
-    "showBackground": false
+    "showBackground": false,
+    "opacity": 1.0
   }
 };
 
@@ -78,6 +122,14 @@ const minimalLayout = {
   },
   "elapsed": {
     "enabled": false
+  },
+  "endTime": {
+    "enabled": false,
+    "position": { "x": "center", "y": "35%" },
+    "fontSize": 50,
+    "alignment": "center",
+    "format": "HH:MM:SS",
+    "label": "Ends at:"
   },
   "separator": {
     "enabled": false
@@ -120,6 +172,14 @@ const clockFocusLayout = {
   },
   "elapsed": {
     "enabled": false
+  },
+  "endTime": {
+    "enabled": false,
+    "position": { "x": "85%", "y": "15%" },
+    "fontSize": 40,
+    "alignment": "center",
+    "format": "HH:MM:SS",
+    "label": "Ends at:"
   },
   "separator": {
     "enabled": false,
@@ -166,9 +226,23 @@ const detailedLayout = {
   },
   "elapsed": {
     "enabled": true,
-    "position": { "x": "center", "y": "73%" },
-    "fontSize": 50,
-    "alignment": "center"
+    "position": { "x": "30%", "y": "73%" },
+    "fontSize": 70,
+    "alignment": "center",
+    "format": "HH:MM",
+    "label": "ELAPSED",
+    "showLabel": true,
+    "labelSize": 35
+  },
+  "endTime": {
+    "enabled": true,
+    "position": { "x": "70%", "y": "73%" },
+    "fontSize": 70,
+    "alignment": "center",
+    "format": "HH:MM",
+    "label": "ENDS AT",
+    "showLabel": true,
+    "labelSize": 35
   },
   "separator": {
     "enabled": true,
@@ -217,6 +291,14 @@ const circularLayout = {
   },
   "elapsed": {
     "enabled": false
+  },
+  "endTime": {
+    "enabled": false,
+    "position": { "x": "85%", "y": "15%" },
+    "fontSize": 35,
+    "alignment": "center",
+    "format": "HH:MM:SS",
+    "label": "Ends at:"
   },
   "separator": {
     "enabled": false
@@ -277,6 +359,14 @@ const videoLayout = {
     "fontSize": 65,
     "alignment": "center"
   },
+  "endTime": {
+    "enabled": false,
+    "position": { "x": "85%", "y": 1010 },
+    "fontSize": 50,
+    "alignment": "center",
+    "format": "HH:MM:SS",
+    "label": "→"
+  },
   "separator": {
     "enabled": false
   },
@@ -301,6 +391,36 @@ const layouts = {
   video: videoLayout
 };
 
+// Custom layouts storage (loaded from localStorage)
+let customLayouts = {};
+
+// Load custom layouts from localStorage
+function loadCustomLayouts() {
+  try {
+    const stored = localStorage.getItem('customLayouts');
+    if (stored) {
+      customLayouts = JSON.parse(stored);
+    }
+  } catch (error) {
+    console.warn('Failed to load custom layouts:', error);
+    customLayouts = {};
+  }
+}
+
+// Save custom layouts to localStorage
+function saveCustomLayouts() {
+  try {
+    localStorage.setItem('customLayouts', JSON.stringify(customLayouts));
+  } catch (error) {
+    console.error('Failed to save custom layouts:', error);
+  }
+}
+
+// Initialize custom layouts on load
+if (typeof window !== 'undefined') {
+  loadCustomLayouts();
+}
+
 /**
  * Layout Registry API
  */
@@ -311,7 +431,7 @@ class LayoutRegistry {
    * @returns {object} Layout configuration object
    */
   static getLayout(layoutId) {
-    return layouts[layoutId] || layouts.classic;
+    return layouts[layoutId] || customLayouts[layoutId] || layouts.classic;
   }
   
   /**
@@ -319,11 +439,21 @@ class LayoutRegistry {
    * @returns {Array} Array of layout info objects
    */
   static getAllLayouts() {
-    return Object.keys(layouts).map(key => ({
+    const builtinLayouts = Object.keys(layouts).map(key => ({
       id: key,
       name: layouts[key].name,
-      description: layouts[key].description
+      description: layouts[key].description,
+      type: 'builtin'
     }));
+    
+    const customLayoutsList = Object.keys(customLayouts).map(key => ({
+      id: key,
+      name: customLayouts[key].name,
+      description: customLayouts[key].description,
+      type: 'custom'
+    }));
+    
+    return [...builtinLayouts, ...customLayoutsList];
   }
   
   /**
@@ -340,7 +470,183 @@ class LayoutRegistry {
    * @returns {boolean} True if layout exists
    */
   static hasLayout(layoutId) {
-    return layouts.hasOwnProperty(layoutId);
+    return layouts.hasOwnProperty(layoutId) || customLayouts.hasOwnProperty(layoutId);
+  }
+  
+  /**
+   * Get built-in layouts only
+   * @returns {Array} Array of built-in layout info objects
+   */
+  static getBuiltinLayouts() {
+    return Object.keys(layouts).map(key => ({
+      id: key,
+      name: layouts[key].name,
+      description: layouts[key].description,
+      resolution: layouts[key].resolution,
+      type: 'builtin'
+    }));
+  }
+  
+  /**
+   * Get custom layouts only
+   * @returns {Array} Array of custom layout info objects
+   */
+  static getCustomLayouts() {
+    return Object.keys(customLayouts).map(key => ({
+      id: key,
+      name: customLayouts[key].name,
+      description: customLayouts[key].description,
+      resolution: customLayouts[key].resolution,
+      type: 'custom'
+    }));
+  }
+  
+  /**
+   * Add a custom layout
+   * @param {string} layoutId - Unique identifier for the layout
+   * @param {object} layoutData - The layout configuration object
+   * @returns {boolean} True if successfully added
+   */
+  static addCustomLayout(layoutId, layoutData) {
+    try {
+      // Validate required fields
+      if (!layoutData.name || !layoutData.resolution) {
+        throw new Error('Layout must have name and resolution');
+      }
+      
+      // Ensure ID doesn't conflict with built-in layouts
+      if (layouts.hasOwnProperty(layoutId)) {
+        throw new Error('Layout ID conflicts with built-in layout');
+      }
+      
+      customLayouts[layoutId] = layoutData;
+      saveCustomLayouts();
+      return true;
+    } catch (error) {
+      console.error('Failed to add custom layout:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Remove a custom layout
+   * @param {string} layoutId - The layout identifier to remove
+   * @returns {boolean} True if successfully removed
+   */
+  static removeCustomLayout(layoutId) {
+    if (customLayouts.hasOwnProperty(layoutId)) {
+      delete customLayouts[layoutId];
+      saveCustomLayouts();
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * Clear all custom layouts
+   * @returns {boolean} True if successfully cleared
+   */
+  static clearAllCustomLayouts() {
+    try {
+      customLayouts = {};
+      saveCustomLayouts();
+      return true;
+    } catch (error) {
+      console.error('Failed to clear custom layouts:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Validate a layout configuration
+   * @param {object} layoutData - The layout configuration to validate
+   * @returns {object} Validation result with isValid and errors
+   */
+  static validateLayout(layoutData) {
+    const errors = [];
+    
+    try {
+      // Check basic structure
+      if (!layoutData || typeof layoutData !== 'object') {
+        errors.push('Layout must be a valid object');
+        return { isValid: false, errors };
+      }
+      
+      // Required fields
+      if (!layoutData.name || typeof layoutData.name !== 'string') {
+        errors.push('Layout must have a valid name');
+      }
+      
+      if (!layoutData.resolution || !layoutData.resolution.width || !layoutData.resolution.height) {
+        errors.push('Layout must have resolution with width and height');
+      }
+      
+      // Validate elements
+      const requiredElements = ['countdown', 'clock', 'progressBar', 'separator', 'message', 'elapsed', 'endTime'];
+      for (const element of requiredElements) {
+        if (!layoutData[element]) {
+          errors.push(`Missing ${element} configuration`);
+          continue;
+        }
+        
+        const config = layoutData[element];
+        
+        // Check enabled property
+        if (typeof config.enabled !== 'boolean') {
+          errors.push(`${element}.enabled must be a boolean`);
+        }
+        
+        // Check position if element is enabled
+        if (config.enabled && config.position) {
+          // Separator can have only x (vertical) or only y (horizontal)
+          if (element === 'separator') {
+            if (config.position.x === undefined && config.position.y === undefined) {
+              errors.push(`${element}.position must have at least x or y coordinate`);
+            }
+          } else {
+            // Other elements need both x and y
+            if (config.position.x === undefined || config.position.x === null) {
+              errors.push(`${element}.position.x is required when enabled`);
+            }
+            if (config.position.y === undefined || config.position.y === null) {
+              errors.push(`${element}.position.y is required when enabled`);
+            }
+          }
+        }
+        
+        // Element-specific validations
+        if (element === 'countdown' || element === 'clock' || element === 'message') {
+          if (config.enabled && (!config.fontSize || config.fontSize <= 0)) {
+            errors.push(`${element}.fontSize must be a positive number when enabled`);
+          }
+          if (config.enabled && !config.alignment) {
+            errors.push(`${element}.alignment is required when enabled (center, left, right)`);
+          }
+        }
+        
+        // Validate separator-specific properties
+        if (element === 'separator' && config.enabled) {
+          if (!config.orientation || !['horizontal', 'vertical'].includes(config.orientation)) {
+            errors.push(`${element}.orientation must be 'horizontal' or 'vertical'`);
+          }
+        }
+        
+        // Validate progressBar-specific properties
+        if (element === 'progressBar' && config.enabled) {
+          if (!config.size || !config.size.width || !config.size.height) {
+            errors.push(`${element}.size with width and height is required when enabled`);
+          }
+        }
+      }
+      
+    } catch (error) {
+      errors.push(`Validation error: ${error.message}`);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 }
 

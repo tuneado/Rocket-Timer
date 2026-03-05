@@ -26,6 +26,16 @@ class SettingsManager {
       autoReset: false,
       soundNotification: false,
       flashAtZero: false,
+      clockFormat: '24h',
+
+      // Timer State Thresholds
+      timerThresholdType: 'percentage',
+      warningPercentage: 30,
+      criticalPercentage: 5,
+      warningTimeMinutes: 2,
+      warningTimeSeconds: 0,
+      criticalTimeMinutes: 0,
+      criticalTimeSeconds: 30,
 
       // Canvas
       canvasResolution: '1920x1080',
@@ -56,13 +66,26 @@ class SettingsManager {
         { id: 4, time: '20:00' }
       ],
 
+      // API & Integration
+      companionServerEnabled: true,
+      companionServerPort: 9999,
+      companionAllowExternal: false,
+
       // Appearance
       appearanceTheme: 'dark',
+      matchTimerColor: false,
       
-      // Feature Image
-      featureImage: {
+      // Cover Image (highest z-index overlay)
+      coverImage: {
         enabled: false,
         path: ''
+      },
+      
+      // Background Image (low z-index, always visible when set)
+      backgroundImage: {
+        enabled: false,
+        path: '',
+        opacity: 1.0
       },
       
       // Canvas Colors
@@ -76,7 +99,8 @@ class SettingsManager {
         background: '#000000',
         progressSuccess: '#4ade80',
         progressWarning: '#fbbf24',
-        progressDanger: '#ef4444'
+        progressDanger: '#ef4444',
+        progressOvertime: '#991b1b'
       }
     };
   }

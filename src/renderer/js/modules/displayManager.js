@@ -7,58 +7,158 @@
  * - Handles layout changes
  */
 
-import { formatTime } from '../utils/timeFormatter.js';
+import { formatTime, formatElapsedTime } from '../utils/timeFormatter.js';
 import appState from './appState.js';
 
 /**
- * Updates the display with current timer state
- * @param {Object} timerState - Timer state object
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
+ * Calculate progress percentage (unified calculation to prevent inconsistencies)
+ * @param {number} remainingTime - Remaining time in milliseconds
+ * @param {number} totalTime - Total time in milliseconds
+ * @returns {number} Progress percentage (0-100) with 1 decimal place
  */
-export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
-  const remainingTime = timerState.remainingTime;
-  const totalTime = timerState.totalTime;
+function calculateProgress(remainingTime, totalTime) {
+  // Use one decimal place for smoother visual animation
+  // This allows the progress bar to update more smoothly between timer ticks
+  const progress = totalTime > 0 ? Math.max(0, Math.round((remainingTime / totalTime) * 1000) / 10) : 0;
+  
+  return progress;
+}
+
+/**
+ * Calculate warning level based on settings
+ * This is the SINGLE SOURCE OF TRUTH for warning level calculations
+ * @param {number} remainingTime - Remaining time in seconds
+ * @param {number} totalTime - Total time in seconds
+ * @returns {Promise<string>} Warning level: 'normal', 'warning', 'critical', or 'overtime'
+ */
+export async function calculateWarningLevel(remainingTime, totalTime) {
+  if (remainingTime < 0) return 'overtime';
+  if (totalTime === 0) return 'normal';
+  
+  // Get threshold settings
+  let settings = {};
+  if (window.electron && window.electron.settings) {
+    try {
+      settings = await window.electron.settings.getAll();
+    } catch (error) {
+      console.warn('Could not load threshold settings:', error);
+    }
+  }
+  
+  const thresholdType = settings.timerThresholdType || 'percentage';
+  
+  if (thresholdType === 'percentage') {
+    const warningPercentage = settings.warningPercentage || 30;
+    const criticalPercentage = settings.criticalPercentage || 5;
+    const remainingPercentage = (remainingTime / totalTime) * 100;
+    
+    if (remainingPercentage > warningPercentage) return 'normal';
+    if (remainingPercentage > criticalPercentage) return 'warning';
+    return 'critical';
+  } else {
+    // Time-based thresholds
+    const warningTimeMinutes = settings.warningTimeMinutes || 2;
+    const warningTimeSeconds = settings.warningTimeSeconds || 0;
+    const criticalTimeMinutes = settings.criticalTimeMinutes || 0;
+    const criticalTimeSeconds = settings.criticalTimeSeconds || 30;
+    
+    const warningTimeTotal = (warningTimeMinutes * 60) + warningTimeSeconds;
+    const criticalTimeTotal = (criticalTimeMinutes * 60) + criticalTimeSeconds;
+    
+    if (remainingTime > warningTimeTotal) return 'normal';
+    if (remainingTime > criticalTimeTotal) return 'warning';
+    return 'critical';
+  }
+}
+
+/**
+ * Update display with current timer state
+ * @returns {Object} Calculated values (progressPercent, warningLevel) for reuse
+ */
+export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
+  // Use millisecond values for precise progress calculation
+  const remainingTimeMs = timerState.remainingTimeMs;
+  const totalTimeMs = timerState.totalTimeMs;
+  const remainingTime = timerState.remainingTime; // Seconds for formatting
+  const totalTime = timerState.totalTime; // Seconds for warnings
   const formattedTime = formatTime(remainingTime);
   
-  console.log('updateDisplay called - remainingTime:', remainingTime, 'formatted:', formattedTime);
+  // Calculate progress using unified function with millisecond precision
+  const progressPercent = calculateProgress(remainingTimeMs, totalTimeMs);
   
-  // Progress bar should go from 100% (full) to 0% (empty) as time runs down
-  const progressPercent = totalTime > 0 ? (remainingTime / totalTime * 100) : 0;
+  // Calculate elapsed time based on actual wall clock time (unaffected by +/- adjustments)
+  let elapsedSeconds = 0;
+  let elapsedDisplay;
   
-  // Calculate elapsed time (can go negative if timer exceeds set time)
-  const elapsedSeconds = totalTime - remainingTime;
-  const formattedElapsed = formatTime(Math.abs(elapsedSeconds));
-  const elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
+  if (totalTime === 0 || (!timerState.running && remainingTime === totalTime)) {
+    // No timer set or timer not started
+    elapsedDisplay = '--:--:--';
+  } else if (timerState.running && timerState.actualStartTimestamp > 0) {
+    // Timer is running: calculate from actual start time
+    const currentElapsed = (Date.now() - timerState.actualStartTimestamp) + timerState.pausedElapsedTime;
+    elapsedSeconds = currentElapsed / 1000;
+    const formattedElapsed = formatElapsedTime(Math.abs(elapsedSeconds));
+    elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
+  } else {
+    // Timer paused: use saved elapsed time
+    elapsedSeconds = timerState.pausedElapsedTime / 1000;
+    const formattedElapsed = formatElapsedTime(Math.abs(elapsedSeconds));
+    elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
+  }
+  
+  // Get end time from appState 
+  const endTimeDisplay = appState.get('timer.endTimeFormatted') || '--:--';
+  
+  // Update timer information display elements (exclude clock - handled by clockManager)
+  const timerValueEl = document.getElementById('timerValue');
+  const elapsedTimeEl = document.getElementById('elapsedTime');
+  const endsAtTimeEl = document.getElementById('endsAtTime');
+
+  if (timerValueEl) timerValueEl.textContent = formattedTime;
+  if (elapsedTimeEl) elapsedTimeEl.textContent = elapsedDisplay;
+  if (endsAtTimeEl) endsAtTimeEl.textContent = endTimeDisplay;
   
   // Update canvas renderer
   if (canvasRenderer) {
     canvasRenderer.setState({
       countdown: formattedTime,
       progress: progressPercent,
-      elapsed: elapsedDisplay
+      elapsed: elapsedDisplay,
+      endTime: endTimeDisplay,
+      remainingTime: remainingTimeMs, // Already in milliseconds
+      totalTime: totalTimeMs // Already in milliseconds
     });
   }
+
+  // Calculate warning level using dynamic thresholds
+  const warningLevel = await calculateWarningLevel(remainingTime, totalTime);
 
   // Send updates to display window
   if (window.electron && ipcRenderer) {
     ipcRenderer.send('timer-update', {
       formattedTime,
       progressPercent,
-      elapsed: elapsedDisplay
+      warningLevel,
+      remainingPercent: progressPercent, // Use same value for consistency
+      elapsed: elapsedDisplay,
+      remainingTime: remainingTimeMs, // Already in milliseconds
+      totalTime: totalTimeMs // Already in milliseconds
     });
   }
+  
+  // Return calculated values for potential reuse
+  return { progressPercent, warningLevel };
 }
 
 /**
  * Sends state update to companion server
- * @param {Object} timerState - Timer state object
+ * @param {Object} timerState - Timer state wrapper
  * @param {Object} dependencies - Required dependencies
  * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
  * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
+ * @param {Object} cachedValues - Optional pre-calculated values from updateDisplay to avoid recalculation
  */
-export function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer }) {
+export async function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer }, cachedValues = null) {
   if (!window.electron || !ipcRenderer) return;
   
   const remainingTime = timerState.remainingTime;
@@ -69,23 +169,25 @@ export function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer }) {
   const minutes = Math.floor((remainingTime % 3600) / 60);
   const seconds = remainingTime % 60;
   const formattedTime = formatTime(remainingTime);
-  const progressPercent = totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 0;
   
-  const state = {
-    running,
-    paused: !running && remainingTime < totalTime && remainingTime > 0,
-    timeRemaining: remainingTime,
-    totalTime,
-    hours,
-    minutes,
-    seconds,
-    percentage: progressPercent,
-    formattedTime,
-    layout: canvasRenderer ? canvasRenderer.layout.name : 'detailed',
-    preset: 'custom'
-  };
-  
-  ipcRenderer.send('companion-state-update', state);
+  // Use cached values if available, otherwise calculate
+  const progressPercent = cachedValues?.progressPercent ?? calculateProgress(remainingTime, totalTime);
+  const warningLevel = cachedValues?.warningLevel ?? await calculateWarningLevel(remainingTime, totalTime);
+
+  // Update appState instead of sending direct IPC - let appState subscription handle API updates
+  appState.update({
+    'timer.running': running,
+    'timer.paused': !running && remainingTime < totalTime && remainingTime > 0,
+    'timer.remainingTime': remainingTime * 1000, // Convert to milliseconds for appState
+    'timer.totalTime': totalTime * 1000,
+    'timer.hours': hours,
+    'timer.minutes': minutes,
+    'timer.seconds': seconds,
+    'timer.percentage': progressPercent,
+    'timer.formattedTime': formattedTime,
+    'timer.warningLevel': warningLevel,
+    'layout.current': canvasRenderer ? canvasRenderer.layout.name : 'detailed'
+  });
 }
 
 /**

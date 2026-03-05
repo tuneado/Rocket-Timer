@@ -3,10 +3,10 @@ const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
 const { setupMenu } = require('./menu');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
-const CompanionServer = require('./companionServer');
+const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
 
 let mainWindow;
-let companionServer;
+let apiServer;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -25,36 +25,49 @@ app.on('ready', () => {
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow);
   
-  // Initialize Companion Server
-  companionServer = new CompanionServer(mainWindow);
+  // Initialize Unified API Server
   const settings = getSettings();
+  apiServer = new UnifiedTimerAPIServer(mainWindow, {
+    restPort: settings.companionServerPort || 9999,
+    wsPort: settings.websocketPort || 8080,
+    oscPort: settings.oscPort || 7000,
+    oscRemotePort: settings.oscRemotePort || 7001,
+    enableAuth: settings.apiAuth || false,
+    enableRateLimit: settings.apiRateLimit !== false,
+    allowExternal: settings.companionAllowExternal === true,
+    colors: settings.colors || {}
+  });
   
-  // Wait for main window to be ready before sending status
+  // Wait for main window to be ready before starting API server
   mainWindow.webContents.once('did-finish-load', () => {
-    companionServer.start(9999, settings.companionEnabled !== false)
-      .then((started) => {
-        // Send server status to renderer
-        if (started) {
-          mainWindow.webContents.send('companion-server-status', {
-            running: true,
-            port: companionServer.getPort(),
-            error: null
-          });
-        } else {
-          mainWindow.webContents.send('companion-server-status', {
-            running: false,
-            port: null,
-            error: null
-          });
-        }
-      })
-      .catch((error) => {
-        mainWindow.webContents.send('companion-server-status', {
-          running: false,
-          port: null,
-          error: error.message
-        });
+    const enabled = settings.companionServerEnabled !== false;
+    
+    if (enabled) {
+      const result = apiServer.start();
+      
+      // Send server status to renderer
+      mainWindow.webContents.send('companion-server-status', {
+        running: result.running,
+        port: result.port,
+        error: result.error,
+        websocketPort: settings.websocketPort || 8080,
+        oscPort: settings.oscPort || 7000,
+        protocols: ['REST', 'WebSocket', 'OSC']
       });
+      
+      if (result.running) {
+        console.log('✅ Unified Timer API Server started successfully');
+      } else {
+        console.error('🚨 Failed to start Unified Timer API Server:', result.error);
+      }
+    } else {
+      console.log('📴 API Server disabled in settings');
+      mainWindow.webContents.send('companion-server-status', {
+        running: false,
+        port: null,
+        error: 'Disabled in settings'
+      });
+    }
   });
   
   // Check if should auto-open external display
@@ -96,5 +109,5 @@ app.on('activate', () => {
   }
 });
 
-// Export companionServer for access from other modules
-module.exports = { getCompanionServer: () => companionServer };
+// Export apiServer for access from other modules
+module.exports = { getApiServer: () => apiServer };
