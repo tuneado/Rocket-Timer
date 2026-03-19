@@ -304,7 +304,7 @@ class ApiServer {
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Countdown Timer - Companion API</title>
+  <title>Rocket Timer - Companion API</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -375,11 +375,11 @@ class ApiServer {
 </head>
 <body>
   <div class="container">
-    <h1>🎮 Countdown Timer - Companion API</h1>
+    <h1>🎮 Rocket Timer - Companion API</h1>
     <div class="status">✅ Server Running on Port ${this.port}</div>
     
     <h2>Quick Start</h2>
-    <p>This server provides REST API and WebSocket interfaces for controlling the Countdown Timer.</p>
+    <p>This server provides REST API and WebSocket interfaces for controlling Rocket Timer.</p>
     
     <h2>REST API Endpoints</h2>
     

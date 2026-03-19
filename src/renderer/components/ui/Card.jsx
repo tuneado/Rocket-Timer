@@ -39,7 +39,7 @@ export function Card({
       {title && (
         <CardHeader title={title} icon={icon} action={action} />
       )}
-      <div className={noPadding ? '' : 'p-4'}>
+      <div className={noPadding ? '' : 'p-[clamp(0.5rem,1.2vh,1rem)]'}>
         {children}
       </div>
     </div>
@@ -56,7 +56,7 @@ export function CardHeader({
   return (
     <div className={`
       flex items-center justify-between
-      px-4 py-3
+      px-[clamp(0.5rem,1.2vh,1rem)] py-[clamp(0.4rem,1vh,0.75rem)]
       border-b border-[var(--border-muted)]
       bg-[var(--bg-muted)]
       ${className}
@@ -64,9 +64,9 @@ export function CardHeader({
       <div className="flex items-center gap-2">
         {icon && <i className={`bi ${icon} text-[var(--text-secondary)]`} aria-hidden="true" />}
         <div>
-          <h3 className="font-semibold text-sm text-[var(--text-primary)]">{title}</h3>
+          <h3 className="font-semibold text-[clamp(0.75rem,1.5vh,0.875rem)] text-[var(--text-primary)]">{title}</h3>
           {subtitle && (
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{subtitle}</p>
+            <p className="text-[clamp(0.625rem,1.2vh,0.75rem)] text-[var(--text-secondary)] mt-0.5">{subtitle}</p>
           )}
         </div>
       </div>
@@ -77,7 +77,7 @@ export function CardHeader({
 
 export function CardContent({ children, className = '', noPadding = false }) {
   return (
-    <div className={`${noPadding ? '' : 'p-4'} ${className}`}>
+    <div className={`${noPadding ? '' : 'p-[clamp(0.5rem,1.2vh,1rem)]'} ${className}`}>
       {children}
     </div>
   );
@@ -86,10 +86,10 @@ export function CardContent({ children, className = '', noPadding = false }) {
 export function CardFooter({ children, className = '' }) {
   return (
     <div className={`
-      px-4 py-3
+      px-[clamp(0.5rem,1.2vh,1rem)] py-[clamp(0.5rem,1vh,0.75rem)]
       border-t border-[var(--border-muted)]
       bg-[var(--bg-muted)]
-      flex items-center justify-end gap-2
+      flex items-center justify-end gap-[clamp(0.375rem,0.8vh,0.5rem)]
       ${className}
     `}>
       {children}

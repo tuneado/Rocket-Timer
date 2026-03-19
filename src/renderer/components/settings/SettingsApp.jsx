@@ -3,12 +3,13 @@ import { useState, useEffect } from 'preact/hooks';
 import { Sidebar } from '../ui/Sidebar.jsx';
 import DisplaySection from './sections/DisplaySection.jsx';
 import TimerSection from './sections/TimerSection.jsx';
-import CanvasSection from './sections/CanvasSection.jsx';
 import LayoutsSection from './sections/LayoutsSection.jsx';
 import PerformanceSection from './sections/PerformanceSection.jsx';
 import VideoInputSection from './sections/VideoInputSection.jsx';
 import ApiSection from './sections/ApiSection.jsx';
 import AppearanceSection from './sections/AppearanceSection.jsx';
+import ShortcutsSection from './sections/ShortcutsSection.jsx';
+import AboutSection from './sections/AboutSection.jsx';
 
 /**
  * SettingsApp - Main Preact component for Settings window
@@ -23,23 +24,25 @@ import AppearanceSection from './sections/AppearanceSection.jsx';
 const SECTIONS = [
   { id: 'display', label: 'Display', icon: 'bi-tv' },
   { id: 'timer', label: 'Timer', icon: 'bi-stopwatch' },
-  { id: 'canvas', label: 'Canvas', icon: 'bi-aspect-ratio' },
   { id: 'layouts', label: 'Layouts', icon: 'bi-layout-text-window-reverse' },
   { id: 'performance', label: 'Performance', icon: 'bi-lightning' },
   { id: 'video-input', label: 'Video Input', icon: 'bi-camera-video' },
   { id: 'api', label: 'API & Integration', icon: 'bi-plug' },
+  { id: 'shortcuts', label: 'Shortcuts', icon: 'bi-keyboard' },
   { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
+  { id: 'about', label: 'About', icon: 'bi-info-circle' },
 ];
 
 const SECTION_COMPONENTS = {
   'display': DisplaySection,
   'timer': TimerSection,
-  'canvas': CanvasSection,
   'layouts': LayoutsSection,
   'performance': PerformanceSection,
   'video-input': VideoInputSection,
   'api': ApiSection,
+  'shortcuts': ShortcutsSection,
   'appearance': AppearanceSection,
+  'about': AboutSection,
 };
 
 export function SettingsApp() {
@@ -71,8 +74,13 @@ export function SettingsApp() {
         activeId={activeSection}
         onSelect={handleSectionChange}
         header={
-          <div className="text-sm font-semibold text-[var(--text-primary)]">
-            Preferences
+          <div className="flex items-center gap-2">
+            <img
+              src="../../../assets/rocket-icon_transparent.png"
+              alt=""
+              className="w-7 h-7 object-contain"
+            />
+            <span className="text-sm font-semibold text-[var(--text-primary)]">Preferences</span>
           </div>
         }
       />

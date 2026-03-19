@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('electron', {
   desktopCapturer: {
     getSources: (opts) => desktopCapturer.getSources(opts),
   },
+  // App info
+  getVersion: () => ipcRenderer.invoke('get-app-version'),
   // Settings API
   settings: {
     getAll: () => ipcRenderer.invoke('get-settings'),

@@ -9,21 +9,11 @@
   <link rel="stylesheet" href="../css/fonts.css">
   <link rel="stylesheet" href="../css/bootstrap-icons.css">
   <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
+  <link rel="stylesheet" href="../css/shared.css">
   <link rel="stylesheet" href="../dist/tailwind.css">
 </head>
 <body class="bg-bg-base text-text-primary font-ui">
   <div id="app"></div>
-
-  <!-- Status Footer - Temporarily hidden -->
-  <footer id="statusFooter" class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 px-4 py-2 flex items-center justify-between text-sm hidden">
-    <div>
-      <span id="statusMessage" class="text-gray-400"></span>
-    </div>
-    <div class="flex items-center gap-3">
-      <i id="cameraStatus" class="bi bi-camera-video text-gray-600" title="Camera Inactive"></i>
-      <i id="serverStatus" class="bi bi-broadcast text-gray-600" title="API Server Inactive"></i>
-    </div>
-  </footer>
   
   <script type="module" src="../layouts/layoutRegistry.js"></script>
   <script type="module" src="../js/videoInputManager.js"></script>

@@ -636,6 +636,10 @@ input:focus + .slider-switch {
   object-fit: contain;
 }
 
+.video-preview video.mirrored {
+  transform: scaleX(-1);
+}
+
 /* Preset List */
 .preset-list {
   display: flex;

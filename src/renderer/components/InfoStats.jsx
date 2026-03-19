@@ -3,30 +3,30 @@ import { Card } from './ui';
 
 export function InfoStats() {
   return (
-    <Card className="px-3 py-2 mb-0">
+    <Card className="px-[clamp(0.5rem,1.2vh,0.75rem)] py-[clamp(0.375rem,0.8vh,0.5rem)] mb-0">
       <div className="grid grid-cols-4 gap-0">
         {/* Clock */}
-        <div className="text-center p-2">
-          <div className="text-xs text-text-secondary">Clock</div>
-          <div id="clockTime" className="text-base font-semibold text-text-primary">--:--:--</div>
+        <div className="text-center p-[clamp(0.25rem,0.6vh,0.5rem)]">
+          <div className="text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary">Clock</div>
+          <div id="clockTime" className="text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary">--:--:--</div>
         </div>
 
         {/* Timer */}
-        <div className="text-center p-2">
-          <div className="text-xs text-text-secondary">Timer</div>
-          <div id="timerValue" className="text-base font-semibold text-text-primary">--:--</div>
+        <div className="text-center p-[clamp(0.25rem,0.6vh,0.5rem)]">
+          <div className="text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary">Timer</div>
+          <div id="timerValue" className="text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary">--:--</div>
         </div>
 
         {/* Elapsed */}
-        <div className="text-center p-2">
-          <div className="text-xs text-text-secondary">Elapsed</div>
-          <div id="elapsedTime" className="text-base font-semibold text-text-primary">--:--</div>
+        <div className="text-center p-[clamp(0.25rem,0.6vh,0.5rem)]">
+          <div className="text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary">Elapsed</div>
+          <div id="elapsedTime" className="text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary">--:--</div>
         </div>
 
         {/* Ends At */}
-        <div className="text-center p-2">
-          <div className="text-xs text-text-secondary">Ends At</div>
-          <div id="endsAtTime" className="text-base font-semibold text-text-primary">--:--:--</div>
+        <div className="text-center p-[clamp(0.25rem,0.6vh,0.5rem)]">
+          <div className="text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary">Ends At</div>
+          <div id="endsAtTime" className="text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary">--:--:--</div>
         </div>
       </div>
     </Card>

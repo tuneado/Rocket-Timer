@@ -131,6 +131,9 @@ window.addEventListener('preact-settings-ready', async () => {
   // Setup layout management
   initializeLayoutManagement();
   
+  // Setup performance monitoring stats display
+  setupPerformanceMonitoring();
+  
   // FIX: Set default layout dropdown after layout options are populated
   setTimeout(() => {
     console.log('🔧 DROPDOWN FIX: Attempting to set default layout dropdown');
@@ -165,6 +168,14 @@ window.addEventListener('preact-settings-ready', async () => {
     window.electron.ipcRenderer.on('layout-list-updated', () => {
       populateLayoutLists();
     });
+
+    // Open Layout Creator button
+    const openCreatorBtn = document.getElementById('openLayoutCreatorBtn');
+    if (openCreatorBtn) {
+      openCreatorBtn.addEventListener('click', () => {
+        window.electron.ipcRenderer.send('open-layout-creator');
+      });
+    }
   }
 
   // Apply theme
@@ -274,7 +285,9 @@ function populateFormFields() {
   setValue('defaultVideoDevice', currentSettings.defaultVideoDevice);
   setChecked('autoStartVideoLaunch', currentSettings.autoStartVideoLaunch);
   setChecked('releaseCameraIdle', currentSettings.releaseCameraIdle);
+  setChecked('mirrorVideo', currentSettings.mirrorVideo);
   setValue('videoResolution', currentSettings.videoResolution);
+  setValue('videoScaling', currentSettings.videoScaling);
 
   // Appearance
   setValue('appearanceTheme', currentSettings.appearanceTheme);
@@ -432,7 +445,22 @@ function setupFormHandlers() {
   onChange('defaultVideoDevice', (value) => saveSetting('defaultVideoDevice', value));
   onChange('autoStartVideoLaunch', (checked) => saveSetting('autoStartVideoLaunch', checked));
   onChange('releaseCameraIdle', (checked) => saveSetting('releaseCameraIdle', checked));
+  onChange('mirrorVideo', (checked) => {
+    saveSetting('mirrorVideo', checked);
+    // Notify main window to update video mirror setting
+    ipcRenderer.send('video-mirror-changed', checked);
+    // Update preview if active
+    const previewVideo = document.querySelector('#videoPreview video');
+    if (previewVideo) {
+      previewVideo.classList.toggle('mirrored', checked);
+    }
+  });
   onChange('videoResolution', (value) => saveSetting('videoResolution', value));
+  onChange('videoScaling', (value) => {
+    saveSetting('videoScaling', value);
+    // Notify main window to update video scaling
+    ipcRenderer.send('video-scaling-changed', value);
+  });
 
   // Appearance
   onChange('appearanceTheme', (value) => {
@@ -1018,6 +1046,12 @@ function setupVideoInputControls() {
       previewStream = await navigator.mediaDevices.getUserMedia(constraints);
       previewVideo.srcObject = previewStream;
 
+      // Apply mirror setting to preview
+      const mirrorSwitch = document.getElementById('mirrorVideo');
+      if (mirrorSwitch && mirrorSwitch.checked) {
+        previewVideo.classList.add('mirrored');
+      }
+
       // Clear container and add video
       previewContainer.innerHTML = '';
       previewContainer.appendChild(previewVideo);
@@ -1172,6 +1206,21 @@ function setupVideoInputControls() {
               if (deviceExists) {
                 deviceSelector.value = savedDeviceId;
                 console.log('Restored saved device selection:', savedDeviceId);
+                
+                // Migrate to persistent settings if not already there
+                if (window.electron && window.electron.settings) {
+                  window.electron.settings.get('defaultVideoDevice').then(persistentDevice => {
+                    if (!persistentDevice || persistentDevice !== savedDeviceId) {
+                      window.electron.settings.save('defaultVideoDevice', savedDeviceId);
+                      console.log('Migrated video device to persistent settings:', savedDeviceId);
+                      
+                      // Also notify main window
+                      if (window.electron.ipcRenderer) {
+                        window.electron.ipcRenderer.send('video-device-selected', savedDeviceId);
+                      }
+                    }
+                  });
+                }
               }
             }
             
@@ -1223,10 +1272,15 @@ function setupVideoInputControls() {
         await stopPreview(false); // Stop but keep section visible
       }
       
-      // Save selected device to localStorage for main window to use
+      // Save selected device to both localStorage AND persistent settings
       if (deviceId) {
         localStorage.setItem('selectedVideoDevice', deviceId);
-        console.log('Saved video device selection:', deviceId);
+        
+        // Save to persistent settings so main window can read it
+        if (window.electron && window.electron.settings) {
+          await window.electron.settings.save('defaultVideoDevice', deviceId);
+          console.log('Saved video device to persistent settings:', deviceId);
+        }
         
         // Notify main window about device change
         if (window.electron && window.electron.ipcRenderer) {
@@ -1874,7 +1928,7 @@ function createLayoutItem(layout) {
     return `
       <div class="layout-item layout-item-compact ${isHidden ? 'layout-hidden' : ''}" data-layout-id="${layout.id}">
         <div class="layout-item-info">
-          <div class="layout-item-name text-sm">${layout.name}</div>
+          <div class="layout-item-name text-sm">${layout.name} <span class="inline-block ml-1.5 px-1.5 py-px text-[9px] font-mono rounded bg-white/5 text-[var(--text-muted)] opacity-70">ID: ${layout.id}</span></div>
           <div class="layout-item-description text-xs">${layout.description}</div>
         </div>
         <div class="layout-item-actions">
@@ -1888,7 +1942,7 @@ function createLayoutItem(layout) {
   return `
     <div class="layout-item" data-layout-id="${layout.id}">
       <div class="layout-item-info">
-        <div class="layout-item-name">${layout.name}</div>
+        <div class="layout-item-name">${layout.name} <span class="inline-block ml-1.5 px-1.5 py-px text-[9px] font-mono rounded bg-white/5 text-[var(--text-muted)] opacity-70">ID: ${layout.id}</span></div>
         <div class="layout-item-description">${layout.description}</div>
         <div class="layout-item-resolution">${resolution}</div>
       </div>
@@ -1967,6 +2021,85 @@ function populateDefaultLayoutDropdown() {
   } else {
     // Fallback to registry default if current selection no longer exists
     defaultLayoutSelect.value = LayoutRegistry.getDefaultLayout();
+  }
+}
+
+/**
+ * Setup performance monitoring stats display
+ */
+function setupPerformanceMonitoring() {
+  const performanceSection = document.getElementById('section-performance');
+  if (performanceSection) {
+    // Listen for performance stats from main window via IPC
+    if (window.electron && window.electron.ipcRenderer) {
+      window.electron.ipcRenderer.on('performance-stats-update', (stats) => {
+        updatePerformanceStats(stats);
+      });
+    }
+    
+    // Initial update with placeholder
+    setTimeout(updatePerformanceStats, 500);
+  }
+}
+
+/**
+ * Update performance statistics display
+ * @param {object} stats - Performance stats object from canvasRenderer
+ */
+function updatePerformanceStats(stats = null) {
+  const statFPS = document.getElementById('statFPS');
+  const statRenderTime = document.getElementById('statRenderTime');
+  const statDroppedFrames = document.getElementById('statDroppedFrames');
+  const statCacheSize = document.getElementById('statCacheSize');
+  
+  if (!stats) {
+    // No stats available yet
+    if (statFPS) statFPS.textContent = '--';
+    if (statRenderTime) statRenderTime.textContent = '--';
+    if (statDroppedFrames) statDroppedFrames.textContent = '--';
+    if (statCacheSize) statCacheSize.textContent = '--';
+    return;
+  }
+  
+  if (statFPS) {
+    // Smart color logic: compare against effective target (display-limited)
+    const currentFPS = parseFloat(stats.currentFPS);
+    const effectiveTarget = stats.effectiveTargetFPS || stats.targetFPS;
+    
+    let fpsColor = 'text-green-500';
+    let fpsNote = '';
+    
+    if (stats.isDisplayLimited) {
+      // Target exceeds display refresh rate
+      if (currentFPS >= stats.displayRefreshRate * 0.9) {
+        fpsColor = 'text-green-500';
+        fpsNote = `<span class="text-blue-400 text-[10px]">⚡ Display limited (${stats.displayRefreshRate}Hz)</span>`;
+      } else {
+        fpsColor = 'text-yellow-500';
+        fpsNote = `<span class="text-yellow-400 text-[10px]">(${stats.displayRefreshRate}Hz max)</span>`;
+      }
+    } else {
+      // Target is within display capabilities
+      if (currentFPS >= stats.targetFPS * 0.9) {
+        fpsColor = 'text-green-500';
+      } else if (currentFPS >= stats.targetFPS * 0.7) {
+        fpsColor = 'text-yellow-500';
+      } else {
+        fpsColor = 'text-red-500';
+      }
+    }
+    
+    statFPS.innerHTML = `<span class="${fpsColor}">${stats.currentFPS} / ${stats.targetFPS}</span> ${fpsNote}`;
+  }
+  if (statRenderTime) {
+    statRenderTime.textContent = `${stats.averageRenderTime}ms (${stats.minRenderTime}-${stats.maxRenderTime}ms)`;
+  }
+  if (statDroppedFrames) {
+    const droppedColor = stats.droppedFrames > 100 ? 'text-red-500' : stats.droppedFrames > 10 ? 'text-yellow-500' : 'text-green-500';
+    statDroppedFrames.innerHTML = `<span class="${droppedColor}">${stats.droppedFrames}</span> / ${stats.frameCount} frames`;
+  }
+  if (statCacheSize) {
+    statCacheSize.textContent = `Text: ${stats.cacheSize.textMetrics}, Images: ${stats.cacheSize.images}`;
   }
 }
 

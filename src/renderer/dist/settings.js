@@ -376,6 +376,10 @@ function h2(n2, u3, i3) {
   }
   return o3.__N || o3.__;
 }
+function y2(n2, u3) {
+  var i3 = p2(t2++, 3);
+  !c2.__s && C2(i3.__H, u3) && (i3.__ = n2, i3.u = u3, r2.__H.__h.push(i3));
+}
 function A2(n2) {
   return o2 = 5, T2(function() {
     return { current: n2 };
@@ -641,6 +645,13 @@ function DisplaySection() {
       description: "Color scheme preference"
     },
     /* @__PURE__ */ _(Select, { id: "defaultTheme", className: "w-48" }, /* @__PURE__ */ _("option", { value: "dark" }, "Dark"), /* @__PURE__ */ _("option", { value: "light" }, "Light"), /* @__PURE__ */ _("option", { value: "auto" }, "Auto (System)"))
+  )), /* @__PURE__ */ _(SettingsGroup, { title: "Canvas Resolution" }, /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Output Resolution",
+      description: "Canvas rendering resolution (affects output quality and performance)"
+    },
+    /* @__PURE__ */ _(Select, { id: "canvasResolution", className: "w-56" }, /* @__PURE__ */ _("option", { value: "1920x1080" }, "1920\xD71080 (Full HD)"), /* @__PURE__ */ _("option", { value: "1280x720" }, "1280\xD7720 (HD)"), /* @__PURE__ */ _("option", { value: "2560x1440" }, "2560\xD71440 (2K)"), /* @__PURE__ */ _("option", { value: "3840x2160" }, "3840\xD72160 (4K)"), /* @__PURE__ */ _("option", { value: "custom" }, "Custom..."))
   )), /* @__PURE__ */ _(SettingsGroup, { title: "External Display" }, /* @__PURE__ */ _(
     SettingsItem,
     {
@@ -741,41 +752,47 @@ var variantClasses = {
   primary: `
     bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   secondary: `
     bg-[var(--bg-muted)] hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-[var(--border-default)]
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   success: `
     bg-[var(--color-success)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   warning: `
     bg-[var(--color-warning)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   danger: `
     bg-[var(--color-danger)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   ghost: `
     bg-transparent hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   outline: `
     bg-transparent hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-[var(--border-default)]
+    hover:scale-105 hover:shadow-lg active:scale-95
   `
 };
 var sizeClasses3 = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
-  lg: "h-12 px-5 text-base gap-2",
-  xl: "h-16 px-6 text-lg gap-3",
-  icon: "h-10 w-10 p-0",
-  // Square icon-only button
-  "icon-sm": "h-8 w-8 p-0",
-  "icon-lg": "h-12 w-12 p-0"
+  sm: "h-[clamp(1.75rem,3.5vh,2rem)] px-[clamp(0.5rem,1vw,0.75rem)] text-[clamp(0.75rem,1.5vh,0.875rem)] gap-1.5",
+  md: "h-[clamp(2rem,4vh,2.5rem)] px-[clamp(0.75rem,1.2vw,1rem)] text-[clamp(0.875rem,1.8vh,0.875rem)] gap-[clamp(0.375rem,0.8vh,0.5rem)]",
+  lg: "h-[clamp(2.5rem,5vh,3rem)] px-[clamp(1rem,1.5vw,1.25rem)] text-[clamp(0.875rem,2vh,1rem)] gap-[clamp(0.375rem,0.8vh,0.5rem)]",
+  xl: "h-[clamp(3rem,6vh,4rem)] px-[clamp(1.25rem,2vw,1.5rem)] text-[clamp(1rem,2.5vh,1.125rem)] gap-[clamp(0.5rem,1vh,0.75rem)]",
+  icon: "h-[clamp(2rem,4vh,2.5rem)] w-[clamp(2rem,4vh,2.5rem)] p-0",
+  "icon-sm": "h-[clamp(1.75rem,3.5vh,2rem)] w-[clamp(1.75rem,3.5vh,2rem)] p-0",
+  "icon-lg": "h-[clamp(2.5rem,5vh,3rem)] w-[clamp(2.5rem,5vh,3rem)] p-0"
 };
 function Button({
   children,
@@ -1171,36 +1188,25 @@ function TimerSection() {
 }
 var TimerSection_default = TimerSection;
 
-// src/renderer/components/settings/sections/CanvasSection.jsx
-function CanvasSection() {
-  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-canvas" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Canvas"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Configure canvas output settings"), /* @__PURE__ */ _(SettingsGroup, { title: "Resolution & Quality" }, /* @__PURE__ */ _(
-    SettingsItem,
-    {
-      title: "Output Resolution",
-      description: "Canvas rendering resolution"
-    },
-    /* @__PURE__ */ _(Select, { id: "canvasResolution", className: "w-56" }, /* @__PURE__ */ _("option", { value: "1920x1080" }, "1920\xD71080 (Full HD)"), /* @__PURE__ */ _("option", { value: "1280x720" }, "1280\xD7720 (HD)"), /* @__PURE__ */ _("option", { value: "2560x1440" }, "2560\xD71440 (2K)"), /* @__PURE__ */ _("option", { value: "3840x2160" }, "3840\xD72160 (4K)"), /* @__PURE__ */ _("option", { value: "custom" }, "Custom..."))
-  ), /* @__PURE__ */ _(
-    SettingsItem,
-    {
-      title: "Canvas Quality",
-      description: "Rendering quality vs performance"
-    },
-    /* @__PURE__ */ _(Select, { id: "canvasQuality", className: "w-48" }, /* @__PURE__ */ _("option", { value: "high" }, "High Quality"), /* @__PURE__ */ _("option", { value: "balanced" }, "Balanced"), /* @__PURE__ */ _("option", { value: "performance" }, "Performance"))
-  ), /* @__PURE__ */ _(
-    SettingsItem,
-    {
-      title: "Frame Rate",
-      description: "Target refresh rate"
-    },
-    /* @__PURE__ */ _(Select, { id: "frameRate", className: "w-32" }, /* @__PURE__ */ _("option", { value: "60" }, "60 FPS"), /* @__PURE__ */ _("option", { value: "30" }, "30 FPS"), /* @__PURE__ */ _("option", { value: "24" }, "24 FPS"))
-  )));
-}
-var CanvasSection_default = CanvasSection;
-
 // src/renderer/components/settings/sections/LayoutsSection.jsx
 function LayoutsSection() {
-  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-layouts" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Layouts"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Manage custom canvas layouts"), /* @__PURE__ */ _(SettingsGroup, { title: "Available Layouts" }, /* @__PURE__ */ _(
+  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-layouts" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Layouts"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Manage custom canvas layouts"), /* @__PURE__ */ _(SettingsGroup, { title: "Layout Creator" }, /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      block: true,
+      title: "Visual Layout Editor",
+      description: "Create and customize layouts with a visual drag-and-drop editor"
+    },
+    /* @__PURE__ */ _("div", { className: "flex flex-wrap gap-2" }, /* @__PURE__ */ _(
+      Button,
+      {
+        id: "openLayoutCreatorBtn",
+        variant: "primary",
+        icon: "bi-easel"
+      },
+      "Open Layout Creator"
+    ))
+  )), /* @__PURE__ */ _(SettingsGroup, { title: "Available Layouts" }, /* @__PURE__ */ _(
     SettingsItem,
     {
       block: true,
@@ -1273,11 +1279,25 @@ var LayoutsSection_default = LayoutsSection;
 
 // src/renderer/components/settings/sections/PerformanceSection.jsx
 function PerformanceSection() {
-  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-performance" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Performance"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Optimize performance and resource usage"), /* @__PURE__ */ _(SettingsGroup, { title: "Optimization" }, /* @__PURE__ */ _(
+  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-performance" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Performance"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Optimize performance and resource usage"), /* @__PURE__ */ _(SettingsGroup, { title: "Rendering Quality" }, /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Canvas Quality",
+      description: "Rendering quality affects GPU usage and visual smoothness"
+    },
+    /* @__PURE__ */ _(Select, { id: "canvasQuality", className: "w-48" }, /* @__PURE__ */ _("option", { value: "high" }, "High \u2014 Best quality, smooth anti-aliasing"), /* @__PURE__ */ _("option", { value: "balanced" }, "Balanced \u2014 Good quality, moderate resources"), /* @__PURE__ */ _("option", { value: "performance" }, "Performance \u2014 Fastest, minimal anti-aliasing"))
+  ), /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Frame Rate",
+      description: "Higher frame rates use more CPU/GPU"
+    },
+    /* @__PURE__ */ _(Select, { id: "frameRate", className: "w-48" }, /* @__PURE__ */ _("option", { value: "30" }, "30 FPS (Battery Saver)"), /* @__PURE__ */ _("option", { value: "60" }, "60 FPS (Recommended)"), /* @__PURE__ */ _("option", { value: "120" }, "120 FPS (High Performance)"))
+  )), /* @__PURE__ */ _(SettingsGroup, { title: "Optimization" }, /* @__PURE__ */ _(
     SettingsItem,
     {
       title: "Hardware Acceleration",
-      description: "Use GPU for rendering (recommended)"
+      description: "Use GPU for rendering (recommended, requires restart)"
     },
     /* @__PURE__ */ _(Switch, { id: "hardwareAcceleration", checked: true })
   ), /* @__PURE__ */ _(
@@ -1291,9 +1311,17 @@ function PerformanceSection() {
     SettingsItem,
     {
       title: "Low Power Mode",
-      description: "Reduce resource usage for battery saving"
+      description: "Reduce resource usage for battery saving (caps at 30 FPS)"
     },
     /* @__PURE__ */ _(Switch, { id: "lowPowerMode" })
+  )), /* @__PURE__ */ _(SettingsGroup, { title: "Performance Monitoring" }, /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      block: true,
+      title: "Current Performance",
+      description: "Real-time rendering statistics"
+    },
+    /* @__PURE__ */ _("div", { id: "performanceStats", className: "mt-2 p-3 rounded-lg bg-[var(--bg-surface-raised)] font-mono text-xs space-y-1" }, /* @__PURE__ */ _("div", { className: "flex justify-between" }, /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, "FPS:"), /* @__PURE__ */ _("span", { id: "statFPS", className: "text-[var(--text-primary)]" }, "--")), /* @__PURE__ */ _("div", { className: "flex justify-between" }, /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, "Render Time:"), /* @__PURE__ */ _("span", { id: "statRenderTime", className: "text-[var(--text-primary)]" }, "--")), /* @__PURE__ */ _("div", { className: "flex justify-between" }, /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, "Dropped Frames:"), /* @__PURE__ */ _("span", { id: "statDroppedFrames", className: "text-[var(--text-primary)]" }, "--")), /* @__PURE__ */ _("div", { className: "flex justify-between" }, /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, "Cache Size:"), /* @__PURE__ */ _("span", { id: "statCacheSize", className: "text-[var(--text-primary)]" }, "--")))
   )));
 }
 var PerformanceSection_default = PerformanceSection;
@@ -1358,6 +1386,13 @@ function VideoInputSection() {
       description: "Free camera resources on non-video layouts"
     },
     /* @__PURE__ */ _(Switch, { id: "releaseCameraIdle", checked: true })
+  ), /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Mirror Video",
+      description: "Flip video horizontally (useful for webcams)"
+    },
+    /* @__PURE__ */ _(Switch, { id: "mirrorVideo" })
   )), /* @__PURE__ */ _(SettingsGroup, { title: "Quality" }, /* @__PURE__ */ _(
     SettingsItem,
     {
@@ -1365,6 +1400,13 @@ function VideoInputSection() {
       description: "Preferred capture resolution"
     },
     /* @__PURE__ */ _(Select, { id: "videoResolution", className: "w-48" }, /* @__PURE__ */ _("option", { value: "1920x1080" }, "1920\xD71080 (1080p)"), /* @__PURE__ */ _("option", { value: "1280x720" }, "1280\xD7720 (720p)"), /* @__PURE__ */ _("option", { value: "auto" }, "Auto"))
+  ), /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Video Scaling",
+      description: "How video fits the display area"
+    },
+    /* @__PURE__ */ _(Select, { id: "videoScaling", className: "w-48" }, /* @__PURE__ */ _("option", { value: "contain" }, "Contain (fit inside)"), /* @__PURE__ */ _("option", { value: "cover" }, "Cover (fill, may crop)"), /* @__PURE__ */ _("option", { value: "stretch" }, "Stretch (fill exactly)"), /* @__PURE__ */ _("option", { value: "none" }, "None (original size)"))
   )));
 }
 var VideoInputSection_default = VideoInputSection;
@@ -1614,26 +1656,219 @@ function ColorPickerItem({ id, label, defaultValue }) {
 }
 var AppearanceSection_default = AppearanceSection;
 
+// src/renderer/components/settings/sections/ShortcutsSection.jsx
+var DEFAULT_SHORTCUTS = {
+  "space": { enabled: true, key: "space", description: "Start/Stop timer" },
+  "r": { enabled: true, key: "r", description: "Reset timer" },
+  "arrowup": { enabled: true, key: "arrowup", description: "Add one minute" },
+  "arrowdown": { enabled: true, key: "arrowdown", description: "Subtract one minute" },
+  "shift+arrowup": { enabled: true, key: "shift+arrowup", description: "Add 5 minutes" },
+  "shift+arrowdown": { enabled: true, key: "shift+arrowdown", description: "Subtract 5 minutes" },
+  "ctrl+arrowup": { enabled: true, key: "ctrl+arrowup", description: "Add 10 minutes" },
+  "ctrl+arrowdown": { enabled: true, key: "ctrl+arrowdown", description: "Subtract 10 minutes" },
+  "f": { enabled: true, key: "f", description: "Flash screen" },
+  "m": { enabled: true, key: "m", description: "Toggle sound mute" },
+  "i": { enabled: true, key: "i", description: "Toggle feature image" },
+  "1": { enabled: true, key: "1", description: "Activate preset 1" },
+  "2": { enabled: true, key: "2", description: "Activate preset 2" },
+  "3": { enabled: true, key: "3", description: "Activate preset 3" },
+  "4": { enabled: true, key: "4", description: "Activate preset 4" },
+  "5": { enabled: true, key: "5", description: "Activate preset 5" },
+  "6": { enabled: true, key: "6", description: "Activate preset 6" },
+  "7": { enabled: true, key: "7", description: "Activate preset 7" },
+  "8": { enabled: true, key: "8", description: "Activate preset 8" }
+};
+var SHORTCUT_GROUPS = [
+  {
+    title: "Timer Controls",
+    keys: ["space", "r", "arrowup", "arrowdown", "shift+arrowup", "shift+arrowdown", "ctrl+arrowup", "ctrl+arrowdown"]
+  },
+  {
+    title: "Actions",
+    keys: ["f", "m", "i"]
+  },
+  {
+    title: "Presets",
+    keys: ["1", "2", "3", "4", "5", "6", "7", "8"]
+  }
+];
+function formatKey(key) {
+  const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+  return key.split("+").map((k3) => {
+    if (isMac && k3 === "ctrl")
+      return "\u2303";
+    if (isMac && k3 === "alt")
+      return "\u2325";
+    if (isMac && k3 === "shift")
+      return "\u21E7";
+    if (isMac && k3 === "meta")
+      return "\u2318";
+    if (k3 === "arrowup")
+      return "\u2191";
+    if (k3 === "arrowdown")
+      return "\u2193";
+    if (k3 === "arrowleft")
+      return "\u2190";
+    if (k3 === "arrowright")
+      return "\u2192";
+    if (k3 === "space")
+      return "Space";
+    return k3.charAt(0).toUpperCase() + k3.slice(1);
+  }).join(" ");
+}
+function ShortcutRow({ shortcutKey, config, onToggle }) {
+  return /* @__PURE__ */ _("div", { className: "flex items-center justify-between gap-4 py-3 px-5 border-b border-[var(--border-muted)] last:border-b-0" }, /* @__PURE__ */ _("div", { className: "flex items-center gap-3 flex-1 min-w-0" }, /* @__PURE__ */ _("kbd", { className: "inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-md text-xs font-mono text-[var(--text-primary)] shadow-sm" }, formatKey(shortcutKey)), /* @__PURE__ */ _("span", { className: `text-sm ${config.enabled ? "text-[var(--text-primary)]" : "text-[var(--text-muted)]"}` }, config.description)), /* @__PURE__ */ _("label", { className: "relative inline-flex items-center cursor-pointer" }, /* @__PURE__ */ _(
+    "input",
+    {
+      type: "checkbox",
+      checked: config.enabled,
+      onChange: () => onToggle(shortcutKey),
+      className: "sr-only",
+      role: "switch"
+    }
+  ), /* @__PURE__ */ _("div", { className: `w-11 h-6 rounded-full transition-colors duration-200 ${config.enabled ? "bg-[var(--color-primary)]" : "bg-[var(--bg-muted)]"}` }, /* @__PURE__ */ _(
+    "div",
+    {
+      className: "w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200",
+      style: {
+        transform: config.enabled ? "translate(21px, 2px)" : "translate(2px, 2px)"
+      }
+    }
+  ))));
+}
+function ShortcutsSection() {
+  const [shortcuts, setShortcuts] = d2(DEFAULT_SHORTCUTS);
+  y2(() => {
+    loadShortcuts();
+  }, []);
+  async function loadShortcuts() {
+    try {
+      if (window.electron && window.electron.settings) {
+        const settings = await window.electron.settings.getAll();
+        if (settings.keyboardShortcuts) {
+          setShortcuts({ ...DEFAULT_SHORTCUTS, ...settings.keyboardShortcuts });
+        }
+      }
+    } catch (error) {
+      console.warn("Could not load shortcut settings:", error);
+    }
+  }
+  async function handleToggle(key) {
+    const updated = {
+      ...shortcuts,
+      [key]: { ...shortcuts[key], enabled: !shortcuts[key].enabled }
+    };
+    setShortcuts(updated);
+    try {
+      if (window.electron && window.electron.settings) {
+        await window.electron.settings.save("keyboardShortcuts", updated);
+      }
+    } catch (error) {
+      console.error("Error saving shortcut settings:", error);
+    }
+  }
+  async function handleEnableAll() {
+    const updated = {};
+    for (const [key, config] of Object.entries(shortcuts)) {
+      updated[key] = { ...config, enabled: true };
+    }
+    setShortcuts(updated);
+    try {
+      if (window.electron && window.electron.settings) {
+        await window.electron.settings.save("keyboardShortcuts", updated);
+      }
+    } catch (error) {
+      console.error("Error saving shortcut settings:", error);
+    }
+  }
+  async function handleDisableAll() {
+    const updated = {};
+    for (const [key, config] of Object.entries(shortcuts)) {
+      updated[key] = { ...config, enabled: false };
+    }
+    setShortcuts(updated);
+    try {
+      if (window.electron && window.electron.settings) {
+        await window.electron.settings.save("keyboardShortcuts", updated);
+      }
+    } catch (error) {
+      console.error("Error saving shortcut settings:", error);
+    }
+  }
+  const enabledCount = Object.values(shortcuts).filter((s3) => s3.enabled).length;
+  const totalCount = Object.keys(shortcuts).length;
+  return /* @__PURE__ */ _("div", { className: "settings-section", id: "section-shortcuts" }, /* @__PURE__ */ _("h1", { className: "text-2xl font-semibold text-[var(--text-primary)] mb-2" }, "Keyboard Shortcuts"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mb-6" }, "Configure keyboard shortcuts for the timer controls. ", enabledCount, "/", totalCount, " shortcuts enabled."), /* @__PURE__ */ _("div", { className: "flex gap-2 mb-6" }, /* @__PURE__ */ _(
+    "button",
+    {
+      onClick: handleEnableAll,
+      className: "px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition-colors"
+    },
+    "Enable All"
+  ), /* @__PURE__ */ _(
+    "button",
+    {
+      onClick: handleDisableAll,
+      className: "px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-muted)] transition-colors"
+    },
+    "Disable All"
+  )), SHORTCUT_GROUPS.map((group) => /* @__PURE__ */ _(SettingsGroup, { key: group.title, title: group.title }, group.keys.map((key) => shortcuts[key] && /* @__PURE__ */ _(
+    ShortcutRow,
+    {
+      key,
+      shortcutKey: key,
+      config: shortcuts[key],
+      onToggle: handleToggle
+    }
+  )))));
+}
+var ShortcutsSection_default = ShortcutsSection;
+
+// src/renderer/components/settings/sections/AboutSection.jsx
+function AboutSection() {
+  const [version, setVersion] = d2("1.0.0");
+  y2(() => {
+    window.electron?.getVersion?.().then((v3) => v3 && setVersion(v3));
+  }, []);
+  return /* @__PURE__ */ _("div", { className: "flex flex-col items-center text-center gap-6 py-8" }, /* @__PURE__ */ _(
+    "img",
+    {
+      src: "../../../assets/rocket-icon_transparent.png",
+      alt: "Rocket Timer",
+      className: "w-28 h-28 object-contain"
+    }
+  ), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("h1", { className: "text-2xl font-bold text-[var(--text-primary)]" }, "Rocket Timer"), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] mt-1" }, "Version ", version)), /* @__PURE__ */ _("p", { className: "text-sm text-[var(--text-secondary)] max-w-sm" }, "The ultimate timer app for events."), /* @__PURE__ */ _("div", { className: "text-xs text-[var(--text-muted)] space-y-1" }, /* @__PURE__ */ _("p", null, "\xA9 2026 50hz Event Solutions"), /* @__PURE__ */ _("p", null, /* @__PURE__ */ _(
+    "a",
+    {
+      href: "mailto:geral@50-hz.com",
+      className: "text-[var(--accent)] hover:underline"
+    },
+    "geral@50-hz.com"
+  )), /* @__PURE__ */ _("p", { className: "mt-2" }, "Licensed under the GNU GPL-3.0"), /* @__PURE__ */ _("p", { className: "mt-3 text-[var(--text-secondary)]" }, "Made with \u2764\uFE0F by Andr\xE9 Raimundo")));
+}
+var AboutSection_default = AboutSection;
+
 // src/renderer/components/settings/SettingsApp.jsx
 var SECTIONS = [
   { id: "display", label: "Display", icon: "bi-tv" },
   { id: "timer", label: "Timer", icon: "bi-stopwatch" },
-  { id: "canvas", label: "Canvas", icon: "bi-aspect-ratio" },
   { id: "layouts", label: "Layouts", icon: "bi-layout-text-window-reverse" },
   { id: "performance", label: "Performance", icon: "bi-lightning" },
   { id: "video-input", label: "Video Input", icon: "bi-camera-video" },
   { id: "api", label: "API & Integration", icon: "bi-plug" },
-  { id: "appearance", label: "Appearance", icon: "bi-palette" }
+  { id: "shortcuts", label: "Shortcuts", icon: "bi-keyboard" },
+  { id: "appearance", label: "Appearance", icon: "bi-palette" },
+  { id: "about", label: "About", icon: "bi-info-circle" }
 ];
 var SECTION_COMPONENTS = {
   "display": DisplaySection_default,
   "timer": TimerSection_default,
-  "canvas": CanvasSection_default,
   "layouts": LayoutsSection_default,
   "performance": PerformanceSection_default,
   "video-input": VideoInputSection_default,
   "api": ApiSection_default,
-  "appearance": AppearanceSection_default
+  "shortcuts": ShortcutsSection_default,
+  "appearance": AppearanceSection_default,
+  "about": AboutSection_default
 };
 function SettingsApp() {
   const [activeSection, setActiveSection] = d2("display");
@@ -1656,7 +1891,14 @@ function SettingsApp() {
       items: SECTIONS,
       activeId: activeSection,
       onSelect: handleSectionChange,
-      header: /* @__PURE__ */ _("div", { className: "text-sm font-semibold text-[var(--text-primary)]" }, "Preferences")
+      header: /* @__PURE__ */ _("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ _(
+        "img",
+        {
+          src: "../../../assets/rocket-icon_transparent.png",
+          alt: "",
+          className: "w-7 h-7 object-contain"
+        }
+      ), /* @__PURE__ */ _("span", { className: "text-sm font-semibold text-[var(--text-primary)]" }, "Preferences"))
     }
   ), /* @__PURE__ */ _("main", { className: "settings-content flex-1 overflow-y-auto" }, /* @__PURE__ */ _("div", { className: "settings-content-inner p-8 max-w-3xl" }, renderAllSections())));
 }

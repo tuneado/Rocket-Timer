@@ -11,8 +11,9 @@
  * @param {Object} deps.ipcRenderer - IPC renderer for display window sync
  */
 export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRenderer }) {
-  // Check if layout requires video input
-  const needsVideo = layout.videoFrame && layout.videoFrame.enabled;
+  // Check if layout requires video input (either videoFrame or video element)
+  const needsVideo = (layout.videoFrame && layout.videoFrame.enabled) || 
+                     (layout.video && layout.video.enabled);
   
   if (!canvasRenderer) {
     console.warn('Canvas renderer not available');
@@ -73,8 +74,45 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
           console.log(`🔁 Devices after reinit: ${devices.length}`);
         }
 
-        await canvasRenderer.enableVideoInput(savedDeviceId);
-        console.log('✅ Video input auto-started for layout');
+        try {
+          await canvasRenderer.enableVideoInput(savedDeviceId);
+          console.log('✅ Video input auto-started for layout');
+        } catch (error) {
+          console.error('❌ Failed to start video input:', error);
+          
+          // Update camera status to error
+          if (statusBar) {
+            statusBar.setCameraStatus('error');
+            
+            // Show appropriate error message
+            const errorMsg = error.name === 'NotAllowedError' 
+              ? 'Camera access denied - check permissions'
+              : error.name === 'NotFoundError'
+              ? 'Camera device not found'
+              : 'Camera access failed';
+            
+            statusBar.error(errorMsg, 0);
+          }
+          
+          return; // Don't continue if video failed
+        }
+
+        // Apply mirror and scaling settings from stored settings
+        try {
+          if (window.electron && window.electron.settings) {
+            const allSettings = await window.electron.settings.getAll();
+            if (allSettings) {
+              if (allSettings.mirrorVideo !== undefined) {
+                canvasRenderer.setVideoMirror(allSettings.mirrorVideo);
+              }
+              if (allSettings.videoScaling !== undefined) {
+                canvasRenderer.setVideoScaling(allSettings.videoScaling);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Could not apply video settings:', err.message);
+        }
 
         // Notify display window
         if (window.electron && ipcRenderer) {
@@ -85,10 +123,16 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
       }
     } else if (!savedDeviceId) {
       console.log('⚠️ No video device selected (localStorage + settings fallback both empty)');
+      
+      // Only show warning if layout explicitly requires video AND user is trying to use it
+      // Don't show error during normal operation - device selection happens in Settings
+      if (statusBar && layout.video && layout.video.enabled) {
+        // Set camera as inactive, not error - user may not have configured yet
+        statusBar.setCameraStatus(false);
+      }
     } else if (videoManager.isEnabled()) {
       console.log('✅ Video already active');
     }
-
   } else {
     // Layout doesn't need video - check if we should stop it
     
@@ -225,16 +269,16 @@ export function initializeVideoInputControls({ canvasRenderer, ipcRenderer, getE
   
   // Start video input
   startVideoBtn.addEventListener('click', async () => {
+    const deviceId = videoDeviceSelector.value;
+    if (!deviceId) {
+      statusBar.warning('Please select a video device first', 5000);
+      return;
+    }
+    
+    startVideoBtn.disabled = true;
+    startVideoBtn.classList.add('is-loading');
+    
     try {
-      const deviceId = videoDeviceSelector.value;
-      if (!deviceId) {
-        statusBar.warning('Please select a video device first', 5000);
-        return;
-      }
-      
-      startVideoBtn.disabled = true;
-      startVideoBtn.classList.add('is-loading');
-      
       const videoInfo = await canvasRenderer.enableVideoInput(deviceId);
       
       console.log('✅ Video input started:', videoInfo);
@@ -253,20 +297,26 @@ export function initializeVideoInputControls({ canvasRenderer, ipcRenderer, getE
       stopVideoBtn.disabled = false;
       videoDeviceSelector.disabled = true;
       detectDevicesBtn.disabled = true;
-      
     } catch (error) {
-      console.error('Error starting video input:', error);
+      console.error('❌ Failed to enable video input:', error);
       
-      if (error.name === 'NotAllowedError') {
-        statusBar.error('Camera permission denied. Please allow camera access in your system settings.');
-      } else if (error.name === 'NotFoundError') {
-        statusBar.error('Selected camera device not found. Try detecting devices again.');
-      } else if (error.name === 'NotReadableError') {
-        statusBar.error('Camera is already in use by another application.');
-      } else {
-        statusBar.error('Error starting video: ' + error.message);
+      // Update camera status to error
+      if (statusBar) {
+        statusBar.setCameraStatus('error');
+        
+        // Show appropriate error message
+        const errorMsg = error.name === 'NotAllowedError' 
+          ? 'Camera access denied - check permissions in system settings'
+          : error.name === 'NotFoundError'
+          ? 'Camera device not found or disconnected'
+          : error.name === 'NotReadableError'
+          ? 'Camera is already in use by another application'
+          : `Camera error: ${error.message}`;
+        
+        statusBar.error(errorMsg, 0);
       }
       
+      // Update UI to show error
       updateVideoStatus('Error', 'is-danger');
     } finally {
       startVideoBtn.disabled = false;

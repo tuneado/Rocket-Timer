@@ -17,6 +17,24 @@ export function LayoutsSection() {
         Manage custom canvas layouts
       </p>
 
+      <SettingsGroup title="Layout Creator">
+        <SettingsItem
+          block
+          title="Visual Layout Editor"
+          description="Create and customize layouts with a visual drag-and-drop editor"
+        >
+          <div className="flex flex-wrap gap-2">
+            <Button
+              id="openLayoutCreatorBtn"
+              variant="primary"
+              icon="bi-easel"
+            >
+              Open Layout Creator
+            </Button>
+          </div>
+        </SettingsItem>
+      </SettingsGroup>
+
       <SettingsGroup title="Available Layouts">
         <SettingsItem
           block

@@ -4,9 +4,16 @@ const { setupMenu } = require('./menu');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
 const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
+const UpdateManager = require('./updateManager');
+const log = require('electron-log');
+
+// Configure logging
+log.transports.file.level = 'info';
+log.transports.console.level = 'info';
 
 let mainWindow;
 let apiServer;
+let updateManager;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -24,6 +31,9 @@ app.on('ready', () => {
   mainWindow = createMainWindow();
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow);
+  
+  // Initialize update manager
+  updateManager = new UpdateManager(mainWindow);
   
   // Initialize Unified API Server
   const settings = getSettings();
@@ -68,6 +78,13 @@ app.on('ready', () => {
         error: 'Disabled in settings'
       });
     }
+    
+    // Check for updates after everything is loaded (only in production builds)
+    if (process.env.NODE_ENV !== 'development' && app.isPackaged) {
+      setTimeout(() => {
+        updateManager.checkForUpdates();
+      }, 3000);
+    }
   });
   
   // Check if should auto-open external display
@@ -109,5 +126,8 @@ app.on('activate', () => {
   }
 });
 
-// Export apiServer for access from other modules
-module.exports = { getApiServer: () => apiServer };
+// Export for access from other modules
+module.exports = { 
+  getApiServer: () => apiServer,
+  getUpdateManager: () => updateManager
+};

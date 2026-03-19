@@ -1,18 +1,22 @@
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, nativeImage } = require('electron');
 const path = require('path');
+
+const appIcon = nativeImage.createFromPath(path.join(__dirname, '../../build/icon.png'));
 
 let mainWindow;    // Declare mainWindow globally
 let displayWindow; // Declare displayWindow globally
 let settingsWindow; // Declare settingsWindow globally
+let layoutCreatorWindow; // Declare layoutCreatorWindow globally
 let displayWindowVisible = false; // Track if display window should be visible
 let currentDisplayIndex = 0; // Track which display is currently selected
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1024,
-    height: 768,
-    minWidth: 1024,
-    minHeight: 768,
+    width: 1200,
+    height: 800,
+    minWidth: 960,
+    minHeight: 700,
+    icon: appIcon,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true, // Add for security
@@ -37,6 +41,7 @@ function createDisplayWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+    icon: appIcon,
     alwaysOnTop: true,
     frame: true,
   });
@@ -275,6 +280,56 @@ function getSettingsWindow() {
   return settingsWindow;
 }
 
+// ============================================================================
+// Layout Creator Window
+// ============================================================================
+
+function createLayoutCreatorWindow(editLayoutId) {
+  // If layout creator window already exists, focus it
+  if (layoutCreatorWindow && !layoutCreatorWindow.isDestroyed()) {
+    layoutCreatorWindow.focus();
+    return layoutCreatorWindow;
+  }
+
+  layoutCreatorWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 1024,
+    minHeight: 600,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+    title: 'Layout Creator',
+    resizable: true,
+    minimizable: true,
+    maximizable: true,
+    show: false,
+  });
+
+  let url = path.join(__dirname, '../renderer/html/layoutCreator.html');
+  if (editLayoutId) {
+    layoutCreatorWindow.loadFile(url, { query: { edit: editLayoutId } });
+  } else {
+    layoutCreatorWindow.loadFile(url);
+  }
+
+  layoutCreatorWindow.once('ready-to-show', () => {
+    layoutCreatorWindow.show();
+  });
+
+  layoutCreatorWindow.on('closed', () => {
+    layoutCreatorWindow = null;
+  });
+
+  return layoutCreatorWindow;
+}
+
+function getLayoutCreatorWindow() {
+  return layoutCreatorWindow;
+}
+
 module.exports = { 
   createMainWindow, 
   createDisplayWindow, 
@@ -286,5 +341,7 @@ module.exports = {
   showFullscreenOnDisplay,
   getCurrentDisplayIndex,
   createSettingsWindow,
-  getSettingsWindow
+  getSettingsWindow,
+  createLayoutCreatorWindow,
+  getLayoutCreatorWindow
 };

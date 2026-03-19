@@ -66,7 +66,7 @@ export function initializeIPCHandlers(deps) {
       timerState.setTotalTime(timeInSeconds);
       
       // Reset button to start state
-      const { startStopBtn, updateButtonIcon, setInputsDisabled } = actions.getElements();
+      const { startStopBtn, updateButtonIcon, setInputsDisabled } = getElements();
       if (startStopBtn && updateButtonIcon) {
         updateButtonIcon(startStopBtn, 'play-fill', 'Start');
         startStopBtn.classList.remove("stop");
@@ -331,12 +331,11 @@ export function initializeIPCHandlers(deps) {
         }
         break;
 
-      case 'flashScreen':
-        // Use the same flash function as the flash button
-        if (actions.flashAtZero) {
-          actions.flashAtZero();
-        }
+      case 'flashScreen': {
+        const flashButton = document.getElementById('flashButton');
+        if (flashButton) flashButton.click();
         break;
+      }
 
       case 'muteSound':
         // Set mute state
@@ -373,7 +372,13 @@ export function initializeIPCHandlers(deps) {
   ipcRenderer.on('api-command', (command) => {
     console.log('🌐 Received unified API command:', command);
     const { action, data } = command;
-    const { startStopBtn, resetBtn, displayMessageBtn } = getElements();
+    const { startStopBtn, resetBtn, displayMessageBtn, coverImageBtn } = getElements();
+
+    const isMessageVisible = () => {
+      if (!displayMessageBtn) return false;
+      const icon = displayMessageBtn.querySelector('i.bi');
+      return Boolean(icon && icon.classList.contains('bi-eye-slash-fill'));
+    };
     
     switch (action) {
       case 'start-timer':
@@ -412,18 +417,30 @@ export function initializeIPCHandlers(deps) {
       case 'adjust-time':
         if (data && typeof data.seconds === 'number') {
           console.log(`⏱️ API: Adjusting time by ${data.seconds} seconds`);
-          
-          // Adjust only the remaining time, keep total time unchanged
+          const adjustment = Math.trunc(data.seconds);
           const currentRemainingTime = timerState.remainingTime;
-          const adjustment = data.seconds;
-          const newRemainingTime = Math.max(0, currentRemainingTime + adjustment);
-          
-          // Update the timer state directly (don't change total time)
-          timerState.remainingTime = newRemainingTime;
-          
-          // Update the display to reflect the change
+          let newRemainingTime = currentRemainingTime + adjustment;
+
+          // Mirror GUI behavior: when stopped, adjust total time and input fields too.
+          if (!timerState.running) {
+            const newTotalTime = Math.max(0, timerState.totalTime + adjustment);
+            timerState.setTotalTime(newTotalTime);
+            timerState.setLastSetTime(newTotalTime);
+
+            // Prevent negative idle values when timer is not running.
+            newRemainingTime = Math.max(0, newRemainingTime);
+
+            const hours = Math.floor(newRemainingTime / 3600);
+            const minutes = Math.floor((newRemainingTime % 3600) / 60);
+            const seconds = newRemainingTime % 60;
+            document.getElementById('hours').value = hours;
+            document.getElementById('minutes').value = minutes;
+            document.getElementById('seconds').value = seconds;
+          }
+
+          timerState.setRemainingTime(newRemainingTime);
           actions.updateDisplay();
-          
+
           console.log(`⏱️ Adjusted from ${currentRemainingTime}s to ${newRemainingTime}s (${adjustment >= 0 ? '+' : ''}${adjustment}s)`);
         }
         break;
@@ -454,9 +471,16 @@ export function initializeIPCHandlers(deps) {
         break;
         
       case 'load-preset':
-        if (data && data.presetId) {
+        if (data && data.presetId !== undefined) {
           console.log(`📋 API: Loading preset ${data.presetId}`);
-          // TODO: Implement preset loading from settings
+          const presetIndex = Number(data.presetId);
+          const presetButtons = Array.from(document.querySelectorAll('.preset'));
+
+          if (Number.isInteger(presetIndex) && presetButtons[presetIndex]) {
+            presetButtons[presetIndex].click();
+          } else {
+            console.warn(`Preset index ${data.presetId} is invalid or not available`);
+          }
         }
         break;
         
@@ -476,11 +500,186 @@ export function initializeIPCHandlers(deps) {
         
       case 'trigger-flash':
         if (data) {
-          console.log(`⚡ API: Triggering flash - ${data.cycles} cycles`);
-          const canvasRenderer = getCanvasRenderer();
-          if (canvasRenderer && canvasRenderer.triggerFlash) {
-            canvasRenderer.triggerFlash(data.cycles || 3, data.duration || 500);
+          console.log(`⚡ API: Triggering flash - ${data.cycles || 3} cycles`);
+          const triggerFlashBtn = document.getElementById('flashButton');
+          if (triggerFlashBtn) triggerFlashBtn.click();
+        }
+        break;
+        
+      case 'set-hours':
+        if (data && typeof data.hours === 'number') {
+          console.log(`🕐 API: Setting hours to ${data.hours}`);
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
           }
+          
+          // Update only hours field
+          document.getElementById('hours').value = data.hours;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'set-minutes':
+        if (data && typeof data.minutes === 'number') {
+          console.log(`🕐 API: Setting minutes to ${data.minutes}`);
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Update only minutes field
+          document.getElementById('minutes').value = data.minutes;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'set-seconds':
+        if (data && typeof data.seconds === 'number') {
+          console.log(`🕐 API: Setting seconds to ${data.seconds}`);
+          // Stop timer if running
+          if (timerState.running) {
+            startStopBtn.click();
+          }
+          
+          // Update only seconds field
+          document.getElementById('seconds').value = data.seconds;
+          
+          // Update time and send state
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'add-minute':
+        console.log('⏱️ API: Adding 1 minute');
+        if (!timerState.running) {
+          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
+          const newMinutes = Math.min(59, currentMinutes + 1);
+          document.getElementById('minutes').value = newMinutes;
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'subtract-minute':
+        console.log('⏱️ API: Subtracting 1 minute');
+        if (!timerState.running) {
+          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
+          const newMinutes = Math.max(0, currentMinutes - 1);
+          document.getElementById('minutes').value = newMinutes;
+          actions.updateTimeFromInputs();
+          timerState.setLastSetTime(timerState.totalTime);
+        }
+        break;
+        
+      case 'mute-sound':
+        console.log('🔇 API: Muting sound');
+        if (actions.setMuteState) {
+          actions.setMuteState(true);
+        }
+        break;
+        
+      case 'unmute-sound':
+        console.log('🔊 API: Unmuting sound');
+        if (actions.setMuteState) {
+          actions.setMuteState(false);
+        }
+        break;
+        
+      case 'toggle-sound':
+        console.log('🔊 API: Toggling sound');
+        if (actions.toggleMuteState) {
+          actions.toggleMuteState();
+        }
+        break;
+        
+      case 'toggle-feature-image':
+        console.log('🖼️ API: Toggling feature image');
+        if (coverImageBtn) {
+          coverImageBtn.click();
+        }
+        break;
+        
+      case 'set-feature-image':
+        if (data && typeof data.enabled === 'boolean') {
+          console.log(`🖼️ API: Setting feature image to ${data.enabled ? 'enabled' : 'disabled'}`);
+          if (coverImageBtn) {
+            // coverImage button uses btn-success while enabled.
+            const currentlyEnabled = coverImageBtn.classList.contains('btn-success');
+            if (currentlyEnabled !== data.enabled) {
+              coverImageBtn.click();
+            }
+          }
+        }
+        break;
+        
+      case 'change-layout':
+        if (data && data.layout) {
+          console.log(`🎨 API: Changing layout to ${data.layout}`);
+          if (actions.changeLayout) {
+            actions.changeLayout(data.layout);
+          }
+        }
+        break;
+        
+      case 'set-message':
+        if (data && data.message) {
+          console.log(`💬 API: Setting message: "${data.message}"`);
+          const messageInput = document.getElementById('messageInput');
+          if (messageInput) {
+            messageInput.value = data.message;
+            messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+            if (displayMessageBtn) {
+              if (isMessageVisible()) {
+                // Keep message visible and refresh the displayed text.
+                const canvasRenderer = getCanvasRenderer();
+                if (canvasRenderer) {
+                  canvasRenderer.setState({
+                    message: data.message,
+                    showMessage: true,
+                  });
+                }
+
+                if (window.electron && ipcRenderer) {
+                  ipcRenderer.send('display-message', data.message);
+                }
+              } else {
+                displayMessageBtn.click();
+              }
+            }
+          }
+        }
+        break;
+
+      case 'set-message-text':
+        if (data && typeof data.message === 'string') {
+          console.log(`💬 API: Setting message text only: "${data.message}"`);
+          const messageInput = document.getElementById('messageInput');
+          if (messageInput) {
+            messageInput.value = data.message;
+            messageInput.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+        break;
+        
+      case 'hide-message':
+        console.log('💬 API: Hiding message');
+        if (displayMessageBtn && isMessageVisible()) {
+          displayMessageBtn.click();
+        }
+        break;
+        
+      case 'toggle-message':
+        console.log('💬 API: Toggling message');
+        if (displayMessageBtn) {
+          displayMessageBtn.click();
         }
         break;
         
@@ -502,6 +701,10 @@ export function initializeIPCHandlers(deps) {
         progressWarning: '#f59e0b', 
         progressDanger: '#ef4444'
       };
+
+      const messageInput = document.getElementById('messageInput');
+      const messageVisible = isMessageVisible();
+      const featureImageEnabled = Boolean(coverImageBtn && coverImageBtn.classList.contains('btn-success'));
       
       ipcRenderer.send('companion-state-update', {
         timer: {
@@ -518,6 +721,13 @@ export function initializeIPCHandlers(deps) {
         },
         settings: {
           colors: currentColors
+        },
+        message: {
+          visible: messageVisible,
+          text: messageInput ? messageInput.value : ''
+        },
+        coverImage: {
+          enabled: featureImageEnabled
         }
       });
     }, 10);
@@ -713,6 +923,62 @@ export function initializeIPCHandlers(deps) {
       } catch (error) {
         console.error('❌ Failed to restart video input:', error);
       }
+    } else {
+      // Video not currently running - check if current layout needs it
+      const currentLayout = canvasRenderer.layout;
+      const needsVideo = (currentLayout?.videoFrame && currentLayout.videoFrame.enabled) || 
+                        (currentLayout?.video && currentLayout.video.enabled);
+      
+      if (needsVideo && deviceId) {
+        console.log('🎬 Current layout needs video, auto-starting with new device:', deviceId);
+        
+        try {
+          await canvasRenderer.enableVideoInput(deviceId);
+          console.log('✅ Video input auto-started successfully');
+        } catch (error) {
+          console.error('❌ Failed to auto-start video input:', error);
+          
+          // Show error in status bar
+          if (statusBar) {
+            const errorMsg = error.name === 'NotAllowedError' 
+              ? 'Camera access denied - check permissions'
+              : error.name === 'NotFoundError'
+              ? 'Camera device not found'
+              : error.name === 'NotReadableError'
+              ? 'Camera already in use'
+              : 'Camera access failed';
+            
+            statusBar.setCameraStatus('error');
+            statusBar.error(errorMsg, 0);
+          }
+        }
+      }
+    }
+  });
+
+  // ===============================
+  // Video Mirror Setting
+  // ===============================
+  
+  ipcRenderer.on('video-mirror-changed', (enabled) => {
+    console.log('🪞 Video mirror changed:', enabled);
+    
+    const canvasRenderer = getCanvasRenderer();
+    if (canvasRenderer) {
+      canvasRenderer.setVideoMirror(enabled);
+    }
+  });
+
+  // ===============================
+  // Video Scaling Setting
+  // ===============================
+  
+  ipcRenderer.on('video-scaling-changed', (mode) => {
+    console.log('📐 Video scaling changed:', mode);
+    
+    const canvasRenderer = getCanvasRenderer();
+    if (canvasRenderer) {
+      canvasRenderer.setVideoScaling(mode);
     }
   });
 

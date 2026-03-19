@@ -7,6 +7,11 @@ export function Presets() {
     [25, 30, 45, 60]
   ];
 
+  // Detect platform for displaying correct modifier key
+  const isMac = typeof navigator !== 'undefined' && 
+                navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const modifierKey = isMac ? '⌘' : 'Ctrl';
+
   return (
     <Card>
       <Card.Header
@@ -20,13 +25,16 @@ export function Presets() {
         }
       />
       <Card.Content>
+        <p className="text-[clamp(0.625rem,1.1vh,0.7rem)] mb-2" style={{ color: 'var(--text-muted)' }}>
+          {modifierKey} + Click to save preset
+        </p>
         {presetTimes.map((row, rowIndex) => (
-          <div key={rowIndex} className={`grid grid-cols-4 gap-2 ${rowIndex > 0 ? 'mt-2' : ''}`}>
+          <div key={rowIndex} className={`grid grid-cols-4 gap-[clamp(0.375rem,0.8vh,0.5rem)] ${rowIndex > 0 ? 'mt-[clamp(0.375rem,0.8vh,0.5rem)]' : ''}`}>
             {row.map((minutes) => (
               <Button
                 key={minutes}
                 variant="secondary"
-                size="sm"
+                size="md"
                 className="preset"
                 data-minutes={minutes}
                 aria-label={`Set timer to ${minutes} minutes`}

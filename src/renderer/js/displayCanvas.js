@@ -418,6 +418,23 @@ if (isElectron) {
       try {
         await displayRenderer.enableVideoInput(deviceId);
         console.log('✅ Video input started in display window');
+        
+        // Apply mirror and scaling settings from stored settings
+        if (window.electron && window.electron.settings) {
+          try {
+            const settings = await window.electron.settings.getAll();
+            if (settings) {
+              if (settings.mirrorVideo !== undefined) {
+                displayRenderer.setVideoMirror(settings.mirrorVideo);
+              }
+              if (settings.videoScaling !== undefined) {
+                displayRenderer.setVideoScaling(settings.videoScaling);
+              }
+            }
+          } catch (err) {
+            console.warn('Could not apply video settings:', err.message);
+          }
+        }
       } catch (error) {
         console.error('Error starting video in display window:', error);
       }
@@ -476,6 +493,26 @@ if (isElectron) {
   ipcRenderer.on('video-opacity-change', (opacity) => {
     if (displayRenderer) {
       displayRenderer.setVideoOpacity(opacity);
+    }
+  });
+}
+
+// Listen for video mirror change (Electron only)
+if (isElectron) {
+  ipcRenderer.on('video-mirror-changed', (enabled) => {
+    console.log('🪞 Display: Video mirror changed:', enabled);
+    if (displayRenderer) {
+      displayRenderer.setVideoMirror(enabled);
+    }
+  });
+}
+
+// Listen for video scaling change (Electron only)
+if (isElectron) {
+  ipcRenderer.on('video-scaling-changed', (mode) => {
+    console.log('📐 Display: Video scaling changed:', mode);
+    if (displayRenderer) {
+      displayRenderer.setVideoScaling(mode);
     }
   });
 }

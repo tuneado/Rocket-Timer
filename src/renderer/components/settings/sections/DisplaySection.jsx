@@ -40,6 +40,21 @@ export function DisplaySection() {
         </SettingsItem>
       </SettingsGroup>
 
+      <SettingsGroup title="Canvas Resolution">
+        <SettingsItem
+          title="Output Resolution"
+          description="Canvas rendering resolution (affects output quality and performance)"
+        >
+          <Select id="canvasResolution" className="w-56">
+            <option value="1920x1080">1920×1080 (Full HD)</option>
+            <option value="1280x720">1280×720 (HD)</option>
+            <option value="2560x1440">2560×1440 (2K)</option>
+            <option value="3840x2160">3840×2160 (4K)</option>
+            <option value="custom">Custom...</option>
+          </Select>
+        </SettingsItem>
+      </SettingsGroup>
+
       <SettingsGroup title="External Display">
         <SettingsItem
           title="Auto-Open at Startup"

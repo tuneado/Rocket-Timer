@@ -6,8 +6,10 @@ yarn-error.log*
 
 # Build output
 /dist/
-/build/
 /out/
+
+# Build resources - keep root icons, ignore generated subfolder
+build/icons/
 
 # Electron packager output
 *.asar
@@ -16,6 +18,12 @@ yarn-error.log*
 *.deb
 *.AppImage
 *.zip
+*.blockmap
+*.yml.gz
+release/
+
+# Electron-builder
+electron-builder.yml
 
 # VSCode workspace files
 .vscode/

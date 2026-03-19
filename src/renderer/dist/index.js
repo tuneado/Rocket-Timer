@@ -680,7 +680,8 @@ function TimePicker() {
   ), /* @__PURE__ */ _(Card.Content, null, /* @__PURE__ */ _("div", { className: "flex items-center justify-center gap-2" }, /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid var(--border-default)" },
       type: "number",
       id: "hours",
       defaultValue: "0",
@@ -692,7 +693,8 @@ function TimePicker() {
   ), /* @__PURE__ */ _("label", { className: "mt-1 text-xs text-text-secondary", id: "hours-desc" }, "Hours")), /* @__PURE__ */ _("div", { className: "text-3xl font-mono text-text-muted pb-5" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid var(--border-default)" },
       type: "number",
       id: "minutes",
       defaultValue: "5",
@@ -704,7 +706,8 @@ function TimePicker() {
   ), /* @__PURE__ */ _("label", { className: "mt-1 text-xs text-text-secondary", id: "minutes-desc" }, "Minutes")), /* @__PURE__ */ _("div", { className: "text-3xl font-mono text-text-muted pb-5" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid var(--border-default)" },
       type: "number",
       id: "seconds",
       defaultValue: "0",
@@ -757,7 +760,8 @@ function MessageCard() {
     "textarea",
     {
       id: "messageInput",
-      className: "w-full px-3 py-2 bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none resize-none text-text-primary",
+      className: "w-full px-3 py-2 bg-bg-elevated rounded-lg focus:outline-none resize-none text-text-primary",
+      style: { border: "2px solid var(--border-default)" },
       placeholder: "Enter message to display...",
       maxLength: "100",
       rows: "2",
@@ -770,20 +774,20 @@ function MessageCard() {
       id: "displayMessage",
       variant: "secondary",
       className: "flex-1",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-display-fill" }),
       "aria-label": "Display message on timer"
     },
-    "Display"
+    /* @__PURE__ */ _("i", { className: "bi bi-display-fill", "aria-hidden": "true" }),
+    /* @__PURE__ */ _("span", null, "Display")
   ), /* @__PURE__ */ _(
     Button,
     {
       id: "clearMessage",
       variant: "secondary",
       className: "flex-1",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-trash-fill" }),
       "aria-label": "Clear displayed message"
     },
-    "Clear"
+    /* @__PURE__ */ _("i", { className: "bi bi-trash-fill", "aria-hidden": "true" }),
+    /* @__PURE__ */ _("span", null, "Clear")
   ))));
 }
 
@@ -827,22 +831,22 @@ function ControlsRow() {
       id: "startStop",
       variant: "success",
       size: "xl",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-play-fill text-xl" }),
       "aria-label": "Start timer",
       "aria-keyshortcut": "Space"
     },
-    "Start"
+    /* @__PURE__ */ _("i", { className: "bi bi-play-fill", "aria-hidden": "true" }),
+    /* @__PURE__ */ _("span", null, "Start")
   )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
     Button,
     {
       id: "reset",
       variant: "danger",
       size: "xl",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-arrow-clockwise text-xl" }),
       "aria-label": "Reset timer",
       "aria-keyshortcut": "r"
     },
-    "Reset"
+    /* @__PURE__ */ _("i", { className: "bi bi-arrow-clockwise", "aria-hidden": "true" }),
+    /* @__PURE__ */ _("span", null, "Reset")
   )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-0.5 h-16" }, /* @__PURE__ */ _(
     Button,
     {
@@ -938,7 +942,7 @@ function ControlsRow() {
 
 // src/renderer/components/InfoStats.jsx
 function InfoStats() {
-  return /* @__PURE__ */ _(Card, { className: "px-3 py-2 mb-0" }, /* @__PURE__ */ _("div", { className: "grid grid-cols-4 gap-0" }, /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Clock"), /* @__PURE__ */ _("div", { id: "clockTime", className: "text-base font-semibold text-text-primary" }, "--:--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Timer"), /* @__PURE__ */ _("div", { id: "timerValue", className: "text-base font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Elapsed"), /* @__PURE__ */ _("div", { id: "elapsedTime", className: "text-base font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Ends At"), /* @__PURE__ */ _("div", { id: "endsAtTime", className: "text-base font-semibold text-text-primary" }, "--:--:--"))));
+  return /* @__PURE__ */ _(Card, { className: "px-3 py-2 mb-0" }, /* @__PURE__ */ _("div", { className: "grid grid-cols-4 gap-0" }, /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Clock"), /* @__PURE__ */ _("div", { id: "clockTime", className: "text-xl font-semibold text-text-primary" }, "--:--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Timer"), /* @__PURE__ */ _("div", { id: "timerValue", className: "text-xl font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Elapsed"), /* @__PURE__ */ _("div", { id: "elapsedTime", className: "text-xl font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Ends At"), /* @__PURE__ */ _("div", { id: "endsAtTime", className: "text-xl font-semibold text-text-primary" }, "--:--:--"))));
 }
 
 // src/renderer/components/RightPanel.jsx

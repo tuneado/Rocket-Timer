@@ -1,10 +1,10 @@
 const esbuild = require('esbuild');
 
 esbuild.build({
-  entryPoints: [
-    'src/renderer/index.jsx',
-    'src/renderer/settings.jsx',
-  ],
+  entryPoints: {
+    'renderer.bundle': 'src/renderer/index.jsx',
+    'settings': 'src/renderer/settings.jsx',
+  },
   bundle: true,
   outdir: 'src/renderer/dist',
   format: 'esm',

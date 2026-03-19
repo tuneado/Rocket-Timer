@@ -71,7 +71,9 @@ const classicLayout = {
     "fontSize": 40,
     "alignment": "center",
     "format": "HH:MM:SS",
-    "label": "Ends at:",
+    "label": "ENDS AT",
+    "showLabel": false,
+    "labelSize": 20,
     "opacity": 0.8,
     "background": {
       "enabled": false,
@@ -111,6 +113,7 @@ const minimalLayout = {
   "progressBar": {
     "enabled": false
   },
+  "video": { "enabled": false },
   "countdown": {
     "enabled": true,
     "position": { "x": "center", "y": "middle" },
@@ -129,7 +132,7 @@ const minimalLayout = {
     "fontSize": 50,
     "alignment": "center",
     "format": "HH:MM:SS",
-    "label": "Ends at:"
+    "label": "ENDS AT"
   },
   "separator": {
     "enabled": false
@@ -158,6 +161,7 @@ const clockFocusLayout = {
     "size": { "width": "80%", "height": "3%" },
     "cornerRadius": 20
   },
+  "video": { "enabled": false },
   "countdown": {
     "enabled": false,
     "position": { "x": "center", "y": "65%" },
@@ -179,7 +183,7 @@ const clockFocusLayout = {
     "fontSize": 40,
     "alignment": "center",
     "format": "HH:MM:SS",
-    "label": "Ends at:"
+    "label": "ENDS AT"
   },
   "separator": {
     "enabled": false,
@@ -212,6 +216,7 @@ const detailedLayout = {
     "size": { "width": "80%", "height": "3%" },
     "cornerRadius": 20
   },
+  "video": { "enabled": false },
   "countdown": {
     "enabled": true,
     "position": { "x": "center", "y": "40%" },
@@ -273,10 +278,11 @@ const circularLayout = {
     "enabled": true,
     "type": "circular",
     "position": { "x": "center", "y": "middle" },
-    "radius": 450,
+    "size": { "width": "83%", "height": "83%" },
     "thickness": 40,
     "startAngle": -90
   },
+  "video": { "enabled": false },
   "countdown": {
     "enabled": true,
     "position": { "x": "center", "y": "47%" },
@@ -298,7 +304,7 @@ const circularLayout = {
     "fontSize": 35,
     "alignment": "center",
     "format": "HH:MM:SS",
-    "label": "Ends at:"
+    "label": "ENDS AT"
   },
   "separator": {
     "enabled": false
@@ -325,6 +331,12 @@ const videoLayout = {
     "enabled": true,
     "position": { "x": 0, "y": 0 },
     "size": { "width": 1920, "height": 1080 },
+    "opacity": 1.0
+  },
+  "video": {
+    "enabled": true,
+    "position": { "x": 0, "y": 0 },
+    "size": { "width": "100%", "height": "100%" },
     "opacity": 1.0
   },
   "bottomBar": {
@@ -365,7 +377,7 @@ const videoLayout = {
     "fontSize": 50,
     "alignment": "center",
     "format": "HH:MM:SS",
-    "label": "→"
+    "label": "ENDS AT"
   },
   "separator": {
     "enabled": false
@@ -582,7 +594,7 @@ class LayoutRegistry {
       }
       
       // Validate elements
-      const requiredElements = ['countdown', 'clock', 'progressBar', 'separator', 'message', 'elapsed', 'endTime'];
+      const requiredElements = ['countdown', 'clock', 'progressBar', 'separator', 'message', 'elapsed', 'endTime', 'video'];
       for (const element of requiredElements) {
         if (!layoutData[element]) {
           errors.push(`Missing ${element} configuration`);

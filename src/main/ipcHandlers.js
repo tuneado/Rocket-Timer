@@ -1,5 +1,5 @@
 const { ipcMain, clipboard, dialog } = require('electron');
-const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow } = require('./windows');
+const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow, getLayoutCreatorWindow } = require('./windows');
 const { updateDisplayMenuItems } = require('./menu');
 const SettingsManager = require('./settingsManager');
 
@@ -8,6 +8,11 @@ let settingsManager;
 function setupIpcHandlers(mainWindow) {
   // Initialize settings manager
   settingsManager = new SettingsManager();
+
+  // App info
+  ipcMain.handle('get-app-version', async () => {
+    return require('../../package.json').version;
+  });
 
   // Settings handlers
   ipcMain.handle('get-settings', async () => {
@@ -362,6 +367,38 @@ function setupIpcHandlers(mainWindow) {
     }
   });
 
+  // Handle video mirror setting change
+  ipcMain.on('video-mirror-changed', (event, enabled) => {
+    console.log('Video mirror changed:', enabled);
+    
+    // Forward to main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('video-mirror-changed', enabled);
+    }
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed()) {
+      displayWindow.webContents.send('video-mirror-changed', enabled);
+    }
+  });
+
+  // Handle video scaling setting change
+  ipcMain.on('video-scaling-changed', (event, mode) => {
+    console.log('Video scaling changed:', mode);
+    
+    // Forward to main window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('video-scaling-changed', mode);
+    }
+    
+    // Forward to display window
+    const displayWindow = getDisplayWindow();
+    if (displayWindow && !displayWindow.isDestroyed()) {
+      displayWindow.webContents.send('video-scaling-changed', mode);
+    }
+  });
+
   // Handle video device selection from settings window
   ipcMain.on('video-device-selected', (event, deviceId) => {
     console.log('Video device selected in settings:', deviceId);
@@ -386,6 +423,15 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       displayWindow.webContents.send('video-opacity-change', opacity);
+    }
+  });
+
+  // Handle performance stats updates from main window
+  ipcMain.on('performance-stats-update', (event, stats) => {
+    // Forward to settings window for display
+    const settingsWindow = getSettingsWindow();
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('performance-stats-update', stats);
     }
   });
 
@@ -621,6 +667,27 @@ function setupIpcHandlers(mainWindow) {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
       mainWindow.webContents.send('request-current-state-for-display');
+    }
+  });
+
+  // ========================================================================
+  // Layout Creator handlers
+  // ========================================================================
+
+  ipcMain.on('open-layout-creator', (event, editLayoutId) => {
+    createLayoutCreatorWindow(editLayoutId || null);
+  });
+
+  ipcMain.on('layout-creator:saved', (event, data) => {
+    console.log('Layout Creator saved layout:', data?.id);
+    // Notify main window to refresh layout list
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('layout-list-updated');
+    }
+    // Notify settings window if open
+    const settingsWin = getSettingsWindow();
+    if (settingsWin && !settingsWin.isDestroyed()) {
+      settingsWin.webContents.send('layout-list-updated');
     }
   });
 }

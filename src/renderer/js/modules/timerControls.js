@@ -16,14 +16,14 @@ let globalPrecisionTimer = null;
  * @param {Object} canvasRenderer - The canvas renderer instance
  * @param {Object} ipcRenderer - The IPC renderer for display window communication
  */
-export function flashAtZero(canvasRenderer, ipcRenderer) {
+export function flashAtZero(canvasRenderer, ipcRenderer, options = {}) {
   // Send flash event to display window
   if (window.electron && ipcRenderer) {
     ipcRenderer.send('flash-at-zero');
   }
   
   // Trigger flash animation on main window
-  createFlashAnimation(canvasRenderer);
+  createFlashAnimation(canvasRenderer, options);
 }
 
 /**

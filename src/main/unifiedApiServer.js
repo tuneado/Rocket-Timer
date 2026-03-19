@@ -43,6 +43,13 @@ class UnifiedTimerAPIServer extends EventEmitter {
       adjustments: [],
       presets: [],
       settings: {},
+      message: {
+        visible: false,
+        text: ''
+      },
+      coverImage: {
+        enabled: false
+      },
       formattedTime: '00:00:00',
       percentage: 0,
       elapsedTime: '00:00:00'
@@ -189,6 +196,54 @@ class UnifiedTimerAPIServer extends EventEmitter {
       })
     })
     
+    // Individual Time Component Setters
+    this.app.post('/api/timer/hours/:value', (req, res) => {
+      const hours = parseInt(req.params.value)
+      if (isNaN(hours) || hours < 0 || hours > 99) {
+        return res.status(400).json({
+          success: false,
+          error: 'Hours must be between 0 and 99'
+        })
+      }
+      const result = this.setHours(hours)
+      res.json(result)
+    })
+    
+    this.app.post('/api/timer/minutes/:value', (req, res) => {
+      const minutes = parseInt(req.params.value)
+      if (isNaN(minutes) || minutes < 0 || minutes > 59) {
+        return res.status(400).json({
+          success: false,
+          error: 'Minutes must be between 0 and 59'
+        })
+      }
+      const result = this.setMinutes(minutes)
+      res.json(result)
+    })
+    
+    this.app.post('/api/timer/seconds/:value', (req, res) => {
+      const seconds = parseInt(req.params.value)
+      if (isNaN(seconds) || seconds < 0 || seconds > 59) {
+        return res.status(400).json({
+          success: false,
+          error: 'Seconds must be between 0 and 59'
+        })
+      }
+      const result = this.setSeconds(seconds)
+      res.json(result)
+    })
+    
+    // Quick Time Adjustments
+    this.app.post('/api/timer/add-minute', (req, res) => {
+      const result = this.addMinute()
+      res.json(result)
+    })
+    
+    this.app.post('/api/timer/subtract-minute', (req, res) => {
+      const result = this.subtractMinute()
+      res.json(result)
+    })
+    
     // Preset Management Endpoints
     this.app.get('/api/presets', (req, res) => {
       res.json({
@@ -225,6 +280,114 @@ class UnifiedTimerAPIServer extends EventEmitter {
     this.app.post('/api/timer/flash', (req, res) => {
       const { cycles, duration } = req.body
       const result = this.triggerFlash(cycles, duration)
+      res.json(result)
+    })
+    
+    // Sound Control Endpoints
+    this.app.post('/api/sound/mute', (req, res) => {
+      const result = this.muteSound()
+      res.json(result)
+    })
+    
+    this.app.post('/api/sound/unmute', (req, res) => {
+      const result = this.unmuteSound()
+      res.json(result)
+    })
+    
+    this.app.post('/api/sound/toggle', (req, res) => {
+      const result = this.toggleSound()
+      res.json(result)
+    })
+    
+    // Display Control Endpoints
+    this.app.post('/api/display/toggle-feature-image', (req, res) => {
+      const result = this.toggleFeatureImage()
+      res.json(result)
+    })
+    
+    this.app.post('/api/display/feature-image', (req, res) => {
+      const { enabled } = req.body
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({
+          success: false,
+          error: 'enabled must be a boolean value'
+        })
+      }
+      const result = this.setFeatureImage(enabled)
+      res.json(result)
+    })
+    
+    this.app.post('/api/display/flash', (req, res) => {
+      const { cycles, duration } = req.body
+      const result = this.triggerFlash(cycles, duration)
+      res.json(result)
+    })
+    
+    // Layout Management Endpoints
+    this.app.get('/api/layouts', async (req, res) => {
+      const result = await this.getLayouts()
+      res.json(result)
+    })
+    
+    this.app.post('/api/layout', async (req, res) => {
+      const { layoutId } = req.body
+      if (!layoutId || typeof layoutId !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'layoutId is required and must be a string'
+        })
+      }
+      const result = await this.setLayout(layoutId)
+      if (!result.success) {
+        return res.status(400).json(result)
+      }
+      res.json(result)
+    })
+    
+    // Message Overlay Endpoints
+    this.app.post('/api/message', (req, res) => {
+      const { text, duration } = req.body
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'text is required and must be a string'
+        })
+      }
+      const result = this.sendMessage(text, duration)
+      res.json(result)
+    })
+
+    this.app.post('/api/message/set-text', (req, res) => {
+      const { text } = req.body
+      if (typeof text !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'text is required and must be a string'
+        })
+      }
+      const result = this.setMessageText(text)
+      res.json(result)
+    })
+    
+    this.app.post('/api/message/show', (req, res) => {
+      const { text } = req.body
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: 'text is required and must be a string'
+        })
+      }
+      const result = this.sendMessage(text)
+      res.json(result)
+    })
+    
+    this.app.post('/api/message/hide', (req, res) => {
+      const result = this.hideMessage()
+      res.json(result)
+    })
+    
+    this.app.post('/api/message/toggle', (req, res) => {
+      const result = this.toggleMessage()
       res.json(result)
     })
     
@@ -782,6 +945,331 @@ class UnifiedTimerAPIServer extends EventEmitter {
     }
   }
   
+  setHours(hours) {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'set-hours',
+        data: { hours }
+      })
+      
+      console.log(`🕐 Set hours command sent: ${hours}`)
+      const result = { success: true, message: `Hours set to ${hours}`, data: { hours } }
+      
+      this.broadcastToAll('time-component-set', { component: 'hours', value: hours })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Set hours error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  setMinutes(minutes) {
+    try {
+      this.mainWindow.webContents.send('api-command',{
+        action: 'set-minutes',
+        data: { minutes }
+      })
+      
+      console.log(`🕐 Set minutes command sent: ${minutes}`)
+      const result = { success: true, message: `Minutes set to ${minutes}`, data: { minutes } }
+      
+      this.broadcastToAll('time-component-set', { component: 'minutes', value: minutes })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Set minutes error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  setSeconds(seconds) {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'set-seconds',
+        data: { seconds }
+      })
+      
+      console.log(`🕐 Set seconds command sent: ${seconds}`)
+      const result = { success: true, message: `Seconds set to ${seconds}`, data: { seconds } }
+      
+      this.broadcastToAll('time-component-set', { component: 'seconds', value: seconds })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Set seconds error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  addMinute() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'add-minute'
+      })
+      
+      console.log('⏱️ Add minute command sent')
+      const result = { success: true, message: 'Added 1 minute', data: { adjustment: 60 } }
+      
+      this.broadcastToAll('time-adjusted', { adjustment: 60 })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Add minute error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  subtractMinute() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'subtract-minute'
+      })
+      
+      console.log('⏱️ Subtract minute command sent')
+      const result = { success: true, message: 'Subtracted 1 minute', data: { adjustment: -60 } }
+      
+      this.broadcastToAll('time-adjusted', { adjustment: -60 })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Subtract minute error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  muteSound() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'mute-sound'
+      })
+      
+      console.log('🔇 Mute sound command sent')
+      const result = { success: true, message: 'Sound muted' }
+      
+      this.broadcastToAll('sound-muted', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Mute sound error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  unmuteSound() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'unmute-sound'
+      })
+      
+      console.log('🔊 Unmute sound command sent')
+      const result = { success: true, message: 'Sound unmuted' }
+      
+      this.broadcastToAll('sound-unmuted', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Unmute sound error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  toggleSound() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'toggle-sound'
+      })
+      
+      console.log('🔊 Toggle sound command sent')
+      const result = { success: true, message: 'Sound toggled' }
+      
+      this.broadcastToAll('sound-toggled', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Toggle sound error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  toggleFeatureImage() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'toggle-feature-image'
+      })
+      
+      console.log('🖼️ Toggle feature image command sent')
+      const result = { success: true, message: 'Feature image toggled' }
+      
+      this.broadcastToAll('feature-image-toggled', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Toggle feature image error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  setFeatureImage(enabled) {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'set-feature-image',
+        data: { enabled }
+      })
+      
+      console.log(`🖼️ Set feature image command sent: ${enabled ? 'enabled' : 'disabled'}`)
+      const result = { success: true, message: `Feature image ${enabled ? 'enabled' : 'disabled'}`, data: { enabled } }
+      
+      this.broadcastToAll('feature-image-set', { enabled })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Set feature image error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  async getLayouts() {
+    try {
+      // Query LayoutRegistry in the renderer process for all layouts (built-in + custom)
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        const layouts = await this.mainWindow.webContents.executeJavaScript(
+          `window.LayoutRegistry ? window.LayoutRegistry.getAllLayouts() : []`
+        )
+        return {
+          success: true,
+          data: layouts
+        }
+      }
+
+      // Fallback if renderer is not available
+      return {
+        success: true,
+        data: [
+          { id: 'classic', name: 'Classic', type: 'builtin' },
+          { id: 'minimal', name: 'Minimal', type: 'builtin' },
+          { id: 'modern', name: 'Modern', type: 'builtin' },
+          { id: 'compact', name: 'Compact', type: 'builtin' },
+          { id: 'video', name: 'Video', type: 'builtin' }
+        ]
+      }
+    } catch (error) {
+      console.error('🚨 Get layouts error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  async setLayout(layoutId) {
+    try {
+      // Validate layout exists via LayoutRegistry in the renderer
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        const exists = await this.mainWindow.webContents.executeJavaScript(
+          `window.LayoutRegistry ? window.LayoutRegistry.hasLayout(${JSON.stringify(layoutId)}) : false`
+        )
+        if (!exists) {
+          return { success: false, error: `Layout '${layoutId}' not found` }
+        }
+      }
+
+      this.mainWindow.webContents.send('api-command', {
+        action: 'change-layout',
+        data: { layout: layoutId }
+      })
+      
+      console.log(`🎨 Set layout command sent: ${layoutId}`)
+      const result = { success: true, message: `Layout changed to ${layoutId}`, data: { layoutId } }
+      
+      this.broadcastToAll('layout-changed', { layoutId })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Set layout error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  sendMessage(text, duration) {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'set-message',
+        data: { message: text, duration }
+      })
+      
+      console.log(`💬 Send message command sent: "${text}" (${duration || 'no timeout'}ms)`)
+      const result = { success: true, message: 'Message sent', data: { text, duration } }
+      
+      this.broadcastToAll('message-sent', { text, duration })
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Send message error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  setMessageText(text) {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'set-message-text',
+        data: { message: text }
+      })
+
+      console.log(`💬 Set message text command sent: "${text}"`)
+
+      // Keep API state in sync even when message visibility does not change.
+      this.timerState = {
+        ...this.timerState,
+        message: {
+          ...(this.timerState.message || {}),
+          text
+        }
+      }
+
+      this.broadcastToAll('timer-update', this.getFormattedTimerState())
+
+      return { success: true, message: 'Message text set', data: { text } }
+    } catch (error) {
+      console.error('🚨 Set message text error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  hideMessage() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'hide-message'
+      })
+      
+      console.log('💬 Hide message command sent')
+      const result = { success: true, message: 'Message hidden' }
+      
+      this.broadcastToAll('message-hidden', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Hide message error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
+  toggleMessage() {
+    try {
+      this.mainWindow.webContents.send('api-command', {
+        action: 'toggle-message'
+      })
+      
+      console.log('💬 Toggle message command sent')
+      const result = { success: true, message: 'Message toggled' }
+      
+      this.broadcastToAll('message-toggled', {})
+      
+      return result
+    } catch (error) {
+      console.error('🚨 Toggle message error:', error)
+      return { success: false, error: error.message }
+    }
+  }
+  
   updateTimerState(newState) {
     // Update internal state from renderer
     this.timerState = { ...this.timerState, ...newState }
@@ -807,6 +1295,8 @@ class UnifiedTimerAPIServer extends EventEmitter {
 
   getFormattedTimerState() {
     const timer = this.timerState.timer || {}
+    const message = this.timerState.message || {}
+    const coverImage = this.timerState.coverImage || {}
     const totalTime = timer.totalTime || 0
     const remainingTime = timer.remainingTime || 0
     const elapsedTime = Math.max(0, totalTime - remainingTime)
@@ -836,6 +1326,9 @@ class UnifiedTimerAPIServer extends EventEmitter {
       percentage: Math.max(0, Math.min(100, elapsedPercentage)),
       remainingPercentage: Math.max(0, Math.min(100, remainingPercentage)),
       isOvertime: remainingTime < 0,
+      messageVisible: message.visible === true,
+      messageText: typeof message.text === 'string' ? message.text : '',
+      featureImageEnabled: coverImage.enabled === true,
       timestamp: Date.now()
     }
   }
@@ -889,7 +1382,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
   getAPIDocumentation() {
     return {
       version: '2.0.0',
-      title: 'Countdown Timer Unified API',
+      title: 'Rocket Timer Unified API',
       description: 'Professional timer control via REST, WebSocket, and OSC protocols',
       protocols: {
         rest: {
@@ -902,14 +1395,32 @@ class UnifiedTimerAPIServer extends EventEmitter {
             'POST /timer/pause': 'Pause the timer',
             'POST /timer/resume': 'Resume the timer',
             'POST /timer/reset': 'Reset the timer',
-            'POST /timer/adjust': 'Adjust time (body: {seconds: number})',
-            'POST /timer/set-time': 'Set total time (body: {totalSeconds: number})',
+            'POST /timer/adjust': 'Adjust time (body: {seconds: number, minutes: number})',
+            'POST /timer/set-time': 'Set total time (body: {totalSeconds: number} or {hours, minutes, seconds})',
+            'POST /timer/hours/:value': 'Set hours component (0-99)',
+            'POST /timer/minutes/:value': 'Set minutes component (0-59)',
+            'POST /timer/seconds/:value': 'Set seconds component (0-59)',
+            'POST /timer/add-minute': 'Add 1 minute to timer',
+            'POST /timer/subtract-minute': 'Subtract 1 minute from timer',
+            'POST /timer/flash': 'Trigger flash effect (body: {cycles: number, duration: number})',
             'GET /presets': 'Get all presets',
             'POST /presets': 'Create preset (body: {name, duration, category})',
             'POST /presets/:id/load': 'Load preset by ID',
             'GET /settings': 'Get settings',
-            'PUT /settings': 'Update settings',
-            'POST /timer/flash': 'Trigger flash effect',
+            'PUT /settings': 'Update settings (body: settings object)',
+            'POST /sound/mute': 'Mute sound',
+            'POST /sound/unmute': 'Unmute sound',
+            'POST /sound/toggle': 'Toggle sound mute state',
+            'POST /display/toggle-feature-image': 'Toggle background/feature image',
+            'POST /display/feature-image': 'Set feature image state (body: {enabled: boolean})',
+            'POST /display/flash': 'Trigger flash effect (same as /timer/flash)',
+            'GET /layouts': 'Get available layouts',
+            'POST /layout': 'Change layout (body: {layoutId: string})',
+            'POST /message': 'Send message overlay (body: {text: string, duration?: number})',
+            'POST /message/set-text': 'Set message text only (body: {text: string})',
+            'POST /message/show': 'Show message (body: {text: string})',
+            'POST /message/hide': 'Hide message overlay',
+            'POST /message/toggle': 'Toggle message visibility',
             'GET /health': 'Health check and API info'
           }
         },

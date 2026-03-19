@@ -76,6 +76,13 @@ export function VideoInputSection() {
         >
           <Switch id="releaseCameraIdle" checked />
         </SettingsItem>
+
+        <SettingsItem
+          title="Mirror Video"
+          description="Flip video horizontally (useful for webcams)"
+        >
+          <Switch id="mirrorVideo" />
+        </SettingsItem>
       </SettingsGroup>
 
       <SettingsGroup title="Quality">
@@ -87,6 +94,18 @@ export function VideoInputSection() {
             <option value="1920x1080">1920×1080 (1080p)</option>
             <option value="1280x720">1280×720 (720p)</option>
             <option value="auto">Auto</option>
+          </Select>
+        </SettingsItem>
+
+        <SettingsItem
+          title="Video Scaling"
+          description="How video fits the display area"
+        >
+          <Select id="videoScaling" className="w-48">
+            <option value="contain">Contain (fit inside)</option>
+            <option value="cover">Cover (fill, may crop)</option>
+            <option value="stretch">Stretch (fill exactly)</option>
+            <option value="none">None (original size)</option>
           </Select>
         </SettingsItem>
       </SettingsGroup>

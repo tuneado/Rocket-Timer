@@ -226,7 +226,10 @@ class VideoInputManager {
   }
 }
 
-// Export for use in other modules
+// Export as ES6 module (for import statements)
+export default VideoInputManager;
+
+// Make available globally (for backward compatibility)
 if (typeof window !== 'undefined') {
   window.VideoInputManager = VideoInputManager;
 }

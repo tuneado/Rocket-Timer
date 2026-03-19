@@ -92,6 +92,7 @@ export function addMinute(state, updateDisplay) {
     const newRemainingTime = state.remainingTime;
     if (newRemainingTime > 0) {
       state.setTotalTime(Math.max(state.totalTime + 60, newRemainingTime));
+      state.setLastSetTime(state.totalTime); // Update last set time for reset
       
       // Update input fields with the new positive time
       const hours = Math.floor(newRemainingTime / 3600);
@@ -128,6 +129,7 @@ export function addMinute(state, updateDisplay) {
   // When running, totalTime must stay fixed so elapsed time tracks correctly
   if (!state.running) {
     updateData['timer.totalTime'] = state.totalTime * 1000;
+    updateData['timer.lastSetTime'] = state.totalTime * 1000;
     updateData['timer.preset'] = null;
   }
   
@@ -151,6 +153,7 @@ export function subtractMinute(state, updateDisplay) {
   // Also update total time if timer is not running
   if (!state.running) {
     state.setTotalTime(Math.max(0, state.totalTime - 60)); // Keep totalTime non-negative for progress calculation
+    state.setLastSetTime(state.totalTime); // Update last set time for reset
     
     // Update the input fields to reflect the change
     const currentMinutes = parseInt(document.getElementById("minutes").value) || 0;
@@ -194,6 +197,7 @@ export function subtractMinute(state, updateDisplay) {
   // When running, totalTime must stay fixed so elapsed time tracks correctly
   if (!state.running) {
     updateData['timer.totalTime'] = state.totalTime * 1000;
+    updateData['timer.lastSetTime'] = state.totalTime * 1000;
     updateData['timer.preset'] = null;
   }
   

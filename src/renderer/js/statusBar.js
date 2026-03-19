@@ -12,6 +12,7 @@ class StatusBar {
     this.messageElement = null;
     this.cameraIcon = null;
     this.serverIcon = null;
+    this.performanceIcon = null;
     this.currentMessage = null;
     this.clearTimeout = null;
     this.unsubscribers = []; // Store unsubscribe functions
@@ -24,6 +25,7 @@ class StatusBar {
     this.messageElement = document.getElementById('statusMessage');
     this.cameraIcon = document.getElementById('cameraStatus');
     this.serverIcon = document.getElementById('serverStatus');
+    this.performanceIcon = document.getElementById('performanceStatus');
     
     if (!this.messageElement || !this.cameraIcon || !this.serverIcon) {
       logger.error('SYSTEM', 'Status footer elements not found');
@@ -32,6 +34,7 @@ class StatusBar {
     
     // Set initial states from appState
     this.setCameraStatus(appState.get('camera.active'));
+    this.setPerformanceStatus('good'); // Default to good performance
     
     const serverState = appState.get('server');
     if (serverState.running) {
@@ -194,18 +197,27 @@ class StatusBar {
 
   /**
    * Set camera icon status
-   * @param {boolean} isLive - True if camera is live
+   * @param {boolean|string} status - True/false for live/inactive, or 'error'/'unavailable' for error states
    */
-  setCameraStatus(isLive) {
+  setCameraStatus(status) {
     if (!this.cameraIcon) return;
 
-    this.cameraIcon.classList.remove('camera-inactive', 'camera-live');
+    this.cameraIcon.classList.remove('camera-inactive', 'camera-live', 'camera-error');
     
-    if (isLive) {
+    if (status === true) {
+      // Camera is live - GREEN
       this.cameraIcon.classList.add('camera-live');
+      this.cameraIcon.style.color = '#4ade80'; // Green
       this.cameraIcon.title = 'Camera Live';
+    } else if (status === 'error' || status === 'unavailable') {
+      // Camera error or unavailable - ORANGE
+      this.cameraIcon.classList.add('camera-error');
+      this.cameraIcon.style.color = '#f97316'; // Orange
+      this.cameraIcon.title = 'Camera Unavailable';
     } else {
+      // Camera inactive - GRAY
       this.cameraIcon.classList.add('camera-inactive');
+      this.cameraIcon.style.color = '#9ca3af'; // Gray
       this.cameraIcon.title = 'Camera Inactive';
     }
   }
@@ -237,6 +249,44 @@ class StatusBar {
         this.serverIcon.title = 'Unified API Server Inactive';
         break;
     }
+  }
+
+  /**
+   * Set performance icon status based on FPS and render time
+   * @param {string} status - 'good', 'warning', 'critical'
+   * @param {object} stats - Optional performance stats object
+   */
+  setPerformanceStatus(status, stats = null) {
+    if (!this.performanceIcon) return;
+
+    // Set color using inline styles for reliability
+    let color, title;
+    switch (status) {
+      case 'good':
+        color = '#4ade80'; // Green
+        title = stats ? 
+          `Performance: Good\n${stats.currentFPS} FPS | ${stats.averageRenderTime}ms avg` :
+          'Performance: Good';
+        break;
+      case 'warning':
+        color = '#fbbf24'; // Yellow
+        title = stats ? 
+          `Performance: Fair\n${stats.currentFPS} FPS | ${stats.averageRenderTime}ms avg` :
+          'Performance: Fair';
+        break;
+      case 'critical':
+        color = '#ef4444'; // Red
+        title = stats ? 
+          `Performance: Poor\n${stats.currentFPS} FPS | ${stats.averageRenderTime}ms avg\nDropped: ${stats.droppedFrames} frames` :
+          'Performance: Poor';
+        break;
+      default:
+        color = '#4ade80'; // Green
+        title = 'Performance: Unknown';
+    }
+    
+    this.performanceIcon.style.color = color;
+    this.performanceIcon.title = title;
   }
 
   /**

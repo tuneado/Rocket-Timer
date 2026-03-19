@@ -1,0 +1,1029 @@
+/* ===================================
+   LAYOUT CREATOR - Visual Layout Editor
+   Isolated CSS for the Layout Creator feature
+   =================================== */
+
+/* ===================================
+   LAYOUT & STRUCTURE
+   =================================== */
+
+.lc-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* Top Toolbar */
+.lc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+  gap: 12px;
+  flex-shrink: 0;
+  height: 48px;
+  -webkit-app-region: drag;
+}
+
+.lc-toolbar-left,
+.lc-toolbar-center,
+.lc-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.lc-toolbar-center {
+  flex: 1;
+  justify-content: center;
+}
+
+.lc-toolbar input[type="text"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 4px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 200px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.lc-toolbar input[type="text"]:focus {
+  border-color: var(--color-primary);
+}
+
+/* Main Area: Inspector + Canvas */
+.lc-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ===================================
+   ELEMENT LIST
+   =================================== */
+
+/* Element List */
+.lc-element-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.lc-element-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.lc-element-item:hover {
+  background: var(--bg-hover);
+}
+
+.lc-element-item.selected,
+.lc-element-item.active {
+  background: var(--bg-active);
+  border-color: var(--color-primary);
+}
+
+.lc-element-item.disabled {
+  opacity: 0.4;
+}
+
+.lc-element-item .lc-el-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.lc-element-item .lc-el-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.lc-element-item .lc-el-toggle {
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted);
+  transition: color 0.15s;
+  background: none;
+  border: none;
+  padding: 2px;
+  outline: none;
+}
+
+.lc-element-item .lc-el-toggle:hover {
+  color: var(--text-primary);
+}
+
+.lc-element-item .lc-el-toggle.enabled {
+  color: var(--color-success);
+}
+
+/* Drag handle for reordering */
+.lc-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 0 2px;
+  opacity: 0.3;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.lc-element-item:hover .lc-drag-handle {
+  opacity: 0.8;
+}
+
+.lc-drag-handle:active {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+.lc-element-item.dragging {
+  opacity: 0.35;
+}
+
+.lc-element-item.drag-over {
+  border-top: 2px solid var(--color-primary);
+  padding-top: 6px;
+}
+
+/* ===================================
+   PROPERTY PANELS
+   =================================== */
+
+.lc-section {
+  margin-bottom: 16px;
+}
+
+.lc-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.lc-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lc-prop-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 55px;
+  flex-shrink: 0;
+}
+
+.lc-prop-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.lc-prop-input:focus {
+  border-color: var(--color-primary);
+}
+
+.lc-prop-input.small {
+  width: 60px;
+  flex: none;
+  text-align: center;
+}
+
+.lc-prop-select {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  padding-right: 22px;
+}
+
+.lc-prop-select:focus {
+  border-color: var(--color-primary);
+}
+
+/* Inline pair (e.g., X / Y) */
+.lc-prop-pair {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.lc-prop-pair-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.lc-prop-pair-item label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.lc-prop-pair-item input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checkbox row */
+.lc-prop-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.lc-prop-check input[type="checkbox"] {
+  accent-color: var(--color-primary);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.lc-prop-check label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ===================================
+   CANVAS AREA (Right Side)
+   =================================== */
+
+.lc-canvas-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #383838;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lc-canvas-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(45deg, #2e2e2e 25%, transparent 25%),
+    linear-gradient(-45deg, #2e2e2e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2e2e2e 75%),
+    linear-gradient(-45deg, transparent 75%, #2e2e2e 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #383838;
+}
+
+.lc-canvas-container {
+  position: relative;
+  background: #000;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.lc-canvas-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Grid overlay */
+.lc-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.lc-grid-overlay.visible {
+  opacity: 0.15;
+}
+
+/* Element highlight overlay */
+.lc-element-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.lc-element-highlight {
+  position: absolute;
+  border: 2px dashed var(--color-primary);
+  border-radius: 4px;
+  pointer-events: auto;
+  cursor: move;
+  transition: border-color 0.15s;
+}
+
+.lc-element-highlight:hover {
+  border-color: var(--color-success);
+}
+
+.lc-element-highlight.selected {
+  border: 2px solid var(--color-primary);
+  border-style: solid;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+/* Resize handles — only visible on selected element */
+.lc-resize-handle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #fff;
+  border: 1.5px solid var(--color-primary);
+  border-radius: 2px;
+  pointer-events: auto;
+  z-index: 10;
+}
+.lc-resize-handle.lc-resize-nw { top: -4px;          left: -4px;           cursor: nw-resize; }
+.lc-resize-handle.lc-resize-n  { top: -4px;          left: calc(50% - 4px); cursor: n-resize; }
+.lc-resize-handle.lc-resize-ne { top: -4px;          right: -4px;           cursor: ne-resize; }
+.lc-resize-handle.lc-resize-e  { top: calc(50% - 4px); right: -4px;         cursor: e-resize; }
+.lc-resize-handle.lc-resize-se { bottom: -4px;       right: -4px;           cursor: se-resize; }
+.lc-resize-handle.lc-resize-s  { bottom: -4px;       left: calc(50% - 4px); cursor: s-resize; }
+.lc-resize-handle.lc-resize-sw { bottom: -4px;       left: -4px;            cursor: sw-resize; }
+.lc-resize-handle.lc-resize-w  { top: calc(50% - 4px); left: -4px;          cursor: w-resize; }
+
+.lc-element-highlight .lc-el-label {
+  position: absolute;
+  top: -20px;
+  left: 0;
+  font-size: 10px;
+  background: var(--color-primary);
+  color: white;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Canvas info bar */
+.lc-canvas-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-default);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.lc-canvas-info .lc-info-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ===================================
+   BUTTONS
+   =================================== */
+
+.lc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  outline: none;
+  white-space: nowrap;
+}
+
+.lc-btn:hover {
+  background: var(--bg-hover);
+}
+
+.lc-btn:active {
+  transform: scale(0.97);
+}
+
+.lc-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.lc-btn-sm {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.lc-btn-icon {
+  padding: 5px 6px;
+  min-width: 30px;
+}
+
+.lc-btn-primary,
+.lc-btn.primary {
+  background: var(--color-primary);
+  border-color: transparent;
+  color: white;
+}
+
+.lc-btn-primary:hover,
+.lc-btn.primary:hover {
+  opacity: 0.9;
+}
+
+.lc-btn.success {
+  background: var(--color-success);
+  border-color: transparent;
+  color: white;
+}
+
+.lc-btn.success:hover {
+  opacity: 0.9;
+}
+
+.lc-btn.danger {
+  background: var(--color-danger);
+  border-color: transparent;
+  color: white;
+}
+
+.lc-btn.danger:hover {
+  opacity: 0.9;
+}
+
+.lc-btn.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.lc-btn.ghost:hover {
+  background: var(--bg-hover);
+}
+
+.lc-btn.active {
+  background: var(--bg-active);
+  border-color: var(--color-primary);
+}
+
+.lc-btn i {
+  font-size: 14px;
+}
+
+/* ===================================
+   SIDEBAR (Left Panel)
+   =================================== */
+
+.lc-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.lc-sidebar-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  padding: 0 12px;
+  margin-bottom: 8px;
+}
+
+.lc-sidebar-section {
+  padding: 8px 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+/* Inspector (Right Panel) */
+.lc-inspector {
+  width: 300px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.lc-inspector-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.lc-empty-inspector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 24px;
+}
+
+.lc-disabled-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 16px 12px;
+  font-style: italic;
+}
+
+/* ===================================
+   TOOLBAR EXTRAS
+   =================================== */
+
+.lc-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-default);
+}
+
+.lc-name-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 4px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 200px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.lc-name-input:focus {
+  border-color: var(--color-primary);
+}
+
+.lc-dirty-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-warning, #f59e0b);
+}
+
+/* ===================================
+   PROPERTY SECTION (Inspector)
+   =================================== */
+
+.lc-prop-section {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+/* ===================================
+   FORM INPUTS (Inspector)
+   =================================== */
+
+.lc-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  min-width: 0;
+}
+
+.lc-input:focus {
+  border-color: var(--color-primary);
+}
+
+.lc-input-number {
+  width: 70px;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+}
+
+.lc-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23888' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+
+.lc-number-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.lc-stepper-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.lc-stepper-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.lc-range-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.lc-range {
+  flex: 1;
+  accent-color: var(--color-primary);
+  height: 4px;
+}
+
+.lc-range-value {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+}
+
+.lc-preset-bar {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.lc-preset-btn {
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lc-preset-btn:hover {
+  background: var(--bg-hover);
+}
+
+.lc-preset-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+/* Toggle Switch */
+.lc-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.lc-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.lc-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-muted);
+  border-radius: 20px;
+  border: 1px solid var(--border-default);
+  transition: all 0.2s;
+}
+
+.lc-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--text-secondary);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.lc-toggle input:checked + .lc-toggle-slider {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.lc-toggle input:checked + .lc-toggle-slider::before {
+  transform: translateX(16px);
+  background: white;
+}
+
+/* ===================================
+   BADGES
+   =================================== */
+
+.lc-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ===================================
+   HIGHLIGHT OVERLAY
+   =================================== */
+
+.lc-highlight-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* ===================================
+   CANVAS
+   =================================== */
+
+#previewCanvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* ===================================
+   TOAST NOTIFICATION
+   =================================== */
+
+.lc-toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.lc-toast-success {
+  background: var(--color-success, #22c55e);
+  color: white;
+}
+
+.lc-toast-error {
+  background: var(--color-danger, #ef4444);
+  color: white;
+}
+
+.lc-toast-info {
+  background: var(--color-primary, #3b82f6);
+  color: white;
+}
+
+/* ===================================
+   MODAL / DIALOG
+   =================================== */
+
+.lc-modal-overlay,
+.lc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 500;
+}
+
+.lc-modal-overlay .lc-modal,
+.lc-modal-backdrop .lc-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 360px;
+  max-width: 480px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.lc-modal h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lc-modal p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.lc-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===================================
+   CLONE LAYOUT SELECTOR
+   =================================== */
+
+.lc-clone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.lc-clone-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: 1px solid transparent;
+}
+
+.lc-clone-item:hover {
+  background: var(--bg-hover);
+}
+
+.lc-clone-item.selected {
+  background: var(--bg-active);
+  border-color: var(--color-primary);
+}
+
+.lc-clone-item .lc-clone-name {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.lc-clone-item .lc-clone-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.lc-clone-item .lc-clone-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+/* ===================================
+   DRAG INTERACTION
+   =================================== */
+
+.lc-dragging {
+  cursor: move !important;
+}
+
+.lc-dragging * {
+  cursor: move !important;
+  user-select: none !important;
+}
+
+/* ===================================
+   SCROLLBAR STYLING
+   =================================== */
+
+.lc-inspector-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lc-inspector-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lc-inspector-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 3px;
+}
+
+.lc-inspector-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ===================================
+   RESPONSIVE - Narrow window
+   =================================== */
+
+@media (max-width: 700px) {
+  .lc-inspector {
+    width: 240px;
+  }
+}
+
+/* ===================================
+   ACCESSIBILITY - Reduce Motion
+   =================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-toast,
+  .lc-modal,
+  .lc-modal-backdrop,
+  .lc-element-highlight,
+  .lc-btn {
+    transition: none !important;
+  }
+}

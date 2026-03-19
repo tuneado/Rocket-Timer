@@ -57,6 +57,8 @@ class SettingsManager {
       autoStartVideoLayout: true,
       releaseCameraIdle: true,
       videoResolution: '1920x1080',
+      mirrorVideo: false,
+      videoScaling: 'contain',
 
       // Presets
       presets: [
@@ -74,12 +76,31 @@ class SettingsManager {
       // Appearance
       appearanceTheme: 'dark',
       matchTimerColor: false,
+
+      // Keyboard Shortcuts
+      keyboardShortcuts: {
+        'space': { enabled: true, key: 'space', description: 'Start/Stop timer' },
+        'r': { enabled: true, key: 'r', description: 'Reset timer' },
+        'arrowup': { enabled: true, key: 'arrowup', description: 'Add one minute' },
+        'arrowdown': { enabled: true, key: 'arrowdown', description: 'Subtract one minute' },
+        'shift+arrowup': { enabled: true, key: 'shift+arrowup', description: 'Add 5 minutes' },
+        'shift+arrowdown': { enabled: true, key: 'shift+arrowdown', description: 'Subtract 5 minutes' },
+        'ctrl+arrowup': { enabled: true, key: 'ctrl+arrowup', description: 'Add 10 minutes' },
+        'ctrl+arrowdown': { enabled: true, key: 'ctrl+arrowdown', description: 'Subtract 10 minutes' },
+        'f': { enabled: true, key: 'f', description: 'Flash screen' },
+        'm': { enabled: true, key: 'm', description: 'Toggle sound mute' },
+        'i': { enabled: true, key: 'i', description: 'Toggle feature image' },
+        '1': { enabled: true, key: '1', description: 'Activate preset 1' },
+        '2': { enabled: true, key: '2', description: 'Activate preset 2' },
+        '3': { enabled: true, key: '3', description: 'Activate preset 3' },
+        '4': { enabled: true, key: '4', description: 'Activate preset 4' },
+        '5': { enabled: true, key: '5', description: 'Activate preset 5' },
+        '6': { enabled: true, key: '6', description: 'Activate preset 6' },
+        '7': { enabled: true, key: '7', description: 'Activate preset 7' },
+        '8': { enabled: true, key: '8', description: 'Activate preset 8' },
+      },
       
       // Cover Image (highest z-index overlay)
-      coverImage: {
-        enabled: false,
-        path: ''
-      },
       
       // Background Image (low z-index, always visible when set)
       backgroundImage: {

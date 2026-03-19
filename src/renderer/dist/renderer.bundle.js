@@ -323,41 +323,47 @@ var variantClasses = {
   primary: `
     bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary-active)]
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   secondary: `
     bg-[var(--bg-muted)] hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-[var(--border-default)]
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   success: `
     bg-[var(--color-success)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   warning: `
     bg-[var(--color-warning)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   danger: `
     bg-[var(--color-danger)] hover:opacity-90 active:opacity-80
     text-white border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   ghost: `
     bg-transparent hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-transparent
+    hover:scale-105 hover:shadow-lg active:scale-95
   `,
   outline: `
     bg-transparent hover:bg-[var(--bg-hover)] active:bg-[var(--bg-active)]
     text-[var(--text-primary)] border-[var(--border-default)]
+    hover:scale-105 hover:shadow-lg active:scale-95
   `
 };
 var sizeClasses = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
-  lg: "h-12 px-5 text-base gap-2",
-  xl: "h-16 px-6 text-lg gap-3",
-  icon: "h-10 w-10 p-0",
-  // Square icon-only button
-  "icon-sm": "h-8 w-8 p-0",
-  "icon-lg": "h-12 w-12 p-0"
+  sm: "h-[clamp(1.75rem,3.5vh,2rem)] px-[clamp(0.5rem,1vw,0.75rem)] text-[clamp(0.75rem,1.5vh,0.875rem)] gap-1.5",
+  md: "h-[clamp(2rem,4vh,2.5rem)] px-[clamp(0.75rem,1.2vw,1rem)] text-[clamp(0.875rem,1.8vh,0.875rem)] gap-[clamp(0.375rem,0.8vh,0.5rem)]",
+  lg: "h-[clamp(2.5rem,5vh,3rem)] px-[clamp(1rem,1.5vw,1.25rem)] text-[clamp(0.875rem,2vh,1rem)] gap-[clamp(0.375rem,0.8vh,0.5rem)]",
+  xl: "h-[clamp(3rem,6vh,4rem)] px-[clamp(1.25rem,2vw,1.5rem)] text-[clamp(1rem,2.5vh,1.125rem)] gap-[clamp(0.5rem,1vh,0.75rem)]",
+  icon: "h-[clamp(2rem,4vh,2.5rem)] w-[clamp(2rem,4vh,2.5rem)] p-0",
+  "icon-sm": "h-[clamp(1.75rem,3.5vh,2rem)] w-[clamp(1.75rem,3.5vh,2rem)] p-0",
+  "icon-lg": "h-[clamp(2.5rem,5vh,3rem)] w-[clamp(2.5rem,5vh,3rem)] p-0"
 };
 function Button({
   children,
@@ -464,7 +470,7 @@ function Card({
     overflow-hidden
   `;
   const classes = [baseClasses, className].join(" ").replace(/\s+/g, " ").trim();
-  return /* @__PURE__ */ _("div", { className: classes, ...props }, title && /* @__PURE__ */ _(CardHeader, { title, icon, action }), /* @__PURE__ */ _("div", { className: noPadding ? "" : "p-4" }, children));
+  return /* @__PURE__ */ _("div", { className: classes, ...props }, title && /* @__PURE__ */ _(CardHeader, { title, icon, action }), /* @__PURE__ */ _("div", { className: noPadding ? "" : "p-[clamp(0.5rem,1.2vh,1rem)]" }, children));
 }
 function CardHeader({
   title,
@@ -475,21 +481,21 @@ function CardHeader({
 }) {
   return /* @__PURE__ */ _("div", { className: `
       flex items-center justify-between
-      px-4 py-3
+      px-[clamp(0.5rem,1.2vh,1rem)] py-[clamp(0.4rem,1vh,0.75rem)]
       border-b border-[var(--border-muted)]
       bg-[var(--bg-muted)]
       ${className}
-    ` }, /* @__PURE__ */ _("div", { className: "flex items-center gap-2" }, icon && /* @__PURE__ */ _("i", { className: `bi ${icon} text-[var(--text-secondary)]`, "aria-hidden": "true" }), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("h3", { className: "font-semibold text-sm text-[var(--text-primary)]" }, title), subtitle && /* @__PURE__ */ _("p", { className: "text-xs text-[var(--text-secondary)] mt-0.5" }, subtitle))), action && /* @__PURE__ */ _("div", null, action));
+    ` }, /* @__PURE__ */ _("div", { className: "flex items-center gap-2" }, icon && /* @__PURE__ */ _("i", { className: `bi ${icon} text-[var(--text-secondary)]`, "aria-hidden": "true" }), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("h3", { className: "font-semibold text-[clamp(0.75rem,1.5vh,0.875rem)] text-[var(--text-primary)]" }, title), subtitle && /* @__PURE__ */ _("p", { className: "text-[clamp(0.625rem,1.2vh,0.75rem)] text-[var(--text-secondary)] mt-0.5" }, subtitle))), action && /* @__PURE__ */ _("div", null, action));
 }
 function CardContent({ children, className = "", noPadding = false }) {
-  return /* @__PURE__ */ _("div", { className: `${noPadding ? "" : "p-4"} ${className}` }, children);
+  return /* @__PURE__ */ _("div", { className: `${noPadding ? "" : "p-[clamp(0.5rem,1.2vh,1rem)]"} ${className}` }, children);
 }
 function CardFooter({ children, className = "" }) {
   return /* @__PURE__ */ _("div", { className: `
-      px-4 py-3
+      px-[clamp(0.5rem,1.2vh,1rem)] py-[clamp(0.5rem,1vh,0.75rem)]
       border-t border-[var(--border-muted)]
       bg-[var(--bg-muted)]
-      flex items-center justify-end gap-2
+      flex items-center justify-end gap-[clamp(0.375rem,0.8vh,0.5rem)]
       ${className}
     ` }, children);
 }
@@ -597,26 +603,10 @@ function Select({
   ...props
 }) {
   const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
-  const baseSelectClasses = `
-    appearance-none
-    bg-[var(--bg-input)]
-    border border-[var(--border-default)]
-    rounded-lg
-    text-[var(--text-primary)]
-    transition-all duration-fast
-    focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]
-    disabled:opacity-50 disabled:cursor-not-allowed
-    cursor-pointer
-    pr-10
-    ${error ? "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-[var(--color-danger)]" : ""}
-  `;
-  const selectClasses = [
-    baseSelectClasses,
-    sizeClasses2[size] || sizeClasses2.md,
-    fullWidth ? "w-full" : "",
-    selectClassName
-  ].join(" ").replace(/\s+/g, " ").trim();
-  const wrapperClasses = `${fullWidth ? "w-full" : ""} ${className}`;
+  const baseSelectClasses = "appearance-none bg-[var(--bg-input)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] transition-all focus:outline-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer pr-10";
+  const errorClasses = error ? "border-[var(--color-danger)] focus:border-[var(--color-danger)] focus:ring-[var(--color-danger)]" : "";
+  const selectClasses = `${baseSelectClasses} ${sizeClasses2[size] || sizeClasses2.md} ${fullWidth ? "w-full" : ""} ${errorClasses} ${selectClassName}`.trim();
+  const wrapperClasses = `${fullWidth ? "w-full" : ""} ${className}`.trim();
   return /* @__PURE__ */ _("div", { className: wrapperClasses }, label && /* @__PURE__ */ _(
     "label",
     {
@@ -649,14 +639,7 @@ function Sidebar({
   footer,
   className = ""
 }) {
-  return /* @__PURE__ */ _("aside", { className: `
-      w-[200px] flex-shrink-0
-      bg-[var(--sidebar-bg)]
-      border-r border-[var(--border-default)]
-      flex flex-col
-      h-full
-      ${className}
-    ` }, header && /* @__PURE__ */ _("div", { className: "p-4 border-b border-[var(--border-muted)]" }, header), /* @__PURE__ */ _("nav", { className: "flex-1 py-2 overflow-y-auto" }, items.map((item) => /* @__PURE__ */ _(
+  return /* @__PURE__ */ _("aside", { className: `w-[200px] flex-shrink-0 bg-[var(--sidebar-bg)] border-r border-[var(--border-default)] flex flex-col h-full ${className}` }, header && /* @__PURE__ */ _("div", { className: "p-4 border-b border-[var(--border-muted)]" }, header), /* @__PURE__ */ _("nav", { className: "flex-1 py-2 overflow-y-auto" }, items.map((item) => /* @__PURE__ */ _(
     SidebarItem,
     {
       key: item.id,
@@ -676,44 +659,35 @@ function SidebarItem({
   onClick,
   className = ""
 }) {
+  const buttonClasses = active ? "bg-[var(--nav-active)] text-[var(--nav-active-text)]" : "text-[var(--text-secondary)] hover:bg-[var(--nav-hover)] hover:text-[var(--text-primary)]";
+  const badgeClasses = active ? "bg-white/20 text-white" : "bg-[var(--bg-muted)] text-[var(--text-secondary)]";
   return /* @__PURE__ */ _(
     "button",
     {
       type: "button",
       onClick,
-      className: `
-        w-full flex items-center gap-3
-        px-4 py-2.5
-        text-sm font-medium text-left
-        transition-colors duration-fast
-        ${active ? "bg-[var(--nav-active)] text-[var(--nav-active-text)]" : "text-[var(--text-secondary)] hover:bg-[var(--nav-hover)] hover:text-[var(--text-primary)]"}
-        ${className}
-      `
+      className: `w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-left transition-colors ${buttonClasses} ${className}`
     },
     icon && /* @__PURE__ */ _("i", { className: `bi ${icon} text-base`, "aria-hidden": "true" }),
     /* @__PURE__ */ _("span", { className: "flex-1 truncate" }, label),
-    badge && /* @__PURE__ */ _("span", { className: `
-          px-1.5 py-0.5
-          text-xs font-medium
-          rounded-full
-          ${active ? "bg-white/20 text-white" : "bg-[var(--bg-muted)] text-[var(--text-secondary)]"}
-        ` }, badge)
+    badge && /* @__PURE__ */ _("span", { className: `px-1.5 py-0.5 text-xs font-medium rounded-full ${badgeClasses}` }, badge)
   );
 }
 Sidebar.Item = SidebarItem;
 
 // src/renderer/components/TimePicker.jsx
 function TimePicker() {
-  return /* @__PURE__ */ _(Card, null, /* @__PURE__ */ _(
+  return /* @__PURE__ */ _(Card, { id: "duration-card" }, /* @__PURE__ */ _(
     Card.Header,
     {
       icon: /* @__PURE__ */ _("i", { className: "bi bi-stopwatch-fill" }),
       title: "Set Duration"
     }
-  ), /* @__PURE__ */ _(Card.Content, null, /* @__PURE__ */ _("div", { className: "flex items-center justify-center gap-2" }, /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
+  ), /* @__PURE__ */ _(Card.Content, null, /* @__PURE__ */ _("div", { id: "time-inputs-wrapper", className: "flex items-center justify-center gap-[clamp(0.25rem,0.8vw,0.5rem)]" }, /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-[clamp(4rem,8vw,5rem)] h-[clamp(2.5rem,5vh,4rem)] text-[clamp(1.25rem,3vh,1.875rem)] font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid #4a4a4a" },
       type: "number",
       id: "hours",
       defaultValue: "0",
@@ -722,10 +696,11 @@ function TimePicker() {
       "aria-label": "Hours",
       "aria-describedby": "hours-desc"
     }
-  ), /* @__PURE__ */ _("label", { className: "mt-1 text-xs text-text-secondary", id: "hours-desc" }, "Hours")), /* @__PURE__ */ _("div", { className: "text-3xl font-mono text-text-muted pb-5" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
+  ), /* @__PURE__ */ _("label", { className: "mt-[clamp(0.125rem,0.5vh,0.25rem)] text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary", id: "hours-desc" }, "Hours")), /* @__PURE__ */ _("div", { className: "text-[clamp(1.25rem,3vh,1.875rem)] font-mono text-text-muted pb-[clamp(0.75rem,2vh,1.25rem)]" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-[clamp(4rem,8vw,5rem)] h-[clamp(2.5rem,5vh,4rem)] text-[clamp(1.25rem,3vh,1.875rem)] font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid #4a4a4a" },
       type: "number",
       id: "minutes",
       defaultValue: "5",
@@ -734,10 +709,11 @@ function TimePicker() {
       "aria-label": "Minutes",
       "aria-describedby": "minutes-desc"
     }
-  ), /* @__PURE__ */ _("label", { className: "mt-1 text-xs text-text-secondary", id: "minutes-desc" }, "Minutes")), /* @__PURE__ */ _("div", { className: "text-3xl font-mono text-text-muted pb-5" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
+  ), /* @__PURE__ */ _("label", { className: "mt-[clamp(0.125rem,0.5vh,0.25rem)] text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary", id: "minutes-desc" }, "Minutes")), /* @__PURE__ */ _("div", { className: "text-[clamp(1.25rem,3vh,1.875rem)] font-mono text-text-muted pb-[clamp(0.75rem,2vh,1.25rem)]" }, ":"), /* @__PURE__ */ _("div", { className: "flex flex-col items-center" }, /* @__PURE__ */ _(
     "input",
     {
-      className: "w-20 h-16 text-3xl font-mono text-center bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none text-text-primary",
+      className: "w-[clamp(4rem,8vw,5rem)] h-[clamp(2.5rem,5vh,4rem)] text-[clamp(1.25rem,3vh,1.875rem)] font-mono text-center bg-bg-elevated rounded-lg focus:outline-none text-text-primary",
+      style: { border: "2px solid #4a4a4a" },
       type: "number",
       id: "seconds",
       defaultValue: "0",
@@ -746,7 +722,7 @@ function TimePicker() {
       "aria-label": "Seconds",
       "aria-describedby": "seconds-desc"
     }
-  ), /* @__PURE__ */ _("label", { className: "mt-1 text-xs text-text-secondary", id: "seconds-desc" }, "Seconds")))));
+  ), /* @__PURE__ */ _("label", { className: "mt-[clamp(0.125rem,0.5vh,0.25rem)] text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary", id: "seconds-desc" }, "Seconds")))));
 }
 
 // src/renderer/components/Presets.jsx
@@ -755,6 +731,8 @@ function Presets() {
     [5, 10, 15, 20],
     [25, 30, 45, 60]
   ];
+  const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+  const modifierKey = isMac ? "\u2318" : "Ctrl";
   return /* @__PURE__ */ _(Card, null, /* @__PURE__ */ _(
     Card.Header,
     {
@@ -762,12 +740,12 @@ function Presets() {
       title: "Quick Presets",
       action: /* @__PURE__ */ _("button", { id: "resetPresets", className: "text-text-secondary hover:text-text-primary flex items-center gap-1 text-sm transition-colors" }, /* @__PURE__ */ _("i", { className: "bi bi-arrow-counterclockwise" }), /* @__PURE__ */ _("span", null, "Reset"))
     }
-  ), /* @__PURE__ */ _(Card.Content, null, presetTimes.map((row, rowIndex) => /* @__PURE__ */ _("div", { key: rowIndex, className: `grid grid-cols-4 gap-2 ${rowIndex > 0 ? "mt-2" : ""}` }, row.map((minutes) => /* @__PURE__ */ _(
+  ), /* @__PURE__ */ _(Card.Content, null, /* @__PURE__ */ _("p", { className: "text-[clamp(0.625rem,1.1vh,0.7rem)] mb-2", style: { color: "var(--text-muted)" } }, modifierKey, " + Click to save preset"), presetTimes.map((row, rowIndex) => /* @__PURE__ */ _("div", { key: rowIndex, className: `grid grid-cols-4 gap-[clamp(0.375rem,0.8vh,0.5rem)] ${rowIndex > 0 ? "mt-[clamp(0.375rem,0.8vh,0.5rem)]" : ""}` }, row.map((minutes) => /* @__PURE__ */ _(
     Button,
     {
       key: minutes,
       variant: "secondary",
-      size: "sm",
+      size: "md",
       className: "preset",
       "data-minutes": minutes,
       "aria-label": `Set timer to ${minutes} minutes`,
@@ -790,20 +768,20 @@ function MessageCard() {
     "textarea",
     {
       id: "messageInput",
-      className: "w-full px-3 py-2 bg-bg-elevated border-2 border-border-default rounded-lg focus:border-accent-primary focus:outline-none resize-none text-text-primary",
+      className: "w-full px-[clamp(0.5rem,1vw,0.75rem)] py-[clamp(0.375rem,0.8vh,0.5rem)] bg-bg-elevated rounded-lg focus:outline-none resize-none text-text-primary min-h-[clamp(2.5rem,6vh,4rem)]",
+      style: { border: "2px solid var(--border-default)" },
       placeholder: "Enter message to display...",
       maxLength: "100",
-      rows: "2",
       "aria-label": "Display message",
       "aria-describedby": "charCounter"
     }
-  ), /* @__PURE__ */ _("div", { className: "flex gap-2 mt-3" }, /* @__PURE__ */ _(
+  ), /* @__PURE__ */ _("div", { className: "flex gap-[clamp(0.375rem,0.8vh,0.5rem)] mt-[clamp(0.5rem,1.2vh,0.75rem)]" }, /* @__PURE__ */ _(
     Button,
     {
       id: "displayMessage",
       variant: "secondary",
       className: "flex-1",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-display-fill" }),
+      icon: "bi-display-fill",
       "aria-label": "Display message on timer"
     },
     "Display"
@@ -813,7 +791,7 @@ function MessageCard() {
       id: "clearMessage",
       variant: "secondary",
       className: "flex-1",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-trash-fill" }),
+      icon: "bi-trash-fill",
       "aria-label": "Clear displayed message"
     },
     "Clear"
@@ -839,7 +817,7 @@ function LayoutSelector() {
 
 // src/renderer/components/StatusFooter.jsx
 function StatusFooter() {
-  return /* @__PURE__ */ _(Card, { className: "p-3 text-sm" }, /* @__PURE__ */ _("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ _("span", { id: "statusMessage", className: "text-text-secondary" }), /* @__PURE__ */ _("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ _("i", { id: "cameraStatus", className: "bi bi-camera-video text-text-muted", title: "Camera Inactive" }), /* @__PURE__ */ _("i", { id: "serverStatus", className: "bi bi-broadcast text-text-muted", title: "API Server Inactive" }))));
+  return /* @__PURE__ */ _(Card, { className: "p-3 text-sm" }, /* @__PURE__ */ _("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ _("span", { id: "statusMessage", className: "text-text-secondary" }), /* @__PURE__ */ _("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ _("i", { id: "performanceStatus", className: "bi bi-speedometer2", style: "color: #4ade80;", title: "Performance: Good" }), /* @__PURE__ */ _("i", { id: "cameraStatus", className: "bi bi-camera-video text-text-muted", title: "Camera Inactive" }), /* @__PURE__ */ _("i", { id: "serverStatus", className: "bi bi-broadcast text-text-muted", title: "API Server Inactive" }))));
 }
 
 // src/renderer/components/LeftPanel.jsx
@@ -849,18 +827,18 @@ function LeftPanel() {
 
 // src/renderer/components/PreviewCanvas.jsx
 function PreviewCanvas() {
-  return /* @__PURE__ */ _(Card, { className: "p-2 bg-black/90 border-2 border-border-strong h-full flex items-center justify-center" }, /* @__PURE__ */ _("canvas", { id: "timerCanvas", style: "display: block; width: 100%; height: auto; max-height: 100%; aspect-ratio: 16 / 9;" }));
+  return /* @__PURE__ */ _("div", { className: "h-full flex items-center justify-center" }, /* @__PURE__ */ _("canvas", { id: "timerCanvas", style: "display: block; width: 100%; height: auto; max-height: 100%; aspect-ratio: 16 / 9;" }));
 }
 
 // src/renderer/components/ControlsRow.jsx
 function ControlsRow() {
-  return /* @__PURE__ */ _(Card, { className: "mb-3" }, /* @__PURE__ */ _(Card.Content, { className: "p-3" }, /* @__PURE__ */ _("div", { className: "flex flex-wrap justify-center items-center gap-3" }, /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
+  return /* @__PURE__ */ _(Card, { className: "mb-[clamp(0.5rem,1.2vh,0.75rem)]" }, /* @__PURE__ */ _(Card.Content, { className: "p-[clamp(0.5rem,1.2vh,0.75rem)]" }, /* @__PURE__ */ _("div", { className: "flex flex-wrap justify-center items-center gap-[clamp(0.5rem,1.2vh,0.75rem)]" }, /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
     Button,
     {
       id: "startStop",
       variant: "success",
       size: "xl",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-play-fill text-xl" }),
+      icon: "bi-play-fill",
       "aria-label": "Start timer",
       "aria-keyshortcut": "Space"
     },
@@ -871,117 +849,117 @@ function ControlsRow() {
       id: "reset",
       variant: "danger",
       size: "xl",
-      icon: /* @__PURE__ */ _("i", { className: "bi bi-arrow-clockwise text-xl" }),
+      icon: "bi-arrow-clockwise",
       "aria-label": "Reset timer",
       "aria-keyshortcut": "r"
     },
     "Reset"
-  )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-0.5 h-16" }, /* @__PURE__ */ _(
+  )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]" }, /* @__PURE__ */ _(
     Button,
     {
       id: "addMinute",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Add one minute"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "+1")
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "+1")
   ), /* @__PURE__ */ _(
     Button,
     {
       id: "subtractMinute",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Subtract one minute"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "-1")
-  ))), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-0.5 h-16" }, /* @__PURE__ */ _(
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "-1")
+  ))), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]" }, /* @__PURE__ */ _(
     Button,
     {
       id: "addFive",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Add five minutes"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "+5")
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "+5")
   ), /* @__PURE__ */ _(
     Button,
     {
       id: "subtractFive",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Subtract five minutes"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "-5")
-  ))), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-0.5 h-16" }, /* @__PURE__ */ _(
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "-5")
+  ))), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _("div", { className: "flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]" }, /* @__PURE__ */ _(
     Button,
     {
       id: "addTen",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Add ten minutes"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "+10")
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "+10")
   ), /* @__PURE__ */ _(
     Button,
     {
       id: "subtractTen",
       variant: "secondary",
-      className: "flex-1 px-4",
+      className: "flex-1 px-[clamp(0.75rem,1.2vw,1rem)]",
       "aria-label": "Subtract ten minutes"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-sm" }),
-    /* @__PURE__ */ _("span", { className: "text-sm font-semibold" }, "-10")
-  ))), /* @__PURE__ */ _("div", { className: "flex items-stretch" }, /* @__PURE__ */ _("div", { className: "w-0.5 h-16 bg-border-strong mx-2" })), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
+    /* @__PURE__ */ _("i", { className: "bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" }),
+    /* @__PURE__ */ _("span", { className: "text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold" }, "-10")
+  ))), /* @__PURE__ */ _("div", { className: "flex items-stretch" }, /* @__PURE__ */ _("div", { className: "w-0.5 h-[clamp(3rem,6vh,4rem)] bg-border-strong mx-[clamp(0.375rem,0.8vw,0.5rem)]" })), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
     Button,
     {
       id: "flashButton",
       variant: "secondary",
       size: "icon",
-      className: "h-16 w-16",
+      className: "h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]",
       title: "Flash screen"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-lightning-fill text-xl" })
+    /* @__PURE__ */ _("i", { className: "bi bi-lightning-fill text-[clamp(1rem,2.5vh,1.25rem)]" })
   )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
     Button,
     {
       id: "muteSounds",
       variant: "danger",
       size: "icon",
-      className: "h-16 w-16",
+      className: "h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]",
       title: "Unmute"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-volume-mute-fill text-xl" })
+    /* @__PURE__ */ _("i", { className: "bi bi-volume-mute-fill text-[clamp(1rem,2.5vh,1.25rem)]" })
   )), /* @__PURE__ */ _("div", null, /* @__PURE__ */ _(
     Button,
     {
       id: "coverImage",
       variant: "secondary",
       size: "icon",
-      className: "h-16 w-16",
+      className: "h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]",
       title: "Cover Image"
     },
-    /* @__PURE__ */ _("i", { className: "bi bi-image-fill text-xl" })
+    /* @__PURE__ */ _("i", { className: "bi bi-image-fill text-[clamp(1rem,2.5vh,1.25rem)]" })
   )))));
 }
 
 // src/renderer/components/InfoStats.jsx
 function InfoStats() {
-  return /* @__PURE__ */ _(Card, { className: "px-3 py-2 mb-0" }, /* @__PURE__ */ _("div", { className: "grid grid-cols-4 gap-0" }, /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Clock"), /* @__PURE__ */ _("div", { id: "clockTime", className: "text-base font-semibold text-text-primary" }, "--:--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Timer"), /* @__PURE__ */ _("div", { id: "timerValue", className: "text-base font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Elapsed"), /* @__PURE__ */ _("div", { id: "elapsedTime", className: "text-base font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-2" }, /* @__PURE__ */ _("div", { className: "text-xs text-text-secondary" }, "Ends At"), /* @__PURE__ */ _("div", { id: "endsAtTime", className: "text-base font-semibold text-text-primary" }, "--:--:--"))));
+  return /* @__PURE__ */ _(Card, { className: "px-[clamp(0.5rem,1.2vh,0.75rem)] py-[clamp(0.375rem,0.8vh,0.5rem)] mb-0" }, /* @__PURE__ */ _("div", { className: "grid grid-cols-4 gap-0" }, /* @__PURE__ */ _("div", { className: "text-center p-[clamp(0.25rem,0.6vh,0.5rem)]" }, /* @__PURE__ */ _("div", { className: "text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary" }, "Clock"), /* @__PURE__ */ _("div", { id: "clockTime", className: "text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary" }, "--:--:--")), /* @__PURE__ */ _("div", { className: "text-center p-[clamp(0.25rem,0.6vh,0.5rem)]" }, /* @__PURE__ */ _("div", { className: "text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary" }, "Timer"), /* @__PURE__ */ _("div", { id: "timerValue", className: "text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-[clamp(0.25rem,0.6vh,0.5rem)]" }, /* @__PURE__ */ _("div", { className: "text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary" }, "Elapsed"), /* @__PURE__ */ _("div", { id: "elapsedTime", className: "text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary" }, "--:--")), /* @__PURE__ */ _("div", { className: "text-center p-[clamp(0.25rem,0.6vh,0.5rem)]" }, /* @__PURE__ */ _("div", { className: "text-[clamp(0.625rem,1.2vh,0.75rem)] text-text-secondary" }, "Ends At"), /* @__PURE__ */ _("div", { id: "endsAtTime", className: "text-[clamp(1.25rem,3vh,1.5rem)] font-semibold text-text-primary" }, "--:--:--"))));
 }
 
 // src/renderer/components/RightPanel.jsx
 function RightPanel() {
-  return /* @__PURE__ */ _(k, null, /* @__PURE__ */ _("div", { id: "preview-container", className: "flex-1 mb-3 flex flex-col" }, /* @__PURE__ */ _(PreviewCanvas, null)), /* @__PURE__ */ _(ControlsRow, null), /* @__PURE__ */ _(InfoStats, null));
+  return /* @__PURE__ */ _(k, null, /* @__PURE__ */ _("div", { id: "preview-container", className: "flex-1 mb-[clamp(0.5rem,1.2vh,0.75rem)] flex flex-col min-h-0" }, /* @__PURE__ */ _(PreviewCanvas, null)), /* @__PURE__ */ _(ControlsRow, null), /* @__PURE__ */ _(InfoStats, null));
 }
 
 // src/renderer/components/App.jsx
 function App() {
-  return /* @__PURE__ */ _("main", { className: "grid lg:grid-cols-3 gap-4 p-4 h-screen", role: "main", "aria-label": "Countdown Timer Interface" }, /* @__PURE__ */ _("div", { className: "flex flex-col gap-3 overflow-y-auto" }, /* @__PURE__ */ _(LeftPanel, null)), /* @__PURE__ */ _("div", { className: "lg:col-span-2 flex flex-col" }, /* @__PURE__ */ _(RightPanel, null)));
+  return /* @__PURE__ */ _("main", { className: "grid grid-cols-3 gap-[clamp(0.5rem,1.5vh,1rem)] p-[clamp(0.5rem,1.5vh,1rem)] h-screen max-h-screen overflow-hidden", role: "main", "aria-label": "Countdown Timer Interface" }, /* @__PURE__ */ _("div", { className: "flex flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] h-full" }, /* @__PURE__ */ _(LeftPanel, null)), /* @__PURE__ */ _("div", { className: "col-span-2 flex flex-col h-full" }, /* @__PURE__ */ _(RightPanel, null)));
 }
 
 // src/renderer/index.jsx

@@ -1,8 +1,15 @@
-const { Menu, screen } = require('electron');
+const { Menu, screen, app } = require('electron');
 const { getDisplayWindowState, toggleDisplayWindow, showFullscreenOnDisplay, getCurrentDisplayIndex } = require('./windows');
 
+const isDev = !app.isPackaged;
+
+// Store reference to mainWindow for rebuilds
+let _mainWindow = null;
+
 function setupMenu(mainWindow) {
-  // Register IPC handlers for menu actions
+  _mainWindow = mainWindow;
+
+  // Register IPC handlers for menu actions (once only)
   const { ipcMain } = require('electron');
   
   // Theme toggle from menu
@@ -17,17 +24,28 @@ function setupMenu(mainWindow) {
     }
   });
   
-  // Clock toggle from menu
-  ipcMain.removeAllListeners('menu-clock-toggle'); // Prevent duplicates
-  ipcMain.on('menu-clock-toggle', (event) => {
-    const menu = Menu.getApplicationMenu();
-    const clockItem = menu.getMenuItemById('toggle-clock');
-    if (clockItem) {
-      clockItem.checked = !clockItem.checked;
-      mainWindow.webContents.send('menu-toggle-clock', clockItem.checked);
-    }
+  // Build and set the menu
+  buildMenu(mainWindow);
+
+  // Rebuild menu when displays change
+  screen.on('display-added', () => {
+    console.log('Display added — rebuilding menu');
+    buildMenu(mainWindow);
   });
-  
+  screen.on('display-removed', () => {
+    console.log('Display removed — rebuilding menu');
+    buildMenu(mainWindow);
+  });
+}
+
+function buildMenu(mainWindow) {
+  // Preserve current menu state before rebuilding
+  let darkThemeChecked = true; // default
+  if (global.appMenu) {
+    const themeItem = global.appMenu.getMenuItemById('dark-theme');
+    if (themeItem) darkThemeChecked = themeItem.checked;
+  }
+
   // Get available displays
   const displays = screen.getAllDisplays();
   
@@ -46,10 +64,35 @@ function setupMenu(mainWindow) {
     }
   }));
 
+  const isMac = process.platform === 'darwin';
+
+  // Dev-only view items
+  const devViewItems = isDev ? [
+    { type: 'separator' },
+    { role: 'reload', label: 'Reload' },
+    { role: 'forceReload', label: 'Force Reload' },
+    { role: 'toggleDevTools', label: 'Developer Tools' },
+  ] : [];
+
   const template = [
-    {
-      label: 'Countdown Timer',
+    // macOS App Menu
+    ...(isMac ? [{
+      label: app.name,
       submenu: [
+        {
+          label: `About ${app.name}`,
+          click: () => {
+            const { dialog } = require('electron');
+            const version = require('../../package.json').version;
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: `About ${app.name}`,
+              message: app.name,
+              detail: `Version ${version}\n\nThe ultimate timer app for events.\n\n© 2026 50hz Event Solutions`
+            });
+          }
+        },
+        { type: 'separator' },
         {
           label: 'Preferences...',
           accelerator: 'CmdOrCtrl+,',
@@ -59,7 +102,54 @@ function setupMenu(mainWindow) {
           }
         },
         { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
         { role: 'quit' }
+      ]
+    }] : []),
+    // File menu (non-macOS) / app-specific menu
+    {
+      label: isMac ? 'File' : 'Rocket Timer',
+      submenu: [
+        ...(!isMac ? [
+          {
+            label: 'Preferences...',
+            accelerator: 'CmdOrCtrl+,',
+            click: () => {
+              const { createSettingsWindow } = require('./windows');
+              createSettingsWindow();
+            }
+          },
+          { type: 'separator' },
+        ] : []),
+        {
+          label: 'Layout Creator',
+          accelerator: 'CmdOrCtrl+L',
+          click: () => {
+            const { createLayoutCreatorWindow } = require('./windows');
+            createLayoutCreatorWindow();
+          }
+        },
+        ...(!isMac ? [
+          { type: 'separator' },
+          { role: 'quit' }
+        ] : []),
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
       ]
     },
     {
@@ -67,27 +157,14 @@ function setupMenu(mainWindow) {
       submenu: [
         {
           label: 'Start/Stop Timer',
-          accelerator: 'Space',
           click: () => {
             mainWindow.webContents.send('menu-start-stop');
           }
         },
         {
           label: 'Reset Timer',
-          accelerator: 'CmdOrCtrl+R',
           click: () => {
             mainWindow.webContents.send('menu-reset');
-          }
-        },
-        { type: 'separator' },
-        {
-          id: 'toggle-clock',
-          label: 'Show Clock',
-          accelerator: 'CmdOrCtrl+T',
-          type: 'checkbox',
-          checked: false,
-          click: (menuItem) => {
-            mainWindow.webContents.send('menu-toggle-clock', menuItem.checked);
           }
         },
       ]
@@ -115,17 +192,66 @@ function setupMenu(mainWindow) {
           label: 'Dark Mode',
           accelerator: 'CmdOrCtrl+Shift+D',
           type: 'checkbox',
-          checked: true, // Default to dark
+          checked: darkThemeChecked,
           click: (menuItem) => {
             const theme = menuItem.checked ? 'dark' : 'light';
             mainWindow.webContents.send('menu-theme-change', theme);
           }
         },
-        { type: 'separator' },
-        { role: 'reload' },
-        { role: 'toggledevtools' },
+        ...devViewItems,
       ],
     },
+    {
+      label: 'Window',
+      role: 'windowMenu',
+    },
+    {
+      label: 'Help',
+      role: 'help',
+      submenu: [
+        {
+          label: 'Check for Updates...',
+          click: () => {
+            const { getUpdateManager } = require('./main');
+            const updateManager = getUpdateManager();
+            if (updateManager) {
+              updateManager.checkForUpdatesManual();
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Troubleshooting',
+          submenu: [
+            {
+              label: 'View Logs...',
+              click: () => {
+                const { shell } = require('electron');
+                const log = require('electron-log');
+                const logPath = log.transports.file.getFile().path;
+                shell.showItemInFolder(logPath);
+              }
+            },
+          ]
+        },
+        ...(!isMac ? [
+          { type: 'separator' },
+          {
+            label: 'About',
+            click: () => {
+              const { dialog } = require('electron');
+              const version = require('../../package.json').version;
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'About Rocket Timer',
+                message: 'Rocket Timer',
+                detail: `Version ${version}\n\nThe ultimate timer app for events.\n\n© 2026 50hz Event Solutions`
+              });
+            }
+          }
+        ] : []),
+      ]
+    }
   ];
 
   const menu = Menu.buildFromTemplate(template);
@@ -173,20 +299,14 @@ function updateDisplayMenuItems() {
 }
 
 // Function to update menu states from renderer process
-function updateMenuStates(themeState, clockState) {
+function updateMenuStates(themeState) {
   if (!global.appMenu) return;
   
   const themeItem = global.appMenu.getMenuItemById('dark-theme');
-  const clockItem = global.appMenu.getMenuItemById('toggle-clock');
   
   if (themeItem && themeState !== undefined) {
     themeItem.checked = themeState === 'dark';
     console.log(`Updated menu theme state: ${themeState} (checked: ${themeItem.checked})`);
-  }
-  
-  if (clockItem && clockState !== undefined) {
-    clockItem.checked = clockState;
-    console.log(`Updated menu clock state: ${clockState} (checked: ${clockItem.checked})`);
   }
 }
 

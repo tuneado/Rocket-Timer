@@ -5,6 +5,7 @@ import { formatTime, formatClockTime } from './utils/timeFormatter.js';
 import { ONE_SECOND, HUNDRED_MS } from './utils/constants.js';
 import { KeyboardManager, VisualFeedback } from './utils/keyboardManager.js';
 import appState from './modules/appState.js';
+import UnifiedCanvasRenderer from './UnifiedCanvasRenderer.js';
 import * as TimeInputs from './modules/timeInputs.js';
 import * as ClockManager from './modules/clockManager.js';
 import * as MessageManager from './modules/messageManager.js';
@@ -68,8 +69,8 @@ const timerState = {
   setRemainingTime(value) { 
     const previousTime = remainingTime;
     remainingTime = value * 1000; // Convert seconds to ms
-    // Check for zero crossing (works whether timer is running or not)
-    if (previousTime > 0 && remainingTime <= 0) {
+    // Check for zero crossing - ONLY when timer is running
+    if (running && previousTime > 0 && remainingTime <= 0) {
       console.log('⏰ Time crossed zero via setRemainingTime - triggering completion events');
       // Use setTimeout to avoid blocking the setter
       setTimeout(() => {
@@ -83,8 +84,8 @@ const timerState = {
   setRemainingTimeMs(value) { 
     const previousTime = remainingTime;
     remainingTime = value; // Direct ms setter
-    // Check for zero crossing (works whether timer is running or not)
-    if (previousTime > 0 && remainingTime <= 0) {
+    // Check for zero crossing - ONLY when timer is running
+    if (running && previousTime > 0 && remainingTime <= 0) {
       console.log('⏰ Time crossed zero via setRemainingTimeMs - triggering completion events');
       // Use setTimeout to avoid blocking the setter
       setTimeout(() => {
@@ -174,6 +175,11 @@ if (window.electron && window.electron.settings) {
     // Update clock format in localStorage when settings change
     if (settings.clockFormat !== undefined) {
       localStorage.setItem('clockFormat', settings.clockFormat);
+    }
+
+    // Apply keyboard shortcut settings
+    if (settings.keyboardShortcuts) {
+      keyboard.applySettings(settings.keyboardShortcuts);
     }
   });
 }
@@ -384,6 +390,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const height = parseInt(resolution[1]);
   
   canvasRenderer = new UnifiedCanvasRenderer(width, height);
+  
+  // Expose canvasRenderer globally for settings and external access
+  window.canvasRenderer = canvasRenderer;
   
   // Add preview canvas output (smaller scale for UI)
   const previewCanvas = document.getElementById('timerCanvas');
@@ -602,19 +611,305 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Send initial state immediately
   ipcRenderer.send('companion-state-update', appState.getState());
+  
+  // ===================================
+  // PERFORMANCE MONITORING
+  // ===================================
+  
+  // Monitor canvas renderer performance and update status bar
+  if (canvasRenderer && statusBar) {
+    setInterval(() => {
+      const stats = canvasRenderer.getPerformanceStats();
+      if (stats) {
+        // Determine status based on FPS and dropped frames
+        let status = 'good';
+        const fpsRatio = parseFloat(stats.currentFPS) / stats.targetFPS;
+        const dropRatio = stats.droppedFrames / Math.max(stats.frameCount, 1);
+        
+        if (fpsRatio < 0.7 || dropRatio > 0.1) {
+          status = 'critical';
+        } else if (fpsRatio < 0.85 || dropRatio > 0.05) {
+          status = 'warning';
+        }
+        
+        statusBar.setPerformanceStatus(status, stats);
+        
+        // Broadcast stats to settings window via IPC
+        if (window.electron && window.electron.ipcRenderer) {
+          window.electron.ipcRenderer.send('performance-stats-update', stats);
+        }
+      }
+    }, 2000); // Update every 2 seconds
+  }
+  
+  // Initialize UI controls after Preact components have rendered
+  // Small delay ensures Preact has finished mounting
+  setTimeout(initializeControls, 100);
 });
 
 // IPC handlers initialized at end of file
 
-// Real DOM elements (controls)
-const startStopBtn = document.getElementById("startStop");
-const resetBtn = document.getElementById("reset");
-const addMinuteBtn = document.getElementById("addMinute");
-const subtractMinuteBtn = document.getElementById("subtractMinute");
-const messageInput = document.getElementById("messageInput");
-const displayMessageBtn = document.getElementById("displayMessage");
-const clearMessageBtn = document.getElementById("clearMessage");
-const charCounter = document.getElementById("charCounter");
+// Real DOM elements (controls) - initialized later after Preact renders
+let startStopBtn;
+let resetBtn;
+let addMinuteBtn;
+let subtractMinuteBtn;
+let messageInput;
+let displayMessageBtn;
+let clearMessageBtn;
+let charCounter;
+
+// Initialize controls after Preact components have rendered
+function initializeControls() {
+  // Query DOM elements
+  startStopBtn = document.getElementById("startStop");
+  resetBtn = document.getElementById("reset");
+  addMinuteBtn = document.getElementById("addMinute");
+  subtractMinuteBtn = document.getElementById("subtractMinute");
+  messageInput = document.getElementById("messageInput");
+  displayMessageBtn = document.getElementById("displayMessage");
+  clearMessageBtn = document.getElementById("clearMessage");
+  charCounter = document.getElementById("charCounter");
+  
+  // Verify critical elements exist
+  if (!startStopBtn || !resetBtn) {
+    console.error('Critical UI elements not found, retrying...');
+    setTimeout(initializeControls, 100);
+    return;
+  }
+  
+  console.log('✅ UI controls initialized');
+  
+  // Attach event listeners
+  attachEventListeners();
+  
+  // Initialize character counter
+  if (messageInput && charCounter) {
+    updateCharCounter();
+  }
+  
+  // Initialize saved presets
+  loadSavedPresets();
+  
+  // Initialize feature image after a delay to ensure canvas is ready
+  setTimeout(initializeFeatureImage, 200);
+  
+  // Initialize IPC handlers and keyboard shortcuts after controls are ready
+  initializeIPCHandlersWithElements();
+  initializeKeyboardShortcuts();
+}
+
+// Attach all event listeners to UI controls
+function attachEventListeners() {
+  // Start/Stop toggle
+  startStopBtn.addEventListener("click", async () => {
+    startStopBtn.blur();
+    if (!running) {
+      if (remainingTime <= 0) {
+        const h = parseInt(document.getElementById("hours").value) || 0;
+        const m = parseInt(document.getElementById("minutes").value) || 0;
+        const s = parseInt(document.getElementById("seconds").value) || 0;
+        const totalTimeSeconds = h * 3600 + m * 60 + s;
+        
+        // Convert to milliseconds for precision timer system
+        totalTime = totalTimeSeconds * 1000;
+        remainingTime = totalTime;
+        updateDisplay();
+      }
+
+      if (remainingTime > 0) {
+        // Record actual start time for elapsed time tracking
+        actualStartTimestamp = Date.now();
+        pausedElapsedTime = 0; // Reset on fresh start
+        
+        countdown = await TimerControls.startTimer(timerState, {
+          startStopBtn,
+          updateButtonIcon,
+          setInputsDisabled,
+          updateDisplay,
+          sendStateUpdate,
+          handleTimerComplete
+        });
+      }
+    } else {
+      // Stop/Pause: save elapsed time
+      if (running && actualStartTimestamp > 0) {
+        pausedElapsedTime += (Date.now() - actualStartTimestamp);
+      }
+      
+      TimerControls.stopTimer(countdown, timerState, {
+        startStopBtn,
+        updateButtonIcon,
+        setInputsDisabled,
+        sendStateUpdate
+      });
+    }
+  });
+
+  // Reset
+  resetBtn.addEventListener("click", () => {
+    resetBtn.blur();
+    // Reset elapsed time tracking
+    actualStartTimestamp = 0;
+    pausedElapsedTime = 0;
+    
+    countdown = TimerControls.resetTimer(countdown, timerState, {
+      startStopBtn,
+      getElementById: document.getElementById.bind(document),
+      updateButtonIcon,
+      setInputsDisabled,
+      updateDisplay,
+      sendStateUpdate
+    });
+  });
+
+  // Flash Button
+  const flashBtn = document.getElementById("flashButton");
+  if (flashBtn) {
+    flashBtn.addEventListener("click", () => {
+      flashBtn.classList.add('btn-danger');
+      flashBtn.classList.remove('btn-light');
+      TimerControls.flashAtZero(canvasRenderer, ipcRenderer, {
+        onComplete: () => {
+          flashBtn.classList.remove('btn-danger');
+          flashBtn.classList.add('btn-light');
+        }
+      });
+    });
+  }
+
+  // Cover Image Button
+  const coverImageBtn = document.getElementById("coverImage");
+  if (coverImageBtn) {
+    coverImageBtn.addEventListener("click", async () => {
+      try {
+        const settings = await window.electron.settings.getAll();
+        
+        if (!settings.coverImage || !settings.coverImage.path) {
+          statusBar.warning('Please select a feature image in Settings > Appearance first.', 5000);
+          return;
+        }
+        
+        coverImageEnabled = !coverImageEnabled;
+        
+        const coverImage = {
+          ...settings.coverImage,
+          enabled: coverImageEnabled
+        };
+        await window.electron.settings.save('coverImage', coverImage);
+        
+        if (coverImageEnabled) {
+          await canvasRenderer.enableFeatureImage(settings.coverImage.path);
+        } else {
+          canvasRenderer.disableFeatureImage();
+        }
+        
+        window.electron.ipcRenderer.send('toggle-cover-image', coverImageEnabled);
+        updateFeatureImageButtonState();
+        
+        appState.update({
+          'coverImage.enabled': coverImageEnabled,
+          'coverImage.path': settings.coverImage.path,
+          'coverImage.opacity': settings.coverImage.opacity || 1.0
+        });
+      } catch (error) {
+        console.error('Error toggling feature image:', error);
+      }
+    });
+  }
+
+  // Preset buttons
+  document.querySelectorAll(".preset").forEach(btn => {
+    btn.addEventListener("click", (event) => {
+      if (PresetManager.checkIsLongPress()) {
+        return;
+      }
+      
+      if (event.metaKey || event.ctrlKey) {
+        updatePresetFromInputs(btn);
+      } else {
+        const minutes = parseInt(btn.dataset.minutes);
+        const totalTimeSeconds = minutes * 60;
+        
+        totalTime = totalTimeSeconds * 1000;
+        remainingTime = totalTime;
+        lastSetTime = totalTime;
+        
+        updateDisplay();
+        
+        const presetButtons = Array.from(document.querySelectorAll(".preset"));
+        const presetIndex = presetButtons.indexOf(btn);
+        
+        appState.update({
+          'timer.preset': presetIndex,
+          'timer.totalTime': totalTime,
+          'timer.remainingTime': remainingTime,
+          'timer.lastSetTime': lastSetTime,
+          'timer.hours': Math.floor(totalTimeSeconds / 3600),
+          'timer.minutes': Math.floor((totalTimeSeconds % 3600) / 60),
+          'timer.seconds': totalTimeSeconds % 60,
+          'timer.percentage': 100,
+          'timer.formattedTime': formatTime(totalTimeSeconds)
+        });
+        
+        console.log(`⏰ Preset loaded: ${minutes} minutes (${totalTime}ms)`);
+        VisualFeedback.flashSuccess(btn);
+      }
+    });
+  });
+
+  // Time inputs
+  const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
+  timeInputs.forEach(input => {
+    input.addEventListener("input", () => {
+      if (running) {
+        if (countdown && countdown.stop) {
+          countdown.stop();
+        } else {
+          clearInterval(countdown);
+        }
+        running = false;
+        updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+        startStopBtn.classList.remove("stop");
+        startStopBtn.classList.add("start");
+        setInputsDisabled(false);
+      }
+
+      updateTimeFromInputs();
+      lastSetTime = totalTime;
+    });
+  });
+
+  // Minute adjustment buttons
+  addMinuteBtn.addEventListener("click", addMinute);
+  subtractMinuteBtn.addEventListener("click", subtractMinute);
+
+  // Advanced time control buttons
+  const addFiveBtn = document.getElementById("addFive");
+  const subtractFiveBtn = document.getElementById("subtractFive");
+  const addTenBtn = document.getElementById("addTen");
+  const subtractTenBtn = document.getElementById("subtractTen");
+
+  if (addFiveBtn) addFiveBtn.addEventListener("click", () => addMinutes(5));
+  if (subtractFiveBtn) subtractFiveBtn.addEventListener("click", () => subtractMinutes(5));
+  if (addTenBtn) addTenBtn.addEventListener("click", () => addMinutes(10));
+  if (subtractTenBtn) subtractTenBtn.addEventListener("click", () => subtractMinutes(10));
+
+  // Message input event listeners
+  if (messageInput) {
+    messageInput.addEventListener("input", updateCharCounter);
+    messageInput.addEventListener("paste", handlePaste);
+    messageInput.addEventListener("keydown", handleKeyDown);
+  }
+  if (displayMessageBtn) displayMessageBtn.addEventListener("click", displayMessage);
+  if (clearMessageBtn) clearMessageBtn.addEventListener("click", clearMessage);
+
+  // Reset presets button
+  const resetPresetsBtn = document.getElementById("resetPresets");
+  if (resetPresetsBtn) {
+    resetPresetsBtn.addEventListener("click", resetPresetsToDefault);
+  }
+}
 
 // Assign message wrapper functions now that DOM elements are available
 updateCharCounter = () => {
@@ -744,74 +1039,84 @@ function changeLayout(layoutId) {
   });
 }
 
-// Start/Stop toggle
-startStopBtn.addEventListener("click", async () => {
-  if (!running) {
-    if (remainingTime <= 0) {
-      const h = parseInt(document.getElementById("hours").value) || 0;
-      const m = parseInt(document.getElementById("minutes").value) || 0;
-      const s = parseInt(document.getElementById("seconds").value) || 0;
-      const totalTimeSeconds = h * 3600 + m * 60 + s;
-      
-      // Convert to milliseconds for precision timer system
-      totalTime = totalTimeSeconds * 1000;
-      remainingTime = totalTime;
-      updateDisplay();
-    }
-
-    if (remainingTime > 0) {
-      // Record actual start time for elapsed time tracking
-      actualStartTimestamp = Date.now();
-      pausedElapsedTime = 0; // Reset on fresh start
-      
-      countdown = await TimerControls.startTimer(timerState, {
-        startStopBtn,
-        updateButtonIcon,
-        setInputsDisabled,
-        updateDisplay,
-        sendStateUpdate,
-        handleTimerComplete
-      });
-    }
-  } else {
-    // Stop/Pause: save elapsed time
-    if (running && actualStartTimestamp > 0) {
-      pausedElapsedTime += (Date.now() - actualStartTimestamp);
-    }
-    
-    TimerControls.stopTimer(countdown, timerState, {
-      startStopBtn,
-      updateButtonIcon,
-      setInputsDisabled,
-      sendStateUpdate
-    });
-  }
+// Presets - Initialize long-press handlers (called before event listeners attached)
+PresetManager.initializeLongPressHandlers({
+  getElementById: document.getElementById.bind(document),
+  statusBar
 });
 
-
-// Reset
-resetBtn.addEventListener("click", () => {
-  // Reset elapsed time tracking
-  actualStartTimestamp = 0;
-  pausedElapsedTime = 0;
-  
-  countdown = TimerControls.resetTimer(countdown, timerState, {
-    startStopBtn,
+// Function to update preset button with current input values
+function updatePresetFromInputs(button) {
+  PresetManager.updatePresetFromInputs(button, { 
     getElementById: document.getElementById.bind(document),
-    updateButtonIcon,
-    setInputsDisabled,
-    updateDisplay,
-    sendStateUpdate
+    statusBar 
   });
-});
+}
 
+// Function to toggle inputs disabled state
+function setInputsDisabled(disabled) {
+  const wrapper = document.getElementById("time-inputs-wrapper");
+  if (wrapper) {
+    const alreadyMuted = wrapper.classList.contains('muted');
+    // Only toggle if state is actually changing
+    if (alreadyMuted !== disabled) {
+      wrapper.classList.toggle("muted", disabled);
+    }
+  }
 
-// Flash Button - Manually trigger flash effect
-const flashBtn = document.getElementById("flashButton");
-if (flashBtn) {
-  flashBtn.addEventListener("click", () => {
-    flashAtZero();
+  ["hours", "minutes", "seconds"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.disabled = disabled;
+    }
   });
+
+  document.querySelectorAll(".preset").forEach(btn => {
+    btn.disabled = disabled;
+    btn.classList.toggle("muted", disabled);
+  });
+
+  const minuteButtonsDisabled = timerState.stoppedAtZero;
+  ["addMinute", "subtractMinute"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.disabled = minuteButtonsDisabled;
+      btn.classList.toggle("muted", minuteButtonsDisabled);
+    }
+  });
+}
+
+// Function to load saved presets from localStorage
+function loadSavedPresets() {
+  PresetManager.loadSavedPresets();
+}
+
+function resetPresetsToDefault() {
+  PresetManager.resetPresetsToDefault();
+}
+
+// Theme toggle
+function setTheme(dark) {
+  const htmlElement = document.documentElement;
+  const theme = dark ? 'dark' : 'light';
+  
+  if (dark) {
+    htmlElement.setAttribute('data-theme', 'dark');
+    localStorage.setItem("theme", "dark");
+  } else {
+    htmlElement.setAttribute('data-theme', 'light');
+    localStorage.setItem("theme", "light");
+  }
+  
+  if (canvasRenderer) {
+    canvasRenderer.updateTheme(theme);
+  }
+  
+  if (window.electron && window.electron.ipcRenderer) {
+    ipcRenderer.send('update-theme', theme);
+    const clockVisible = localStorage.getItem("clock") === "on";
+    ipcRenderer.send('update-menu-states', theme, clockVisible);
+  }
 }
 
 // Mute button state updater
@@ -833,126 +1138,11 @@ function updateMuteButtonState() {
   }
 }
 
-// Feature Image Button - Toggle feature image overlay
-const coverImageBtn = document.getElementById("coverImage");
+// Cover image variables and functions
 let coverImageEnabled = false;
 
-// Initialize cover image and background image state after canvas is ready
-async function initializeFeatureImage() {
-  if (!coverImageBtn) return;
-  
-  try {
-    const settings = await window.electron.settings.getAll();
-    
-    // Initialize cover image state (with defaults if not set)
-    if (settings.coverImage) {
-      coverImageEnabled = settings.coverImage.enabled || false;
-    } else {
-      coverImageEnabled = false;
-    }
-    
-    updateFeatureImageButtonState();
-    
-    // Always initialize appState with cover image settings (including defaults)
-    appState.update({
-      'coverImage.enabled': coverImageEnabled,
-      'coverImage.path': settings.coverImage?.path || null,
-      'coverImage.opacity': settings.coverImage?.opacity || 1.0
-    });
-    
-    // Apply cover image if enabled and canvas is ready
-    if (coverImageEnabled && settings.coverImage?.path && canvasRenderer) {
-      // Add a small delay to ensure canvas is fully initialized
-      setTimeout(async () => {
-        try {
-          await canvasRenderer.enableCoverImage(settings.coverImage.path);
-          // Force multiple display updates to ensure the image appears
-          updateDisplay();
-          setTimeout(() => updateDisplay(), 100);
-          console.log('✅ Cover image enabled and display updated at startup');
-        } catch (error) {
-          console.error('Error loading cover image:', error);
-        }
-      }, 100);
-    }
-    
-    // Initialize and load background image if present
-    if (settings.backgroundImage && settings.backgroundImage.enabled && settings.backgroundImage.path && canvasRenderer) {
-      setTimeout(async () => {
-        try {
-          await canvasRenderer.enableBackgroundImage(settings.backgroundImage.path, settings.backgroundImage.opacity || 1.0);
-          updateDisplay();
-          setTimeout(() => updateDisplay(), 100);
-          console.log('✅ Background image loaded at startup:', settings.backgroundImage.path);
-        } catch (error) {
-          console.error('Error loading background image:', error);
-        }
-      }, 150);
-    }
-
-  } catch (error) {
-    console.error('Error loading image settings:', error);
-    
-    // Initialize with defaults if settings loading fails
-    coverImageEnabled = false;
-    updateFeatureImageButtonState();
-    appState.update({
-      'coverImage.enabled': false,
-      'coverImage.path': null,
-      'coverImage.opacity': 1.0
-    });
-  }
-}
-
-if (coverImageBtn) {
-  // Initialize after a delay to ensure canvas is ready
-  setTimeout(initializeFeatureImage, 200);
-
-  coverImageBtn.addEventListener("click", async () => {
-    try {
-      const settings = await window.electron.settings.getAll();
-      
-      if (!settings.coverImage || !settings.coverImage.path) {
-        statusBar.warning('Please select a feature image in Settings > Appearance first.', 5000);
-        return;
-      }
-      
-      coverImageEnabled = !coverImageEnabled;
-      
-      // Update settings
-      const coverImage = {
-        ...settings.coverImage,
-        enabled: coverImageEnabled
-      };
-      await window.electron.settings.save('coverImage', coverImage);
-      
-      // Toggle feature image on canvas
-      if (coverImageEnabled) {
-        await canvasRenderer.enableFeatureImage(settings.coverImage.path);
-      } else {
-        canvasRenderer.disableFeatureImage();
-      }
-      
-      // Send to display window
-      window.electron.ipcRenderer.send('toggle-cover-image', coverImageEnabled);
-      
-      updateFeatureImageButtonState();
-      
-      // Update appState for API consistency
-      appState.update({
-        'coverImage.enabled': coverImageEnabled,
-        'coverImage.path': settings.coverImage.path,
-        'coverImage.opacity': settings.coverImage.opacity || 1.0
-      });
-      
-
-    } catch (error) {
-      console.error('Error toggling feature image:', error);
-    }
-  });
-}
-
 function updateFeatureImageButtonState() {
+  const coverImageBtn = document.getElementById("coverImage");
   if (!coverImageBtn) return;
   
   const icon = coverImageBtn.querySelector('i');
@@ -970,190 +1160,65 @@ function updateFeatureImageButtonState() {
   }
 }
 
-
-// Presets - Initialize long-press handlers first
-PresetManager.initializeLongPressHandlers({
-  getElementById: document.getElementById.bind(document),
-  statusBar
-});
-
-document.querySelectorAll(".preset").forEach(btn => {
-  btn.addEventListener("click", (event) => {
-    // Skip click if it was a long-press
-    if (PresetManager.checkIsLongPress()) {
-      return;
+// Initialize feature image state
+async function initializeFeatureImage() {
+  const coverImageBtn = document.getElementById("coverImage");
+  if (!coverImageBtn) return;
+  
+  try {
+    const settings = await window.electron.settings.getAll();
+    
+    if (settings.coverImage) {
+      coverImageEnabled = settings.coverImage.enabled || false;
+    } else {
+      coverImageEnabled = false;
     }
     
-    // Check if Cmd (Mac) or Ctrl (Windows/Linux) is held down
-    if (event.metaKey || event.ctrlKey) {
-      // Update preset with current input values
-      updatePresetFromInputs(btn);
-    } else {
-      // Normal behavior: load preset time (convert to milliseconds for precision timer)
-      const minutes = parseInt(btn.dataset.minutes);
-      const totalTimeSeconds = minutes * 60;
-      
-      // Set time values in milliseconds for precision timer system
-      totalTime = totalTimeSeconds * 1000;
-      remainingTime = totalTime;
-      lastSetTime = totalTime;
-      
-      updateDisplay();
-      
-      // Get preset index (0-7)
-      const presetButtons = Array.from(document.querySelectorAll(".preset"));
-      const presetIndex = presetButtons.indexOf(btn);
-      
-      // Update appState with selected preset (values already in ms)
-      appState.update({
-        'timer.preset': presetIndex,
-        'timer.totalTime': totalTime,
-        'timer.remainingTime': remainingTime,
-        'timer.lastSetTime': lastSetTime,
-        'timer.hours': Math.floor(totalTimeSeconds / 3600),
-        'timer.minutes': Math.floor((totalTimeSeconds % 3600) / 60),
-        'timer.seconds': totalTimeSeconds % 60,
-        'timer.percentage': 100,
-        'timer.formattedTime': formatTime(totalTimeSeconds)
-      });
-      
-      console.log(`⏰ Preset loaded: ${minutes} minutes (${totalTime}ms)`);
-      
-      // Visual feedback
-      VisualFeedback.flashSuccess(btn);
+    updateFeatureImageButtonState();
+    
+    appState.update({
+      'coverImage.enabled': coverImageEnabled,
+      'coverImage.path': settings.coverImage?.path || null,
+      'coverImage.opacity': settings.coverImage?.opacity || 1.0
+    });
+    
+    if (coverImageEnabled && settings.coverImage?.path && canvasRenderer) {
+      setTimeout(async () => {
+        try {
+          await canvasRenderer.enableCoverImage(settings.coverImage.path);
+          updateDisplay();
+          setTimeout(() => updateDisplay(), 100);
+          console.log('✅ Cover image enabled and display updated at startup');
+        } catch (error) {
+          console.error('Error loading cover image:', error);
+        }
+      }, 100);
     }
-  });
-});
-
-// Function to update preset button with current input values
-function updatePresetFromInputs(button) {
-  PresetManager.updatePresetFromInputs(button, { 
-    getElementById: document.getElementById.bind(document),
-    statusBar 
-  });
-}
-
-//SET TIME
-const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
-
-function setInputsDisabled(disabled) {
-  // Time input fields and presets - disabled when timer is running
-  ["hours", "minutes", "seconds"].forEach(id => {
-    const input = document.getElementById(id);
-    input.disabled = disabled;
-    input.classList.toggle("muted", disabled);  // Add class for custom style
-  });
-
-  // Preset buttons - disabled when timer is running
-  document.querySelectorAll(".preset").forEach(btn => {
-    btn.disabled = disabled;
-    btn.classList.toggle("muted", disabled);  // Optional: to match the dimmed look
-  });
-
-  // +1/-1 minute buttons - only disabled when stopped at zero, not when running
-  const minuteButtonsDisabled = timerState.stoppedAtZero;
-  ["addMinute", "subtractMinute"].forEach(id => {
-    const btn = document.getElementById(id);
-    if (btn) {
-      btn.disabled = minuteButtonsDisabled;
-      btn.classList.toggle("muted", minuteButtonsDisabled);
-    }
-  });
-}
-
-// Handle manual input changes
-timeInputs.forEach(input => {
-  input.addEventListener("input", () => {
-    if (running) {
-      // Stop precision timer properly
-      if (countdown && countdown.stop) {
-        countdown.stop();
-      } else {
-        clearInterval(countdown);
-      }
-      running = false;
-      updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-      startStopBtn.classList.remove("stop");
-      startStopBtn.classList.add("start");
-      setInputsDisabled(false);
+    
+    if (settings.backgroundImage && settings.backgroundImage.enabled && settings.backgroundImage.path && canvasRenderer) {
+      setTimeout(async () => {
+        try {
+          await canvasRenderer.enableBackgroundImage(settings.backgroundImage.path, settings.backgroundImage.opacity || 1.0);
+          updateDisplay();
+          setTimeout(() => updateDisplay(), 100);
+          console.log('✅ Background image loaded at startup:', settings.backgroundImage.path);
+        } catch (error) {
+          console.error('Error loading background image:', error);
+        }
+      }, 150);
     }
 
-    updateTimeFromInputs();
-
-    // Save current input as last set time (totalTime is already in ms)
-    lastSetTime = totalTime;
-  });
-});
-
-
-// Theme toggle
-function setTheme(dark) {
-  const htmlElement = document.documentElement;
-  const theme = dark ? 'dark' : 'light';
-  
-  if (dark) {
-    // Dark mode: set data-theme attribute
-    htmlElement.setAttribute('data-theme', 'dark');
-    localStorage.setItem("theme", "dark");
-  } else {
-    // Light mode: set data-theme attribute  
-    htmlElement.setAttribute('data-theme', 'light');
-    localStorage.setItem("theme", "light");
+  } catch (error) {
+    console.error('Error loading image settings:', error);
+    
+    coverImageEnabled = false;
+    updateFeatureImageButtonState();
+    appState.update({
+      'coverImage.enabled': false,
+      'coverImage.path': null,
+      'coverImage.opacity': 1.0
+    });
   }
-  
-  // Update canvas renderer theme
-  if (canvasRenderer) {
-    canvasRenderer.updateTheme(theme);
-  }
-  
-  // Update menu state
-  if (window.electron && window.electron.ipcRenderer) {
-    ipcRenderer.send('update-theme', theme);
-    const clockVisible = localStorage.getItem("clock") === "on";
-    ipcRenderer.send('update-menu-states', theme, clockVisible);
-  }
-}
-
-
-
-// Minute adjustment button event listeners
-addMinuteBtn.addEventListener("click", addMinute);
-subtractMinuteBtn.addEventListener("click", subtractMinute);
-
-// Advanced time control button event listeners
-const addFiveBtn = document.getElementById("addFive");
-const subtractFiveBtn = document.getElementById("subtractFive");
-const addTenBtn = document.getElementById("addTen");
-const subtractTenBtn = document.getElementById("subtractTen");
-
-if (addFiveBtn) addFiveBtn.addEventListener("click", () => addMinutes(5));
-if (subtractFiveBtn) subtractFiveBtn.addEventListener("click", () => subtractMinutes(5));
-if (addTenBtn) addTenBtn.addEventListener("click", () => addMinutes(10));
-if (subtractTenBtn) subtractTenBtn.addEventListener("click", () => subtractMinutes(10));
-
-// Message input event listeners
-messageInput.addEventListener("input", updateCharCounter);
-messageInput.addEventListener("paste", handlePaste);
-messageInput.addEventListener("keydown", handleKeyDown);
-displayMessageBtn.addEventListener("click", displayMessage);
-clearMessageBtn.addEventListener("click", clearMessage);
-
-// Reset presets functionality
-const resetPresetsBtn = document.getElementById("resetPresets");
-if (resetPresetsBtn) {
-  resetPresetsBtn.addEventListener("click", resetPresetsToDefault);
-}
-
-function resetPresetsToDefault() {
-  PresetManager.resetPresetsToDefault();
-}
-
-// Initialize character counter
-updateCharCounter();
-
-// Function to load saved presets from localStorage
-function loadSavedPresets() {
-  PresetManager.loadSavedPresets();
 }
 
 // Initialize saved presets
@@ -1186,184 +1251,208 @@ function updateMenuState() {
   }
 }
 
-// Initialize all IPC handlers with dependencies
-initializeIPCHandlers({
-  ipcRenderer,
-  statusBar,
-  timerState,
-  clockState,
-  displayState: {
-    get visible() { return displayVisible; },
-    setVisible(value) { displayVisible = value; }
-  },
-  getCanvasRenderer: () => canvasRenderer,
-  getElements: () => ({
-    startStopBtn,
-    resetBtn,
-    displayMessageBtn,
-    coverImageBtn,
-    updateButtonIcon,
-    setInputsDisabled
-  }),
-  actions: {
-    updateDisplay,
-    formatTime,
-    updateTimeFromInputs,
-    sendStateUpdate,
-    changeLayout,
-    applyCanvasColors,
-    setTheme,
-    startClock,
-    stopClock,
-    updateMenuState,
-    stopTimer: () => {
-      // Stop the timer using the same logic as the stop button
-      if (running || stoppedAtZero) {
-        TimerControls.stopTimer(countdown, timerState, {
-          startStopBtn,
-          updateButtonIcon,
-          setInputsDisabled,
-          sendStateUpdate
-        });
-        running = false;
-        stoppedAtZero = false;
-      }
+/**
+ * Initialize IPC handlers after DOM elements are available
+ */
+function initializeIPCHandlersWithElements() {
+  // Initialize all IPC handlers with dependencies
+  initializeIPCHandlers({
+    ipcRenderer,
+    statusBar,
+    timerState,
+    clockState,
+    displayState: {
+      get visible() { return displayVisible; },
+      setVisible(value) { displayVisible = value; }
     },
-    setMuteState: async (muted) => {
-      soundsMuted = muted;
-      try {
-        await window.electron.settings.save('soundNotification', !soundsMuted);
-        updateMuteButtonState();
-        // Update appState for API consistency (soundEnabled = NOT soundsMuted)
-        appState.update({
-          'settings.soundEnabled': !soundsMuted
-        });
-        console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
-      } catch (error) {
-        console.error('Error updating sound settings:', error);
+    getCanvasRenderer: () => canvasRenderer,
+    getElements: () => ({
+      startStopBtn,
+      resetBtn,
+      displayMessageBtn,
+      coverImageBtn: document.getElementById("coverImage"),
+      updateButtonIcon,
+      setInputsDisabled
+    }),
+    actions: {
+      updateDisplay,
+      formatTime,
+      updateTimeFromInputs,
+      sendStateUpdate,
+      changeLayout,
+      applyCanvasColors,
+      setTheme,
+      startClock,
+      stopClock,
+      updateMenuState,
+      stopTimer: () => {
+        // Stop the timer using the same logic as the stop button
+        if (running || stoppedAtZero) {
+          TimerControls.stopTimer(countdown, timerState, {
+            startStopBtn,
+            updateButtonIcon,
+            setInputsDisabled,
+            sendStateUpdate
+          });
+          running = false;
+          stoppedAtZero = false;
+        }
+      },
+      setMuteState: async (muted) => {
+        soundsMuted = muted;
+        try {
+          await window.electron.settings.save('soundNotification', !soundsMuted);
+          updateMuteButtonState();
+          // Update appState for API consistency (soundEnabled = NOT soundsMuted)
+          appState.update({
+            'settings.soundEnabled': !soundsMuted
+          });
+          console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
+        } catch (error) {
+          console.error('Error updating sound settings:', error);
+        }
+      },
+      toggleMuteState: async () => {
+        soundsMuted = !soundsMuted;
+        try {
+          await window.electron.settings.save('soundNotification', !soundsMuted);
+          updateMuteButtonState();
+          // Update appState for API consistency (soundEnabled = NOT soundsMuted)
+          appState.update({
+            'settings.soundEnabled': !soundsMuted
+          });
+          console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
+        } catch (error) {
+          console.error('Error updating sound settings:', error);
+        }
+      },
+      flashAtZero: () => {
+        console.log('🔥 Manual flash triggered via API');
+        flashAtZero(); // Call the same function as the flash button
       }
-    },
-    toggleMuteState: async () => {
-      soundsMuted = !soundsMuted;
-      try {
-        await window.electron.settings.save('soundNotification', !soundsMuted);
-        updateMuteButtonState();
-        // Update appState for API consistency (soundEnabled = NOT soundsMuted)
-        appState.update({
-          'settings.soundEnabled': !soundsMuted
-        });
-        console.log('🔊 Sound notifications:', !soundsMuted ? 'enabled' : 'disabled');
-      } catch (error) {
-        console.error('Error updating sound settings:', error);
-      }
-    },
-    flashAtZero: () => {
-      console.log('🔥 Manual flash triggered via API');
-      flashAtZero(); // Call the same function as the flash button
     }
-  }
-});
+  });
+}
 
 // ===================================
 // KEYBOARD SHORTCUTS INITIALIZATION
 // ===================================
 
-// Initialize keyboard shortcuts
-keyboard.register('space', () => {
-  if (startStopBtn && !startStopBtn.disabled) {
-    VisualFeedback.ripple(startStopBtn, { clientX: 0, clientY: 0 });
-    startStopBtn.click();
-  }
-}, 'Start/Stop timer');
-
-keyboard.register('r', () => {
-  if (resetBtn && !resetBtn.disabled) {
-    VisualFeedback.ripple(resetBtn, { clientX: 0, clientY: 0 });
-    resetBtn.click();
-  }
-}, 'Reset timer');
-
-keyboard.register('arrowup', () => {
-  const addBtn = document.getElementById('addMinute');
-  if (addBtn && !addBtn.disabled) {
-    VisualFeedback.pulse(addBtn);
-    addBtn.click();
-  }
-}, 'Add one minute');
-
-keyboard.register('arrowdown', () => {
-  const subBtn = document.getElementById('subtractMinute');
-  if (subBtn && !subBtn.disabled) {
-    VisualFeedback.pulse(subBtn);
-    subBtn.click();
-  }
-}, 'Subtract one minute');
-
-// Advanced time controls with Shift and Ctrl modifiers
-keyboard.register('shift+arrowup', () => {
-  if (!stoppedAtZero) {
-    VisualFeedback.flashSuccess(document.getElementById('addMinute'));
-    addMinutes(5);
-  }
-}, 'Add 5 minutes');
-
-keyboard.register('shift+arrowdown', () => {
-  if (!stoppedAtZero) {
-    VisualFeedback.flashSuccess(document.getElementById('subtractMinute'));
-    subtractMinutes(5);
-  }
-}, 'Subtract 5 minutes');
-
-keyboard.register('ctrl+arrowup', () => {
-  if (!stoppedAtZero) {
-    VisualFeedback.flashSuccess(document.getElementById('addMinute'));
-    addMinutes(10);
-  }
-}, 'Add 10 minutes');
-
-keyboard.register('ctrl+arrowdown', () => {
-  if (!stoppedAtZero) {
-    VisualFeedback.flashSuccess(document.getElementById('subtractMinute'));
-    subtractMinutes(10);
-  }
-}, 'Subtract 10 minutes');
-
-keyboard.register('f', () => {
-  const flashBtn = document.getElementById('flashButton');
-  if (flashBtn) {
-    VisualFeedback.flashSuccess(flashBtn);
-    flashBtn.click();
-  }
-}, 'Flash screen');
-
-keyboard.register('m', () => {
-  if (muteSoundsBtn) {
-    VisualFeedback.pulse(muteSoundsBtn);
-    muteSoundsBtn.click();
-  }
-}, 'Toggle sound mute');
-
-keyboard.register('i', () => {
-  const featureBtn = document.getElementById('coverImage');
-  if (featureBtn) {
-    VisualFeedback.pulse(featureBtn);
-    featureBtn.click();
-  }
-}, 'Toggle feature image');
-
-// Number keys 1-8 for quick presets
-for (let i = 1; i <= 8; i++) {
-  keyboard.register(String(i), () => {
-    const presets = document.querySelectorAll('.preset');
-    if (presets[i - 1]) {
-      VisualFeedback.flashSuccess(presets[i - 1]);
-      presets[i - 1].click();
+/**
+ * Initialize keyboard shortcuts after DOM elements are available
+ */
+async function initializeKeyboardShortcuts() {
+  // Initialize keyboard shortcuts
+  keyboard.register('space', () => {
+    if (startStopBtn && !startStopBtn.disabled) {
+      VisualFeedback.pulse(startStopBtn);
+      startStopBtn.click();
     }
-  }, `Activate preset ${i}`);
-}
+  }, 'Start/Stop timer');
 
-// Initialize keyboard manager
-keyboard.init();
+  keyboard.register('r', () => {
+    if (resetBtn && !resetBtn.disabled) {
+      VisualFeedback.pulse(resetBtn);
+      resetBtn.click();
+    }
+  }, 'Reset timer');
+
+  keyboard.register('arrowup', () => {
+    const addBtn = document.getElementById('addMinute');
+    if (addBtn && !addBtn.disabled) {
+      VisualFeedback.pulse(addBtn);
+      addBtn.click();
+    }
+  }, 'Add one minute');
+
+  keyboard.register('arrowdown', () => {
+    const subBtn = document.getElementById('subtractMinute');
+    if (subBtn && !subBtn.disabled) {
+      VisualFeedback.pulse(subBtn);
+      subBtn.click();
+    }
+  }, 'Subtract one minute');
+
+  // Advanced time controls with Shift and Ctrl modifiers
+  keyboard.register('shift+arrowup', () => {
+    if (!stoppedAtZero) {
+      VisualFeedback.flashSuccess(document.getElementById('addMinute'));
+      addMinutes(5);
+    }
+  }, 'Add 5 minutes');
+
+  keyboard.register('shift+arrowdown', () => {
+    if (!stoppedAtZero) {
+      VisualFeedback.flashSuccess(document.getElementById('subtractMinute'));
+      subtractMinutes(5);
+    }
+  }, 'Subtract 5 minutes');
+
+  keyboard.register('ctrl+arrowup', () => {
+    if (!stoppedAtZero) {
+      VisualFeedback.flashSuccess(document.getElementById('addMinute'));
+      addMinutes(10);
+    }
+  }, 'Add 10 minutes');
+
+  keyboard.register('ctrl+arrowdown', () => {
+    if (!stoppedAtZero) {
+      VisualFeedback.flashSuccess(document.getElementById('subtractMinute'));
+      subtractMinutes(10);
+    }
+  }, 'Subtract 10 minutes');
+
+  keyboard.register('f', () => {
+    const flashBtn = document.getElementById('flashButton');
+    if (flashBtn) {
+      VisualFeedback.flashSuccess(flashBtn);
+      flashBtn.click();
+    }
+  }, 'Flash screen');
+
+  keyboard.register('m', () => {
+    if (muteSoundsBtn) {
+      VisualFeedback.pulse(muteSoundsBtn);
+      muteSoundsBtn.click();
+    }
+  }, 'Toggle sound mute');
+
+  keyboard.register('i', () => {
+    const featureBtn = document.getElementById('coverImage');
+    if (featureBtn) {
+      VisualFeedback.pulse(featureBtn);
+      featureBtn.click();
+    }
+  }, 'Toggle feature image');
+
+  // Number keys 1-8 for quick presets
+  for (let i = 1; i <= 8; i++) {
+    keyboard.register(String(i), () => {
+      const presets = document.querySelectorAll('.preset');
+      if (presets[i - 1]) {
+        VisualFeedback.flashSuccess(presets[i - 1]);
+        presets[i - 1].click();
+      }
+    }, `Activate preset ${i}`);
+  }
+
+  // Initialize keyboard manager
+  keyboard.init();
+
+  // Load and apply shortcut settings
+  try {
+    if (window.electron && window.electron.settings) {
+      const settings = await window.electron.settings.getAll();
+      if (settings.keyboardShortcuts) {
+        keyboard.applySettings(settings.keyboardShortcuts);
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load keyboard shortcut settings:', error);
+  }
+
+  console.log('⌨️ Keyboard shortcuts initialized');
+}
 
 
 
@@ -1421,6 +1510,8 @@ if (window.electron && window.electron.ipcRenderer) {
   window.electron.ipcRenderer.on('layout-list-updated', () => {
     refreshLayoutSelector();
   });
+
+
   
   // Handle external display connection to unified renderer
   window.electron.ipcRenderer.on('display-window-ready', (displayWindowId) => {

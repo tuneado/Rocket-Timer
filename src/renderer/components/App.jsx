@@ -4,11 +4,11 @@ import { RightPanel } from './RightPanel.jsx';
 
 export function App() {
   return (
-    <main className="grid lg:grid-cols-3 gap-4 p-4 h-screen" role="main" aria-label="Countdown Timer Interface">
-      <div className="flex flex-col gap-3 overflow-y-auto">
+    <main className="grid grid-cols-3 gap-[clamp(0.5rem,1.5vh,1rem)] p-[clamp(0.5rem,1.5vh,1rem)] h-screen max-h-screen overflow-hidden" role="main" aria-label="Countdown Timer Interface">
+      <div className="flex flex-col gap-[clamp(0.375rem,1.2vh,0.75rem)] h-full">
         <LeftPanel />
       </div>
-      <div className="lg:col-span-2 flex flex-col">
+      <div className="col-span-2 flex flex-col h-full">
         <RightPanel />
       </div>
     </main>

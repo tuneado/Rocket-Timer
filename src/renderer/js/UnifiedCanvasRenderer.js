@@ -4,6 +4,8 @@
  * Provides 50% performance improvement and perfect synchronization
  */
 
+import VideoInputManager from './videoInputManager.js';
+
 class UnifiedCanvasRenderer {
   constructor(width = 1920, height = 1080) {
     this.width = width;
@@ -45,6 +47,8 @@ class UnifiedCanvasRenderer {
     
     // Video Input Manager (for HDMI capture cards)
     this.videoInputManager = null;
+    this.videoMirror = false; // Mirror/flip video horizontally
+    this.videoScaling = 'contain'; // contain, cover, stretch, none
     
     // Cover Image (highest z-index overlay)
     this.coverImage = {
@@ -96,17 +100,39 @@ class UnifiedCanvasRenderer {
     
     // Performance monitoring
     this.renderTimes = [];
+    this.frameTimes = []; // Track actual frame timestamps for FPS calculation
     this.maxRenderTimes = 60;
+    this.maxFrameTimes = 60;
+    this.droppedFrames = 0;
+    this.fpsUpdateTime = 0;
+    this.actualFPS = 0;
+    
+    // Adaptive performance
+    this.adaptiveFrameRate = this.performanceSettings.frameRate;
+    this.isPageVisible = !document.hidden;
+    this.displayRefreshRate = 60; // Will be detected
+    this.effectiveMaxFPS = 60; // Display-limited max FPS
+    
+    // Performance caches
+    this.textMetricsCache = new Map();
+    this.imageCache = new Map();
+    this.styleCacheDirty = false;
     
     // Cached CSS variables for performance
     this.styles = {};
     this.updateStyleCache();
+    
+    // Setup visibility change listener for throttling
+    this.setupVisibilityListener();
     
     // Setup canvas stream for external display
     this.setupStream();
     
     // Load performance settings
     this.loadPerformanceSettings();
+    
+    // Detect display refresh rate
+    this.detectDisplayRefreshRate();
     
     console.log('🎬 UnifiedCanvasRenderer initialized');
   }
@@ -265,6 +291,25 @@ class UnifiedCanvasRenderer {
   /**
    * Setup canvas stream for external display
    */
+  /**
+   * Setup visibility change listener for intelligent throttling
+   */
+  setupVisibilityListener() {
+    document.addEventListener('visibilitychange', () => {
+      this.isPageVisible = !document.hidden;
+      
+      if (!this.isPageVisible) {
+        // Throttle to 5fps when tab is hidden
+        this.frameInterval = 1000 / 5;
+        console.log('📉 Page hidden: throttled to 5fps');
+      } else {
+        // Restore normal frame rate
+        this.frameInterval = 1000 / this.adaptiveFrameRate;
+        console.log(`📈 Page visible: restored to ${this.adaptiveFrameRate}fps`);
+      }
+    });
+  }
+  
   setupStream() {
     try {
       // Capture master canvas stream at 30fps
@@ -304,7 +349,7 @@ class UnifiedCanvasRenderer {
   }
   
   /**
-   * Main render loop
+   * Main render loop with proper frame rate limiting
    */
   renderLoop() {
     if (!this.isRendering) return;
@@ -312,6 +357,7 @@ class UnifiedCanvasRenderer {
     const now = performance.now();
     const deltaTime = now - this.lastFrameTime;
     
+    // Only render if enough time has passed
     if (deltaTime >= this.frameInterval) {
       const renderStart = performance.now();
       
@@ -325,10 +371,33 @@ class UnifiedCanvasRenderer {
       const renderTime = performance.now() - renderStart;
       this.trackPerformance(renderTime);
       
-      this.lastFrameTime = now;
+      // Adaptive frame rate adjustment (only when page is visible)
+      if (this.isPageVisible && !this.performanceSettings.lowPowerMode) {
+        if (renderTime > this.frameInterval * 0.8) {
+          // Render is taking too long, reduce target fps
+          this.adaptiveFrameRate = Math.max(30, this.performanceSettings.frameRate - 10);
+          this.frameInterval = 1000 / this.adaptiveFrameRate;
+          this.droppedFrames++;
+        } else if (renderTime < this.frameInterval * 0.3 && this.adaptiveFrameRate < this.performanceSettings.frameRate) {
+          // Lots of headroom, can increase fps back toward target
+          this.adaptiveFrameRate = Math.min(this.performanceSettings.frameRate, this.adaptiveFrameRate + 5);
+          this.frameInterval = 1000 / this.adaptiveFrameRate;
+        }
+      }
+      
+      // Update frame time - use interval increment to avoid drift
+      // If we're too far behind (>2 frames), reset to current time
+      if (deltaTime > this.frameInterval * 2) {
+        this.lastFrameTime = now;
+      } else {
+        this.lastFrameTime += this.frameInterval;
+      }
+      
       this.frameCount++;
     }
     
+    // Always schedule next frame - RAF will sync to display refresh rate
+    // The deltaTime check above ensures we only render at target FPS
     this.animationId = requestAnimationFrame(() => this.renderLoop());
   }
   
@@ -350,10 +419,11 @@ class UnifiedCanvasRenderer {
     // Build render queue with all elements and their z-index
     const renderQueue = [];
     
-    // Video frame (zIndex: 0)
-    if (this.layout.videoFrame && this.layout.videoFrame.enabled) {
+    // Video frame (zIndex: 0) - supports both videoFrame and video properties
+    const videoConfig = this.layout.videoFrame || this.layout.video;
+    if (videoConfig && videoConfig.enabled) {
       renderQueue.push({
-        zIndex: this.layout.videoFrame.zIndex || 0,
+        zIndex: videoConfig.zIndex || 0,
         draw: () => this.drawVideoFrame()
       });
     }
@@ -399,7 +469,10 @@ class UnifiedCanvasRenderer {
           if (pb.type === 'circular') {
             const centerX = this.parsePosition(pb.position.x, 'x', width);
             const centerY = this.parsePosition(pb.position.y, 'y', height);
-            this.drawCircularProgress(centerX, centerY, pb.radius, pb.thickness, pb.startAngle || -90);
+            // Radius derived from size (diameter), anchored to canvas height
+            const diameter = this.parseSize(pb.size?.width || '83%', height);
+            const radius = diameter / 2;
+            this.drawCircularProgress(centerX, centerY, radius, pb.thickness, pb.startAngle || -90);
           } else {
             const x = this.parsePosition(pb.position.x, 'x', width);
             const y = this.parsePosition(pb.position.y, 'y', height);
@@ -536,6 +609,32 @@ class UnifiedCanvasRenderer {
   /**
    * Update cached CSS variables
    */
+  /**
+   * Get cached text metrics (avoids expensive measureText calls)
+   */
+  getCachedTextMetrics(text, font) {
+    const key = `${font}::${text}`;
+    if (!this.textMetricsCache.has(key)) {
+      this.ctx.font = font;
+      this.textMetricsCache.set(key, this.ctx.measureText(text));
+    }
+    return this.textMetricsCache.get(key);
+  }
+  
+  /**
+   * Clear text metrics cache (call when font settings change)
+   */
+  clearTextMetricsCache() {
+    this.textMetricsCache.clear();
+  }
+  
+  /**
+   * Clear image cache (useful for memory management)
+   */
+  clearImageCache() {
+    this.imageCache.clear();
+  }
+  
   updateStyleCache() {
     const styles = getComputedStyle(document.documentElement);
     
@@ -1146,7 +1245,10 @@ class UnifiedCanvasRenderer {
       return;
     }
     
-    const vf = this.layout.videoFrame;
+    // Support both videoFrame and video properties
+    const vf = this.layout.videoFrame || this.layout.video;
+    if (!vf) return;
+    
     const { width, height } = this.masterCanvas;
     
     // Calculate video frame position and size
@@ -1168,7 +1270,72 @@ class UnifiedCanvasRenderer {
     // Draw video element to the specified frame area
     const videoElement = this.videoInputManager.getVideoElement();
     if (videoElement && videoElement.readyState >= 2) {
-      this.ctx.drawImage(videoElement, frameX, frameY, frameWidth, frameHeight);
+      const videoWidth = videoElement.videoWidth;
+      const videoHeight = videoElement.videoHeight;
+      
+      // Calculate draw parameters based on scaling mode
+      let sx = 0, sy = 0, sw = videoWidth, sh = videoHeight;
+      let dx = frameX, dy = frameY, dw = frameWidth, dh = frameHeight;
+      
+      switch (this.videoScaling) {
+        case 'cover': {
+          // Fill frame, cropping excess (like object-fit: cover)
+          // Crop is centered: center,center alignment
+          const videoAspect = videoWidth / videoHeight;
+          const frameAspect = frameWidth / frameHeight;
+          if (videoAspect > frameAspect) {
+            // Video is wider - crop left/right sides equally (center horizontally)
+            sw = videoHeight * frameAspect;
+            sx = (videoWidth - sw) / 2; // Center crop horizontally
+          } else {
+            // Video is taller - crop top/bottom equally (center vertically)
+            sh = videoWidth / frameAspect;
+            sy = (videoHeight - sh) / 2; // Center crop vertically
+          }
+          break;
+        }
+        case 'stretch':
+          // Stretch to fill exactly (distort if needed)
+          // Default drawImage behavior - just use frame dimensions
+          break;
+        case 'none': {
+          // Original size, centered
+          dw = Math.min(videoWidth, frameWidth);
+          dh = Math.min(videoHeight, frameHeight);
+          dx = frameX + (frameWidth - dw) / 2;
+          dy = frameY + (frameHeight - dh) / 2;
+          sw = dw;
+          sh = dh;
+          sx = (videoWidth - sw) / 2;
+          sy = (videoHeight - sh) / 2;
+          break;
+        }
+        case 'contain':
+        default: {
+          // Fit inside frame, maintaining aspect ratio (like object-fit: contain)
+          const videoAspect = videoWidth / videoHeight;
+          const frameAspect = frameWidth / frameHeight;
+          if (videoAspect > frameAspect) {
+            // Video is wider - fit to width
+            dh = frameWidth / videoAspect;
+            dy = frameY + (frameHeight - dh) / 2;
+          } else {
+            // Video is taller - fit to height
+            dw = frameHeight * videoAspect;
+            dx = frameX + (frameWidth - dw) / 2;
+          }
+          break;
+        }
+      }
+      
+      // Apply mirror transform if enabled
+      if (this.videoMirror) {
+        this.ctx.translate(dx + dw, dy);
+        this.ctx.scale(-1, 1);
+        this.ctx.drawImage(videoElement, sx, sy, sw, sh, 0, 0, dw, dh);
+      } else {
+        this.ctx.drawImage(videoElement, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
     }
     
     // Restore context
@@ -1499,6 +1666,8 @@ class UnifiedCanvasRenderer {
    */
   updateTheme(theme) {
     this.state.theme = theme;
+    // Clear caches when theme changes
+    this.clearTextMetricsCache();
     // Wait for CSS to update before reading computed styles
     setTimeout(() => {
       this.updateStyleCache();
@@ -1518,9 +1687,43 @@ class UnifiedCanvasRenderer {
    * Track rendering performance
    */
   trackPerformance(renderTime) {
+    const now = performance.now();
+    
+    // Track render times (how long each render takes)
     this.renderTimes.push(renderTime);
     if (this.renderTimes.length > this.maxRenderTimes) {
       this.renderTimes.shift();
+    }
+    
+    // Track frame times (when each frame was rendered) for actual FPS calculation
+    this.frameTimes.push(now);
+    if (this.frameTimes.length > this.maxFrameTimes) {
+      this.frameTimes.shift();
+    }
+    
+    // Calculate actual FPS every 500ms from frame timestamps
+    if (now - this.fpsUpdateTime > 500) {
+      if (this.frameTimes.length >= 2) {
+        const timeSpan = this.frameTimes[this.frameTimes.length - 1] - this.frameTimes[0];
+        const frameCount = this.frameTimes.length - 1;
+        this.actualFPS = (frameCount / timeSpan) * 1000; // Convert to frames per second
+        
+        // Update effective max FPS based on actual measurements
+        // This helps detect display refresh rate limits
+        if (this.actualFPS > 0) {
+          this.effectiveMaxFPS = Math.max(this.effectiveMaxFPS, this.actualFPS);
+        }
+      }
+      this.fpsUpdateTime = now;
+    }
+    
+    // Performance warning (throttled to once per 5 seconds)
+    if (!this.lastPerfWarning || Date.now() - this.lastPerfWarning > 5000) {
+      const avgRenderTime = this.renderTimes.reduce((a, b) => a + b) / this.renderTimes.length;
+      if (avgRenderTime > this.frameInterval) {
+        console.warn(`⚠️ Performance: Render time (${avgRenderTime.toFixed(2)}ms) exceeds frame budget (${this.frameInterval.toFixed(2)}ms). Consider reducing quality or frame rate.`);
+        this.lastPerfWarning = Date.now();
+      }
     }
   }
 
@@ -1534,14 +1737,64 @@ class UnifiedCanvasRenderer {
     const max = Math.max(...this.renderTimes);
     const min = Math.min(...this.renderTimes);
     
+    // Calculate effective target (limited by display refresh rate)
+    const effectiveTarget = Math.min(this.performanceSettings.frameRate, this.displayRefreshRate);
+    const isDisplayLimited = this.performanceSettings.frameRate > this.displayRefreshRate;
+    
     return {
       averageRenderTime: avg.toFixed(2),
       maxRenderTime: max.toFixed(2),
       minRenderTime: min.toFixed(2),
-      currentFPS: (1000 / avg).toFixed(1),
+      currentFPS: this.actualFPS.toFixed(1), // Use actual measured FPS
+      targetFPS: this.performanceSettings.frameRate,
+      effectiveTargetFPS: effectiveTarget,
+      displayRefreshRate: this.displayRefreshRate,
+      isDisplayLimited: isDisplayLimited,
+      adaptiveFPS: this.adaptiveFrameRate,
       frameCount: this.frameCount,
-      outputCount: this.outputs.size
+      droppedFrames: this.droppedFrames,
+      outputCount: this.outputs.size,
+      cacheSize: {
+        textMetrics: this.textMetricsCache.size,
+        images: this.imageCache.size
+      },
+      isPageVisible: this.isPageVisible
     };
+  }
+  
+  /**
+   * Detect display refresh rate by measuring RAF callback rate
+   */
+  detectDisplayRefreshRate() {
+    let frames = 0;
+    let lastTime = performance.now();
+    const measurements = [];
+    
+    const measure = () => {
+      frames++;
+      const now = performance.now();
+      
+      if (frames >= 60) {
+        const elapsed = now - lastTime;
+        const fps = (frames / elapsed) * 1000;
+        measurements.push(fps);
+        
+        if (measurements.length >= 3) {
+          // Average the measurements
+          const avgFPS = measurements.reduce((a, b) => a + b) / measurements.length;
+          this.displayRefreshRate = Math.round(avgFPS);
+          console.log(`📺 Display refresh rate detected: ${this.displayRefreshRate}Hz`);
+          return; // Done
+        }
+        
+        frames = 0;
+        lastTime = now;
+      }
+      
+      requestAnimationFrame(measure);
+    };
+    
+    requestAnimationFrame(measure);
   }
 
   // ============================================================================
@@ -1596,13 +1849,41 @@ class UnifiedCanvasRenderer {
   }
 
   /**
+   * Set video mirror/flip horizontally
+   */
+  setVideoMirror(enabled) {
+    this.videoMirror = !!enabled;
+  }
+
+  /**
+   * Set video scaling mode (contain, cover, stretch, none)
+   */
+  setVideoScaling(mode) {
+    const validModes = ['contain', 'cover', 'stretch', 'none'];
+    this.videoScaling = validModes.includes(mode) ? mode : 'contain';
+  }
+
+  /**
    * Enable cover image
    */
   async enableCoverImage(imagePath) {
+    // Check cache first
+    if (this.imageCache.has(imagePath)) {
+      const img = this.imageCache.get(imagePath);
+      this.coverImage.image = img;
+      this.coverImage.path = imagePath;
+      this.coverImage.targetOpacity = 1.0;
+      this.coverImage.currentOpacity = 0.0;
+      this.coverImage.enabled = true;
+      console.log('✅ Cover image loaded from cache:', imagePath);
+      return Promise.resolve();
+    }
+    
     return new Promise((resolve, reject) => {
       const img = new Image();
       
       img.onload = () => {
+        this.imageCache.set(imagePath, img);
         this.coverImage.image = img;
         this.coverImage.path = imagePath;
         this.coverImage.targetOpacity = 1.0;
@@ -1645,10 +1926,22 @@ class UnifiedCanvasRenderer {
    * Enable background image
    */
   async enableBackgroundImage(imagePath, opacity = 1.0) {
+    // Check cache first
+    if (this.imageCache.has(imagePath)) {
+      const img = this.imageCache.get(imagePath);
+      this.backgroundImage.image = img;
+      this.backgroundImage.path = imagePath;
+      this.backgroundImage.opacity = opacity;
+      this.backgroundImage.enabled = true;
+      console.log('✅ Background image loaded from cache:', imagePath);
+      return Promise.resolve();
+    }
+    
     return new Promise((resolve, reject) => {
       const img = new Image();
       
       img.onload = () => {
+        this.imageCache.set(imagePath, img);
         this.backgroundImage.image = img;
         this.backgroundImage.path = imagePath;
         this.backgroundImage.opacity = opacity;
@@ -1713,10 +2006,13 @@ class UnifiedCanvasRenderer {
   }
 }
 
-// Make available globally
+// Export as ES6 module (for import statements)
+export default UnifiedCanvasRenderer;
+
+// Make available globally (for backward compatibility)
 window.UnifiedCanvasRenderer = UnifiedCanvasRenderer;
 
-// Export for use in other modules
+// CommonJS export (for Node.js compatibility)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = UnifiedCanvasRenderer;
 }

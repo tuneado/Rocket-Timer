@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <title>Layout Creator</title>
+  <link rel="stylesheet" href="../css/design-tokens.css">
+  <link rel="stylesheet" href="../css/fonts.css">
+  <link rel="stylesheet" href="../css/bootstrap-icons.css">
+  <link rel="stylesheet" href="../dist/tailwind.css">
+  <link rel="stylesheet" href="../css/layoutCreator.css">
+</head>
+<body class="bg-[var(--bg-base)] text-[var(--text-primary)]">
+
+  <div class="lc-app">
+
+    <!-- ===== TOOLBAR ===== -->
+    <div class="lc-toolbar">
+      <div class="lc-toolbar-left">
+        <button id="btnNew" class="lc-btn lc-btn-sm" title="New Layout">
+          <i class="bi bi-file-earmark-plus"></i> New
+        </button>
+        <button id="btnClone" class="lc-btn lc-btn-sm" title="Clone from existing layout">
+          <i class="bi bi-copy"></i> Clone
+        </button>
+        <button id="btnImport" class="lc-btn lc-btn-sm" title="Import layout from JSON">
+          <i class="bi bi-box-arrow-in-down"></i> Import
+        </button>
+      </div>
+
+      <div class="lc-toolbar-center">
+        <input id="layoutName" type="text" class="lc-name-input" placeholder="Layout Name" value="New Layout">
+      </div>
+
+      <div class="lc-toolbar-right">
+        <button id="btnUndo" class="lc-btn lc-btn-icon" title="Undo" disabled>
+          <i class="bi bi-arrow-counterclockwise"></i>
+        </button>
+        <button id="btnRedo" class="lc-btn lc-btn-icon" title="Redo" disabled>
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <span class="lc-toolbar-sep"></span>
+        <button id="btnGrid" class="lc-btn lc-btn-icon" title="Toggle Grid">
+          <i class="bi bi-grid-3x3"></i>
+        </button>
+        <span class="lc-toolbar-sep"></span>
+        <button id="btnExport" class="lc-btn lc-btn-sm" title="Export layout as JSON">
+          <i class="bi bi-box-arrow-up"></i> Export
+        </button>
+        <button id="btnSave" class="lc-btn lc-btn-sm lc-btn-primary" title="Save layout">
+          <i class="bi bi-check-lg"></i> Save
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <div class="lc-main">
+
+      <!-- LEFT: Element List -->
+      <aside class="lc-sidebar" id="elementList">
+        <h3 class="lc-sidebar-title">Elements</h3>
+        <div id="elementListItems" class="lc-element-list">
+          <!-- Dynamically populated -->
+        </div>
+
+        <div class="lc-sidebar-section" style="margin-top: auto;">
+          <h3 class="lc-sidebar-title">Layout</h3>
+          <div class="lc-prop-row" style="padding: 0 0.75rem;">
+            <label class="lc-prop-label">Width</label>
+            <input id="resWidth" type="number" class="lc-input lc-input-number" value="1920" min="640" max="7680" step="10">
+          </div>
+          <div class="lc-prop-row" style="padding: 0 0.75rem;">
+            <label class="lc-prop-label">Height</label>
+            <input id="resHeight" type="number" class="lc-input lc-input-number" value="1080" min="360" max="4320" step="10">
+          </div>
+          <div class="lc-prop-row" style="padding: 0 0.75rem;">
+            <label class="lc-prop-label">Description</label>
+            <input id="layoutDesc" type="text" class="lc-input" placeholder="Description">
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER: Canvas Preview -->
+      <main class="lc-canvas-area">
+        <div class="lc-canvas-wrapper" id="canvasWrapper">
+          <canvas id="previewCanvas"></canvas>
+          <div id="highlightOverlay" class="lc-highlight-overlay"></div>
+        </div>
+        <div class="lc-canvas-info">
+          <span id="canvasInfo">1920 × 1080</span>
+          <span id="dirtyIndicator" class="lc-dirty-dot" style="display:none" title="Unsaved changes"></span>
+        </div>
+      </main>
+
+      <!-- RIGHT: Inspector Panel -->
+      <aside class="lc-inspector" id="inspectorPanel">
+        <div class="lc-empty-inspector">
+          <i class="bi bi-cursor-fill" style="font-size: 2rem; opacity:.3"></i>
+          <p style="opacity:.5; margin-top:.5rem">Select an element to edit its properties</p>
+        </div>
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- ===== CLONE MODAL ===== -->
+  <div id="cloneModal" class="lc-modal-overlay" style="display:none">
+    <div class="lc-modal">
+      <h3>Clone from Layout</h3>
+      <div id="cloneLayoutList" class="lc-clone-list">
+        <!-- Dynamically populated -->
+      </div>
+      <div class="lc-modal-actions">
+        <button id="cloneCancel" class="lc-btn lc-btn-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="lc-toast" style="display:none"></div>
+
+  <!-- Hidden file input for import -->
+  <input id="importInput" type="file" accept=".json" style="display:none">
+
+  <!-- Scripts -->
+  <script src="../layouts/layoutRegistry.js"></script>
+  <script src="../layoutCreator/layoutEditorState.js"></script>
+  <script src="../layoutCreator/canvasPreview.js"></script>
+  <script src="../layoutCreator/layoutEditorUI.js"></script>
+  <script src="../js/layoutCreator.js"></script>
+</body>
+</html>
