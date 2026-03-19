@@ -76,7 +76,7 @@ export function SettingsApp() {
         header={
           <div className="flex items-center gap-2">
             <img
-              src="../../../assets/rocket-icon_transparent.png"
+              src="../assets/rocket-icon_transparent.png"
               alt=""
               className="w-7 h-7 object-contain"
             />

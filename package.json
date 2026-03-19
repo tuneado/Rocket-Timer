@@ -59,6 +59,7 @@
       "node_modules/**/*",
       "package.json"
     ],
+    "npmRebuild": false,
     "mac": {
       "category": "public.app-category.utilities",
       "target": [

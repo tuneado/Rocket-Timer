@@ -1832,7 +1832,7 @@ function AboutSection() {
   return /* @__PURE__ */ _("div", { className: "flex flex-col items-center text-center gap-6 py-8" }, /* @__PURE__ */ _(
     "img",
     {
-      src: "../../../assets/rocket-icon_transparent.png",
+      src: "../assets/rocket-icon_transparent.png",
       alt: "Rocket Timer",
       className: "w-28 h-28 object-contain"
     }
@@ -1894,7 +1894,7 @@ function SettingsApp() {
       header: /* @__PURE__ */ _("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ _(
         "img",
         {
-          src: "../../../assets/rocket-icon_transparent.png",
+          src: "../assets/rocket-icon_transparent.png",
           alt: "",
           className: "w-7 h-7 object-contain"
         }

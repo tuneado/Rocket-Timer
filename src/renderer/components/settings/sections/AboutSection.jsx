@@ -11,7 +11,7 @@ export function AboutSection() {
   return (
     <div className="flex flex-col items-center text-center gap-6 py-8">
       <img
-        src="../../../assets/rocket-icon_transparent.png"
+        src="../assets/rocket-icon_transparent.png"
         alt="Rocket Timer"
         className="w-28 h-28 object-contain"
       />
