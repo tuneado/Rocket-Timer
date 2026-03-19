@@ -9,10 +9,10 @@
     "email": "geral@50-hz.com"
   },
   "license": "GPL-3.0",
-  "homepage": "https://github.com/tuneado/Countdown-Timer",
+  "homepage": "https://github.com/tuneado/Rocket-Timer",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tuneado/Countdown-Timer.git"
+    "url": "https://github.com/tuneado/Rocket-Timer.git"
   },
   "scripts": {
     "start": "electron .",
@@ -103,7 +103,7 @@
     "publish": {
       "provider": "github",
       "owner": "tuneado",
-      "repo": "Countdown-Timer"
+      "repo": "Rocket-Timer"
     }
   }
 }
