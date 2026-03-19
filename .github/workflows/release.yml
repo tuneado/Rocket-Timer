@@ -11,7 +11,15 @@ jobs:
 
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            args: --mac --arm64
+          - os: macos-13
+            args: --mac --x64
+          - os: windows-latest
+            args: --win --x64
+          - os: ubuntu-latest
+            args: --linux
 
     steps:
       - name: Check out repository
@@ -33,4 +41,4 @@ jobs:
       - name: Build & publish
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: npm run publish
+        run: npm run build && npx electron-builder --publish always ${{ matrix.args }}
