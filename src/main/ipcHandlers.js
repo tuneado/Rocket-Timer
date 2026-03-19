@@ -1,4 +1,5 @@
-const { ipcMain, clipboard, dialog } = require('electron');
+const { ipcMain, clipboard, dialog, app } = require('electron');
+const path = require('path');
 const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow, getLayoutCreatorWindow } = require('./windows');
 const { updateDisplayMenuItems } = require('./menu');
 const SettingsManager = require('./settingsManager');
@@ -12,6 +13,16 @@ function setupIpcHandlers(mainWindow) {
   // App info
   ipcMain.handle('get-app-version', async () => {
     return require('../../package.json').version;
+  });
+
+  // Get resource path (for loading assets in packaged app)
+  ipcMain.handle('get-resource-path', (event, resourcePath) => {
+    // In development, use current directory
+    // In production, use app resources directory  
+    const basePath = app.isPackaged 
+      ? path.join(process.resourcesPath, 'app.asar', 'src')
+      : path.join(__dirname, '..');
+    return path.join(basePath, resourcePath);
   });
 
   // Settings handlers

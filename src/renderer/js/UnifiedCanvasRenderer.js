@@ -1434,12 +1434,20 @@ class UnifiedCanvasRenderer {
   /**
    * Load the watermark image from renderer assets
    */
-  _loadWatermarkImage() {
+  async _loadWatermarkImage() {
     const img = new Image();
     img.onload = () => {
       this.watermark.image = img;
     };
-    img.src = '../assets/rocket-icon_transparent.png';
+    
+    // Get the correct path for both dev and packaged app
+    if (window.electron && window.electron.getResourcePath) {
+      const resourcePath = await window.electron.getResourcePath('renderer/assets/rocket-icon_transparent.png');
+      img.src = 'file://' + resourcePath;
+    } else {
+      // Fallback for browser mode or if IPC not available
+      img.src = '../assets/rocket-icon_transparent.png';
+    }
   }
 
   /**

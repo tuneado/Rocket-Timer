@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // App info
   getVersion: () => ipcRenderer.invoke('get-app-version'),
+  getResourcePath: (resourcePath) => ipcRenderer.invoke('get-resource-path', resourcePath),
   // Settings API
   settings: {
     getAll: () => ipcRenderer.invoke('get-settings'),
