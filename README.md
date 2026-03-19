@@ -1,8 +1,8 @@
-# 🎬 Countdown Timer
+# 🚀 Rocket Timer
 
 A professional broadcast-grade countdown timer built with Electron, featuring canvas-based rendering, multi-protocol API control, and extensive customization.
 
-**Version**: 0.1.0 | **License**: MIT
+**Version**: 1.0.0-beta.1 | **License**: GPL-3.0
 
 ---
 
@@ -101,28 +101,55 @@ A professional broadcast-grade countdown timer built with Electron, featuring ca
 
 ## Installation
 
-### Requirements
+### Download
+
+Download the latest release for your platform from the [Releases](https://github.com/tuneado/Rocket-Timer/releases) page:
+
+- **macOS**: `.dmg` installer (Apple Silicon / Intel)
+- **Windows**: `.exe` installer
+- **Linux**: `.AppImage` or `.deb`
+
+### macOS — Opening the App for the First Time
+
+Rocket Timer is not currently signed with an Apple Developer certificate. macOS will show a security warning the first time you try to open it. This is normal for apps distributed outside the Mac App Store.
+
+To open the app:
+
+1. Double-click the `.dmg` file and drag **Rocket Timer** to your **Applications** folder
+2. Try to open the app — macOS will show a warning that it cannot verify the developer
+3. Go to **Apple menu () → System Settings → Privacy & Security**
+4. Scroll down to the **Security** section
+5. You should see a message about Rocket Timer being blocked — click **Open Anyway**
+6. Click **Open** in the confirmation dialog
+7. Enter your login password if prompted
+
+> **Note:** The "Open Anyway" button is only available for about one hour after you first try to open the app. If you don't see it, try opening the app again first.
+
+Alternatively, you can **right-click** (or Control-click) on the app and choose **Open** from the context menu. This also bypasses the Gatekeeper warning.
+
+### Build from Source
+
+#### Requirements
 - **Node.js** 18+ and npm
-- **Python** 3.8+ (for native module building)
 - **Electron** 38.1.0
 
-### Setup
+#### Setup
 
 ```bash
-# Clone or navigate to project directory
-cd Countdown-Timer
+# Clone the repository
+git clone https://github.com/tuneado/Rocket-Timer.git
+cd Rocket-Timer
 
 # Install dependencies
 npm install
 
-# Build JavaScript bundles
-npm run build:js
-
-# Start development
+# Start in development mode
 npm start
 
 # Build for production
-npm run build
+npm run dist:mac    # macOS
+npm run dist:win    # Windows
+npm run dist:linux  # Linux
 ```
 
 ---
