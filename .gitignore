@@ -11,6 +11,9 @@ yarn-error.log*
 # Backups
 backups/
 
+# Inspiration / reference files
+INSPIRATION/
+
 # Build resources - keep root icons, ignore generated subfolder
 build/icons/
 
