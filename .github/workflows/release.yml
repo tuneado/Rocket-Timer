@@ -9,7 +9,17 @@ permissions:
   contents: write
 
 jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete existing release if any
+        run: gh release delete ${{ github.ref_name }} --yes --cleanup-tag=false || true
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+
   release:
+    needs: cleanup
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -17,7 +27,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            args: --mac
+            args: --mac --arm64
+          - os: macos-latest
+            args: --mac --x64
           - os: windows-latest
             args: --win --x64
           - os: ubuntu-latest

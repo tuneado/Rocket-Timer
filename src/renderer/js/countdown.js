@@ -181,6 +181,11 @@ if (window.electron && window.electron.settings) {
     if (settings.keyboardShortcuts) {
       keyboard.applySettings(settings.keyboardShortcuts);
     }
+
+    // Apply watermark setting
+    if (canvasRenderer && settings.showWatermark !== undefined) {
+      canvasRenderer.watermark.enabled = settings.showWatermark;
+    }
   });
 }
 
@@ -419,6 +424,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn('Could not load timer threshold settings:', error);
   }
   
+  // Apply watermark setting from stored settings
+  try {
+    if (window.electron && window.electron.settings) {
+      const wmSettings = await window.electron.settings.getAll();
+      if (wmSettings.showWatermark === false) {
+        canvasRenderer.watermark.enabled = false;
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load watermark setting:', error);
+  }
+
   // Start the unified renderer
   canvasRenderer.start();
   

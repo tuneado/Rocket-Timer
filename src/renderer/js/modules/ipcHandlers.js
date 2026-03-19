@@ -45,40 +45,33 @@ export function initializeIPCHandlers(deps) {
   window.electron.ipcRenderer.on('apply-settings', (settings) => {
     console.log('Received apply-settings event:', settings);
     
-    // Apply default time
-    if (settings.defaultTime) {
+    // Apply default time ONLY if the timer is not running
+    if (settings.defaultTime && !timerState.running) {
       const { hours, minutes, seconds } = settings.defaultTime;
       const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
       
-      // Stop any running timer first
-      if (timerState.running || timerState.stoppedAtZero) {
-        // Use the stopTimer action if available
-        if (actions.stopTimer) {
-          actions.stopTimer();
+      // Only reset if stoppedAtZero or if the default time actually changed
+      if (timerState.stoppedAtZero || timerState.lastSetTime !== timeInSeconds) {
+        timerState.setStoppedAtZero(false);
+        timerState.setLastSetTime(timeInSeconds);
+        timerState.setRemainingTime(timeInSeconds);
+        timerState.setTotalTime(timeInSeconds);
+        
+        // Reset button to start state
+        const { startStopBtn, updateButtonIcon, setInputsDisabled } = getElements();
+        if (startStopBtn && updateButtonIcon) {
+          updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+          startStopBtn.classList.remove("stop");
+          startStopBtn.classList.add("start");
         }
+        
+        // Enable all inputs
+        if (setInputsDisabled) {
+          setInputsDisabled(false);
+        }
+        
+        actions.updateDisplay();
       }
-      
-      // Reset timer state and apply new time
-      timerState.setRunning(false);
-      timerState.setStoppedAtZero(false);
-      timerState.setLastSetTime(timeInSeconds);
-      timerState.setRemainingTime(timeInSeconds);
-      timerState.setTotalTime(timeInSeconds);
-      
-      // Reset button to start state
-      const { startStopBtn, updateButtonIcon, setInputsDisabled } = getElements();
-      if (startStopBtn && updateButtonIcon) {
-        updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-        startStopBtn.classList.remove("stop");
-        startStopBtn.classList.add("start");
-      }
-      
-      // Enable all inputs
-      if (setInputsDisabled) {
-        setInputsDisabled(false);
-      }
-      
-      actions.updateDisplay();
     }
     
     // Note: We don't apply defaultLayout here because it's a preference for NEW sessions

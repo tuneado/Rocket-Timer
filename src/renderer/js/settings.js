@@ -272,6 +272,9 @@ function populateFormFields() {
   setValue('canvasQuality', currentSettings.canvasQuality);
   setValue('frameRate', currentSettings.frameRate);
 
+  // Watermark
+  setChecked('showWatermark', currentSettings.showWatermark !== false); // Default true
+
   // External Display
   setChecked('autoOpenDisplay', currentSettings.autoOpenDisplay);
   setValue('displayMonitor', currentSettings.displayMonitor);
@@ -425,6 +428,9 @@ function setupFormHandlers() {
   onChange('canvasResolution', (value) => saveSetting('canvasResolution', value));
   onChange('canvasQuality', (value) => saveSetting('canvasQuality', value));
   onChange('frameRate', (value) => saveSetting('frameRate', parseInt(value)));
+
+  // Watermark
+  onChange('showWatermark', (checked) => saveSetting('showWatermark', checked));
 
   // External Display
   onChange('autoOpenDisplay', (checked) => saveSetting('autoOpenDisplay', checked));

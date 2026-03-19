@@ -55,6 +55,15 @@ export function DisplaySection() {
         </SettingsItem>
       </SettingsGroup>
 
+      <SettingsGroup title="Watermark">
+        <SettingsItem
+          title="Show Watermark"
+          description="we still love you anyway"
+        >
+          <Switch id="showWatermark" />
+        </SettingsItem>
+      </SettingsGroup>
+
       <SettingsGroup title="External Display">
         <SettingsItem
           title="Auto-Open at Startup"

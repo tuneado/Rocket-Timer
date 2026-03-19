@@ -74,6 +74,14 @@ class UnifiedCanvasRenderer {
       opacity: 0
     };
     
+    // Watermark
+    this.watermark = {
+      enabled: true,
+      image: null,
+      opacity: 0.5
+    };
+    this._loadWatermarkImage();
+    
     // Performance settings
     this.performanceSettings = {
       frameRate: 60,
@@ -555,6 +563,14 @@ class UnifiedCanvasRenderer {
           const msgY = this.parsePosition(this.layout.message.position.y, 'y', height);
           this.drawMessage(msgX, msgY);
         }
+      });
+    }
+    
+    // Watermark (zIndex: 5 - above background/video, below UI elements)
+    if (this.watermark.enabled && this.watermark.image) {
+      renderQueue.push({
+        zIndex: 5,
+        draw: () => this.drawWatermark()
       });
     }
     
@@ -1412,6 +1428,38 @@ class UnifiedCanvasRenderer {
     this.ctx.drawImage(img, 0, 0, width, height);
     
     // Restore context
+    this.ctx.restore();
+  }
+
+  /**
+   * Load the watermark image from renderer assets
+   */
+  _loadWatermarkImage() {
+    const img = new Image();
+    img.onload = () => {
+      this.watermark.image = img;
+    };
+    img.src = '../assets/rocket-icon_transparent.png';
+  }
+
+  /**
+   * Draw watermark logo in the top-right corner
+   */
+  drawWatermark() {
+    if (!this.watermark.enabled || !this.watermark.image) return;
+    
+    const img = this.watermark.image;
+    if (!img.complete || img.naturalWidth === 0) return;
+    
+    const { width, height } = this.masterCanvas;
+    const size = Math.round(height * 0.18);
+    const margin = Math.round(height * 0.03);
+    const x = width - size - margin;
+    const y = margin;
+
+    this.ctx.save();
+    this.ctx.globalAlpha = this.watermark.opacity;
+    this.ctx.drawImage(img, x, y, size, size);
     this.ctx.restore();
   }
 

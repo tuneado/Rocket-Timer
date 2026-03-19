@@ -86,8 +86,11 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
     } else {
       localStorage.setItem('clockFormat', '24h'); // Default
     }
-    
-  } catch (error) {
+        // Store watermark setting in localStorage
+    if (settings.showWatermark !== undefined) {
+      localStorage.setItem('showWatermark', settings.showWatermark.toString());
+    }
+      } catch (error) {
     console.error('Error loading settings:', error);
   }
 }

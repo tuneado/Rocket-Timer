@@ -76,6 +76,7 @@ class SettingsManager {
       // Appearance
       appearanceTheme: 'dark',
       matchTimerColor: false,
+      showWatermark: true,
 
       // Keyboard Shortcuts
       keyboardShortcuts: {

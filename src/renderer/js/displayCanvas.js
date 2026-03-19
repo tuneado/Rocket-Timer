@@ -128,6 +128,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (thresholdSettings) {
       displayRenderer.applyTimerThresholds(thresholdSettings);
       console.log('📺 Applied timer thresholds to display renderer');
+      
+      // Apply watermark setting
+      if (thresholdSettings.showWatermark === false) {
+        displayRenderer.watermark.enabled = false;
+      }
     }
   } catch (error) {
     console.warn('Could not load timer threshold settings for display:', error);
@@ -580,6 +585,11 @@ if (isElectron && window.electron && window.electron.ipcRenderer) {
     // The user may have manually selected a different layout in the current session
     // defaultLayout is only used on app startup (see DOMContentLoaded)
     
+    // Apply watermark setting
+    if (displayRenderer && settings.showWatermark !== undefined) {
+      displayRenderer.watermark.enabled = settings.showWatermark;
+    }
+
     // Apply performance settings
     if (displayRenderer) {
       displayRenderer.applyPerformanceSettings(settings);

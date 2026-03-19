@@ -652,6 +652,13 @@ function DisplaySection() {
       description: "Canvas rendering resolution (affects output quality and performance)"
     },
     /* @__PURE__ */ _(Select, { id: "canvasResolution", className: "w-56" }, /* @__PURE__ */ _("option", { value: "1920x1080" }, "1920\xD71080 (Full HD)"), /* @__PURE__ */ _("option", { value: "1280x720" }, "1280\xD7720 (HD)"), /* @__PURE__ */ _("option", { value: "2560x1440" }, "2560\xD71440 (2K)"), /* @__PURE__ */ _("option", { value: "3840x2160" }, "3840\xD72160 (4K)"), /* @__PURE__ */ _("option", { value: "custom" }, "Custom..."))
+  )), /* @__PURE__ */ _(SettingsGroup, { title: "Watermark" }, /* @__PURE__ */ _(
+    SettingsItem,
+    {
+      title: "Show Watermark",
+      description: "we still love you anyway"
+    },
+    /* @__PURE__ */ _(Switch, { id: "showWatermark" })
   )), /* @__PURE__ */ _(SettingsGroup, { title: "External Display" }, /* @__PURE__ */ _(
     SettingsItem,
     {
