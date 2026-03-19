@@ -8,6 +8,12 @@ yarn-error.log*
 /dist/
 /out/
 
+# Backups
+backups/
+
+# Build resources - keep root icons, ignore generated subfolder
+build/icons/
+
 # Build resources - keep root icons, ignore generated subfolder
 build/icons/
 
