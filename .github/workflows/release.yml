@@ -22,7 +22,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
       
       - name: Create new release
-        run: gh release create ${{ github.ref_name }} --title "Rocket Timer ${{ github.ref_name }}" --notes "Release ${{ github.ref_name }}"
+        run: gh release create ${{ github.ref_name }} --draft --title "Rocket Timer ${{ github.ref_name }}" --notes "Release ${{ github.ref_name }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -67,3 +67,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build && npx electron-builder --publish always ${{ matrix.args }}
+
+  publish-release:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        run: gh release edit ${{ github.ref_name }} --draft=false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
