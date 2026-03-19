@@ -51,6 +51,28 @@ function applyCanvasColors(colors) {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('Initializing unified display canvas...');
   
+  // Wait for fonts to load before initializing canvas
+  try {
+    console.log('Loading fonts for display canvas...');
+    // Load the monospace fonts explicitly
+    await Promise.all([
+      document.fonts.load('400 16px "SF Mono"'),
+      document.fonts.load('400 16px Monaco'),
+      document.fonts.load('400 16px "Cascadia Code"'),
+      document.fonts.load('400 16px "Roboto Mono"'),
+      document.fonts.load('400 16px Consolas')
+    ]).catch(() => {
+      // Font loading might fail if fonts aren't available, that's ok
+      console.log('Some fonts failed to load, using system fallbacks');
+    });
+    
+    // Ensure all fonts are ready
+    await document.fonts.ready;
+    console.log('Fonts ready for display canvas');
+  } catch (error) {
+    console.warn('Font loading encountered an issue, continuing:', error);
+  }
+  
   // Load settings and apply colors
   try {
     let settings;
@@ -276,6 +298,9 @@ if (isElectron) {
       }
       if (data.totalTime !== undefined) {
         updates.totalTime = data.totalTime;
+      }
+      if (data.endTime !== undefined) {
+        updates.endTime = data.endTime;
       }
       
       console.log('📺 Applying updates to display:', updates);

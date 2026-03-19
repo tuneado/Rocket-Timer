@@ -21,6 +21,7 @@ function createMainWindow() {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true, // Add for security
       nodeIntegration: false, // Add for security
+      backgroundThrottling: false, // Keep timer accurate when window is unfocused
     },
   });
   mainWindow.loadFile(path.join(__dirname, '../renderer/html/index.html'));

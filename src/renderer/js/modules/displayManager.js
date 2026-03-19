@@ -141,6 +141,7 @@ export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer })
       warningLevel,
       remainingPercent: progressPercent, // Use same value for consistency
       elapsed: elapsedDisplay,
+      endTime: endTimeDisplay,
       remainingTime: remainingTimeMs, // Already in milliseconds
       totalTime: totalTimeMs // Already in milliseconds
     });

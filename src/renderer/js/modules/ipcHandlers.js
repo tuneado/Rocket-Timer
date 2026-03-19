@@ -14,6 +14,8 @@
  * - Settings application
  */
 
+import { shiftTimerDeadline } from './timerControls.js';
+
 /**
  * Initialize all IPC event handlers
  * @param {Object} deps - Dependencies object
@@ -432,6 +434,10 @@ export function initializeIPCHandlers(deps) {
           }
 
           timerState.setRemainingTime(newRemainingTime);
+          // Shift deadline when adjusting time while running
+          if (timerState.running) {
+            shiftTimerDeadline(adjustment * 1000);
+          }
           actions.updateDisplay();
 
           console.log(`⏱️ Adjusted from ${currentRemainingTime}s to ${newRemainingTime}s (${adjustment >= 0 ? '+' : ''}${adjustment}s)`);
@@ -797,6 +803,8 @@ export function initializeIPCHandlers(deps) {
       progressPercent: canvasState.progress !== undefined 
         ? canvasState.progress 
         : (timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0),
+      elapsed: canvasState.elapsed || '--:--:--',
+      endTime: canvasState.endTime || '--:--:--',
       remainingTime: timerState.remainingTime,
       totalTime: timerState.totalTime
     };

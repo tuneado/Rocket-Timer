@@ -11,6 +11,25 @@ import appState from './appState.js';
 // Global high-precision timer tracking to prevent multiple timers
 let globalPrecisionTimer = null;
 
+// Wall-clock deadline (ms since epoch) for accurate countdown
+let timerDeadline = 0;
+
+/**
+ * Get the current timer deadline timestamp.
+ * Used by time adjustment functions to shift the deadline.
+ */
+export function getTimerDeadline() {
+  return timerDeadline;
+}
+
+/**
+ * Shift the timer deadline by a given amount of milliseconds.
+ * Positive values extend the timer, negative values shorten it.
+ */
+export function shiftTimerDeadline(deltaMs) {
+  timerDeadline += deltaMs;
+}
+
 /**
  * Flash red background with black text at timer completion
  * @param {Object} canvasRenderer - The canvas renderer instance
@@ -164,6 +183,9 @@ export async function startTimer(timerState, {
     'timer.endTimeFormatted': endTimeFormatted
   });
   
+  // Set wall-clock deadline
+  timerDeadline = Date.now() + timerState.remainingTimeMs;
+
   updateButtonIcon(startStopBtn, 'pause-fill', 'Stop');
   startStopBtn.classList.remove("start");
   startStopBtn.classList.add("stop");
@@ -181,8 +203,9 @@ export async function startTimer(timerState, {
     // Store previous time to detect zero crossing
     const previousTime = timerState.remainingTimeMs;
     
-    // Decrement the timer by 100ms for high precision
-    timerState.setRemainingTimeMs(timerState.remainingTimeMs - 100);
+    // Calculate remaining time from wall-clock deadline (immune to throttling)
+    const newRemaining = timerDeadline - Date.now();
+    timerState.setRemainingTimeMs(newRemaining);
     
     // Trigger completion events when crossing from positive to zero/negative
     if (!completionTriggered && previousTime > 0 && timerState.remainingTimeMs <= 0) {
@@ -220,7 +243,7 @@ export async function startTimer(timerState, {
       timerState.setRunning(false);
       timerState.setStoppedAtZero(true); // Mark as stopped at zero
       
-      // Update appState - keep timer in stopped state but don't change button to start
+      // Update appState
       appState.update({
         'timer.running': false,
         'timer.remainingTime': 0,
@@ -228,11 +251,16 @@ export async function startTimer(timerState, {
         'timer.minutes': 0,
         'timer.seconds': 0,
         'timer.formattedTime': '00:00:00',
-        'timer.percentage': 0
+        'timer.percentage': 0,
+        'timer.endTimeFormatted': '--:--'
       });
       
-      // Don't change button back to start - keep it showing stop state
-      // Keep inputs disabled since timer is still in "stop" state, not reset
+      // Update button back to Start since timer has stopped
+      updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+      startStopBtn.classList.remove('stop');
+      startStopBtn.classList.add('start');
+      setInputsDisabled(false);
+      sendStateUpdate();
       return;
     }
     
@@ -311,6 +339,7 @@ export function stopTimer(countdown, timerState, {
   
   timerState.setRunning(false);
   timerState.setStoppedAtZero(false); // Clear stopped at zero state
+  timerDeadline = 0; // Clear deadline
   
   // Update appState - clear end time when stopped
   appState.update({

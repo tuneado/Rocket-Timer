@@ -212,12 +212,17 @@ function addMinutes(minutes) {
   if (minutes === 1) {
     // Use TimeInputs module for 1-minute adjustments (maintains compatibility)
     TimeInputs.addMinute(timerState, updateDisplay);
+    // Shift deadline if timer is running
+    if (running) TimerControls.shiftTimerDeadline(60 * 1000);
     return;
   }
   
   const minutesMs = minutes * 60 * 1000;
   // Use setter to trigger zero-crossing detection
   timerState.setRemainingTimeMs(remainingTime + minutesMs);
+  
+  // Shift deadline if timer is running
+  if (running) TimerControls.shiftTimerDeadline(minutesMs);
   
   // Only adjust totalTime if timer is NOT running
   // When running, totalTime should stay fixed so elapsed time tracks correctly
@@ -259,12 +264,17 @@ function subtractMinutes(minutes) {
   if (minutes === 1) {
     // Use TimeInputs module for 1-minute adjustments (maintains compatibility)
     TimeInputs.subtractMinute(timerState, updateDisplay);
+    // Shift deadline if timer is running
+    if (running) TimerControls.shiftTimerDeadline(-60 * 1000);
     return;
   }
   
   const minutesMs = minutes * 60 * 1000;
   // Use setter to trigger zero-crossing detection
   timerState.setRemainingTimeMs(remainingTime - minutesMs);
+  
+  // Shift deadline if timer is running
+  if (running) TimerControls.shiftTimerDeadline(-minutesMs);
   
   // Only adjust totalTime if timer is NOT running
   // When running, totalTime should stay fixed so elapsed time tracks correctly
@@ -363,21 +373,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initialize status bar
   statusBar.init();
   
-  // 2. Request current server status from main process
+  // 2. Wait for fonts to load before initializing canvas
+  try {
+    console.log('Loading fonts for canvas...');
+    // Load the monospace fonts explicitly
+    await Promise.all([
+      document.fonts.load('400 16px "SF Mono"'),
+      document.fonts.load('400 16px Monaco'),
+      document.fonts.load('400 16px "Cascadia Code"'),
+      document.fonts.load('400 16px "Roboto Mono"'),
+      document.fonts.load('400 16px Consolas')
+    ]).catch(() => {
+      // Font loading might fail if fonts aren't available, that's ok
+      console.log('Some fonts failed to load, using system fallbacks');
+    });
+    
+    // Ensure all fonts are ready
+    await document.fonts.ready;
+    console.log('Fonts ready for canvas');
+  } catch (error) {
+    console.warn('Font loading encountered an issue, continuing:', error);
+  }
+  
+  // 3. Request current server status from main process
   if (window.electron && window.electron.ipcRenderer) {
     window.electron.ipcRenderer.send('request-server-status');
   }
   
-  // 3. Load and apply settings
+  // 4. Load and apply settings
   await loadAndApplySettings();
   
-  // 3. Load saved layout or use default from settings
+  // 5. Load saved layout or use default from settings
   const savedLayoutId = localStorage.getItem('canvasLayout') || LayoutRegistry.getDefaultLayout();
   const layout = LayoutRegistry.getLayout(savedLayoutId);
   
   console.log('🎨 Loading layout:', layout?.name);
   
-  // 4. Create unified canvas renderer with layout
+  // 6. Create unified canvas renderer with layout
   // Get canvas resolution from settings
   let resolution = ['1920', '1080']; // Default resolution
   try {
