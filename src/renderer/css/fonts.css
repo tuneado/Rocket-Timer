@@ -38,12 +38,3 @@
   font-display: swap;
   src: url('../fonts/Inter-Bold.woff2') format('woff2');
 }
-
-/* Font stacks */
-:root {
-  /* UI Font - Inter with system fallbacks */
-  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
-  
-  /* Monospace Font - For timer/clock display */
-  --font-mono: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Consolas', 'Courier New', monospace;
-}

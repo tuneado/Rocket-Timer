@@ -38,16 +38,6 @@
     --canvas-remaining-color: #999999;
     --canvas-remaining-weight: 600;
   }
-  [data-theme=light] {
-    --canvas-countdown-color: #4caf50 !important;
-    --canvas-clock-color: #666666 !important;
-    --canvas-message-color: #333333 !important;
-    --canvas-progress-bg: #e8e8e8 !important;
-    --canvas-separator-color: #dddddd !important;
-    --canvas-background: #f7f7f7 !important;
-    --canvas-elapsed-color: #ff9500 !important;
-    --canvas-remaining-color: #1976d2 !important;
-  }
   body {
     @apply font-ui antialiased;
   }

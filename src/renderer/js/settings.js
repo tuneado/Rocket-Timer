@@ -918,14 +918,18 @@ async function saveSetting(key, value) {
  */
 function applyTheme() {
   const theme = currentSettings.appearanceTheme || 'dark';
-  
+  let resolved = theme;
+
   if (theme === 'auto') {
-    // Check system preference
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', systemTheme);
-  } else {
-    document.documentElement.setAttribute('data-theme', theme);
+    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
+
+  if (resolved === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  document.documentElement.setAttribute('data-theme', resolved);
 }
 
 /**

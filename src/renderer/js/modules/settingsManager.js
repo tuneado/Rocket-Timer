@@ -52,13 +52,18 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
     
     // Apply default theme
     if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto' 
+      const theme = settings.defaultTheme === 'auto'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : settings.defaultTheme;
-      
+
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
-      
+
       const themeToggle = getElementById('themeToggle');
       if (themeToggle) {
         themeToggle.checked = theme === 'dark';
@@ -95,11 +100,20 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
   }
 }
 
+let lastAppliedColors = null;
+
 /**
  * Applies canvas color customizations from settings
  * @param {Object} colors - Color settings object
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.force] - Force re-application even if colors haven't changed
  */
-export function applyCanvasColors(colors) {
+export function applyCanvasColors(colors, options = {}) {
+  if (!options.force && lastAppliedColors && JSON.stringify(colors) === JSON.stringify(lastAppliedColors)) {
+    return;
+  }
+  lastAppliedColors = { ...colors };
+
   const root = document.documentElement;
   
   if (colors.countdown) root.style.setProperty('--canvas-countdown-color', colors.countdown);

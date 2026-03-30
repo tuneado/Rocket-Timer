@@ -95,6 +95,7 @@ body {
 
 .settings-section {
   animation: fadeIn 0.3s ease;
+  padding-bottom: 64px;
 }
 
 @keyframes fadeIn {

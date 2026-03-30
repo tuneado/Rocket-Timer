@@ -223,18 +223,41 @@ class UnifiedCanvasRenderer {
    */
   setupOutputCanvas(output) {
     const { canvas } = output;
-    
+
     // Check if this is a fullscreen display (body is parent)
     const isFullscreen = canvas.parentElement?.tagName === 'BODY';
-    
+
     // Set internal resolution (high quality rendering)
     canvas.width = this.width;
     canvas.height = this.height;
-    
+
     if (isFullscreen) {
-      // Fullscreen mode - fill entire viewport
-      canvas.style.width = '100vw';
-      canvas.style.height = '100vh';
+      // Fullscreen mode - maintain aspect ratio with letterboxing
+      // object-fit doesn't work on <canvas>, so we calculate dimensions manually
+      const canvasAspect = this.width / this.height;
+
+      const resizeCanvas = () => {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const viewportAspect = vw / vh;
+
+        let cssWidth, cssHeight;
+        if (viewportAspect > canvasAspect) {
+          // Viewport is wider — fit to height, letterbox sides
+          cssHeight = vh;
+          cssWidth = vh * canvasAspect;
+        } else {
+          // Viewport is taller — fit to width, letterbox top/bottom
+          cssWidth = vw;
+          cssHeight = vw / canvasAspect;
+        }
+
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+      };
+
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
     } else {
       // Preview mode - let CSS handle sizing with aspect ratio
       canvas.style.width = '100%';

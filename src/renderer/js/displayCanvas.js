@@ -56,11 +56,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('Loading fonts for display canvas...');
     // Load the monospace fonts explicitly
     await Promise.all([
+      document.fonts.load('400 16px "JetBrains Mono"'),
+      document.fonts.load('bold 16px "JetBrains Mono"'),
+      document.fonts.load('600 16px "JetBrains Mono"'),
       document.fonts.load('400 16px "SF Mono"'),
+      document.fonts.load('bold 16px "SF Mono"'),
+      document.fonts.load('600 16px "SF Mono"'),
+      document.fonts.load('400 16px Consolas'),
+      document.fonts.load('bold 16px Consolas'),
       document.fonts.load('400 16px Monaco'),
-      document.fonts.load('400 16px "Cascadia Code"'),
-      document.fonts.load('400 16px "Roboto Mono"'),
-      document.fonts.load('400 16px Consolas')
+      document.fonts.load('bold 16px Monaco')
     ]).catch(() => {
       // Font loading might fail if fonts aren't available, that's ok
       console.log('Some fonts failed to load, using system fallbacks');
@@ -341,6 +346,11 @@ if (isElectron) {
     if (displayRenderer) {
       displayRenderer.updateTheme(theme);
     }
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
     document.documentElement.setAttribute('data-theme', theme);
   });
 }
@@ -575,7 +585,12 @@ if (isElectron && window.electron && window.electron.settings) {
         : theme;
       
       document.documentElement.setAttribute('data-theme', resolvedTheme);
-      
+      if (resolvedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
       if (displayRenderer) {
         displayRenderer.updateTheme(resolvedTheme);
       }
@@ -600,7 +615,12 @@ if (isElectron && window.electron && window.electron.ipcRenderer) {
         : settings.defaultTheme;
       
       document.documentElement.setAttribute('data-theme', theme);
-      
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+
       if (displayRenderer) {
         displayRenderer.updateTheme(theme);
       }

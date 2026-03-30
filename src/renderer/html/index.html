@@ -11,6 +11,14 @@
   <link rel="stylesheet" href="../css/bootstrap-icons-custom.css">
   <link rel="stylesheet" href="../css/shared.css">
   <link rel="stylesheet" href="../dist/tailwind.css">
+  <script>
+    (function() {
+      var t = localStorage.getItem('theme') || 'dark';
+      var d = document.documentElement;
+      if (t === 'dark') { d.classList.add('dark'); d.setAttribute('data-theme', 'dark'); }
+      else { d.classList.remove('dark'); d.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
 </head>
 <body class="bg-bg-base text-text-primary font-ui">
   <div id="app"></div>
