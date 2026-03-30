@@ -1,67 +1,273 @@
 /**
  * Auto-Update Manager
- * 
+ *
  * Handles automatic updates via GitHub Releases
  * Simple approach: Check for updates on startup, notify user, download in background
  */
 
 const { autoUpdater } = require('electron-updater');
-const { dialog } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const log = require('electron-log');
+
+const CHECK_TIMEOUT_MS = 15000;
 
 class UpdateManager {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
+    this.progressWindow = null;
+    this.checkingWindow = null;
+    this.checkTimeout = null;
     this.setupLogging();
     this.setupAutoUpdater();
   }
 
   setupLogging() {
-    // Configure logging for updates
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
   }
 
+  // ---------------------------------------------------------------------------
+  // Checking modal (spinner) — dismissible via ESC, click-outside, or timeout
+  // ---------------------------------------------------------------------------
+
+  showCheckingModal() {
+    if (this.checkingWindow) return;
+
+    this.checkingWindow = new BrowserWindow({
+      width: 300,
+      height: 110,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      frame: false,
+      show: false,
+      parent: this.mainWindow,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    this.checkingWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100vh;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    user-select: none;
+  }
+  .spinner {
+    width: 22px; height: 22px;
+    border: 3px solid #333;
+    border-top-color: #4a9eff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .label { font-size: 14px; font-weight: 500; }
+</style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <div class="label">Checking for updates...</div>
+  <script>document.addEventListener('keydown', e => { if (e.key === 'Escape') window.close(); });</script>
+</body>
+</html>
+    `)}`);
+
+    // If the user closes the window (ESC or otherwise), cancel the check
+    this.checkingWindow.on('closed', () => {
+      this.checkingWindow = null;
+      this._manualCheck = false;
+      this.clearCheckTimeout();
+    });
+
+    // Dismiss when clicking outside the modal
+    this.checkingWindow.on('blur', () => {
+      this.closeCheckingModal();
+    });
+
+    this.checkingWindow.once('ready-to-show', () => {
+      if (this.checkingWindow && !this.checkingWindow.isDestroyed()) {
+        this.checkingWindow.show();
+      }
+    });
+
+    // Timeout — if the check takes too long, close and notify
+    this.checkTimeout = setTimeout(() => {
+      log.warn('Update check timed out');
+      const wasManual = this._manualCheck;
+      this.closeCheckingModal();
+      if (wasManual) {
+        dialog.showMessageBox(this.mainWindow, {
+          type: 'warning',
+          title: 'Update Check',
+          message: 'Could not reach update server',
+          detail: 'Please check your internet connection and try again.',
+          buttons: ['OK']
+        });
+      }
+    }, CHECK_TIMEOUT_MS);
+  }
+
+  clearCheckTimeout() {
+    if (this.checkTimeout) {
+      clearTimeout(this.checkTimeout);
+      this.checkTimeout = null;
+    }
+  }
+
+  closeCheckingModal() {
+    this.clearCheckTimeout();
+    if (this.checkingWindow && !this.checkingWindow.isDestroyed()) {
+      this.checkingWindow.close(); // triggers 'closed' handler above
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Download progress window
+  // ---------------------------------------------------------------------------
+
+  createProgressWindow() {
+    if (this.progressWindow) return;
+
+    this.progressWindow = new BrowserWindow({
+      width: 380,
+      height: 130,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      closable: false,
+      fullscreenable: false,
+      frame: false,
+      show: false,
+      parent: this.mainWindow,
+      modal: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    });
+
+    this.progressWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1e1e1e;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    user-select: none;
+  }
+  .title { font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+  .bar-container {
+    width: 100%; height: 6px;
+    background: #333; border-radius: 3px;
+    overflow: hidden; margin-bottom: 12px;
+  }
+  .bar {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #4a9eff, #6cb4ff);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .percent { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+  <div class="title">Downloading update...</div>
+  <div class="bar-container"><div class="bar" id="bar"></div></div>
+  <div class="percent" id="percent">0%</div>
+</body>
+</html>
+    `)}`);
+
+    this.progressWindow.once('ready-to-show', () => {
+      this.progressWindow.show();
+    });
+  }
+
+  updateProgress(percent) {
+    if (this.progressWindow && !this.progressWindow.isDestroyed()) {
+      this.progressWindow.webContents.executeJavaScript(`
+        document.getElementById('bar').style.width = '${percent}%';
+        document.getElementById('percent').textContent = '${percent}%';
+      `).catch(() => {});
+    }
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.setProgressBar(percent / 100);
+    }
+  }
+
+  closeProgressWindow() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.setProgressBar(-1);
+    }
+    if (this.progressWindow && !this.progressWindow.isDestroyed()) {
+      this.progressWindow.close();
+      this.progressWindow = null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auto-updater event handlers
+  // ---------------------------------------------------------------------------
+
   setupAutoUpdater() {
-    // Don't auto-download updates - let user decide
     autoUpdater.autoDownload = false;
-    
-    // Don't install immediately - wait for user to quit
     autoUpdater.autoInstallOnAppQuit = true;
 
-    // Event: Update is available
     autoUpdater.on('update-available', (info) => {
       log.info('Update available:', info.version);
+      this.closeCheckingModal();
       this._manualCheck = false;
-      
+
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
         title: 'Update Available',
-        message: `A new version (${info.version}) is available!`,
-        detail: 'Would you like to download it now? The update will install when you quit the app.',
-        buttons: ['Download', 'Later'],
+        message: `Rocket Timer v${info.version} is available`,
+        detail: 'Would you like to download and install it?',
+        buttons: ['Download & Install', 'Later'],
         defaultId: 0,
         cancelId: 1
       }).then((result) => {
         if (result.response === 0) {
-          // User clicked "Download"
+          this.createProgressWindow();
           autoUpdater.downloadUpdate();
-          
-          // Notify user that download started
-          this.mainWindow.webContents.send('update-status', {
-            status: 'downloading',
-            message: 'Downloading update...'
-          });
         }
       });
     });
 
-    // Event: No updates available
-    autoUpdater.on('update-not-available', (info) => {
+    autoUpdater.on('update-not-available', () => {
       log.info('App is up to date');
-      
-      if (this._manualCheck) {
-        this._manualCheck = false;
+      const wasManual = this._manualCheck;
+      this.closeCheckingModal();
+      this._manualCheck = false;
+
+      if (wasManual) {
         dialog.showMessageBox(this.mainWindow, {
           type: 'info',
           title: 'No Updates Available',
@@ -72,44 +278,39 @@ class UpdateManager {
       }
     });
 
-    // Event: Download progress
     autoUpdater.on('download-progress', (progressInfo) => {
       const percent = Math.round(progressInfo.percent);
       log.info(`Download progress: ${percent}%`);
-      
-      this.mainWindow.webContents.send('update-status', {
-        status: 'downloading',
-        progress: percent,
-        message: `Downloading update: ${percent}%`
-      });
+      this.updateProgress(percent);
     });
 
-    // Event: Update downloaded and ready
     autoUpdater.on('update-downloaded', (info) => {
       log.info('Update downloaded:', info.version);
-      
+      this.closeProgressWindow();
+
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
         title: 'Update Ready',
-        message: 'Update downloaded successfully!',
-        detail: 'The update will be installed when you quit the app. Restart now?',
-        buttons: ['Restart Now', 'Later'],
+        message: 'Update downloaded!',
+        detail: `Rocket Timer v${info.version} is ready. Restart now to apply the update.`,
+        buttons: ['Restart Now', 'Restart Later'],
         defaultId: 0,
         cancelId: 1
       }).then((result) => {
         if (result.response === 0) {
-          // User wants to restart now
           autoUpdater.quitAndInstall();
         }
       });
     });
 
-    // Event: Error during update
     autoUpdater.on('error', (error) => {
       log.error('Update error:', error);
-      
-      if (this._manualCheck) {
-        this._manualCheck = false;
+      const wasManual = this._manualCheck;
+      this.closeCheckingModal();
+      this.closeProgressWindow();
+      this._manualCheck = false;
+
+      if (wasManual) {
         dialog.showMessageBox(this.mainWindow, {
           type: 'error',
           title: 'Update Error',
@@ -121,56 +322,48 @@ class UpdateManager {
     });
   }
 
-  /**
-   * Check for updates
-   * Call this when the app starts
-   */
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
   checkForUpdates() {
-    // Only check for updates in production (not during development)
-    if (process.env.NODE_ENV === 'development') {
-      log.info('Skipping update check in development mode');
+    if (!app.isPackaged) {
+      log.info('Skipping auto update check in development mode');
       return;
     }
-
     log.info('Checking for updates...');
     autoUpdater.checkForUpdates();
   }
 
-  /**
-   * Manual update check (e.g., from menu)
-   */
   checkForUpdatesManual() {
-    log.info('Manual update check triggered');
-    this._manualCheck = true;
-    
-    try {
-      const result = autoUpdater.checkForUpdates();
-      if (result && result.catch) {
-        result.catch((err) => {
-          log.error('Update check promise rejected:', err);
-          if (this._manualCheck) {
-            this._manualCheck = false;
-            dialog.showMessageBox(this.mainWindow, {
-              type: 'info',
-              title: 'Update Check',
-              message: 'Unable to check for updates',
-              detail: 'Update checking is not available in development mode. It will work in the packaged app.',
-              buttons: ['OK']
-            });
-          }
-        });
-      }
-    } catch (err) {
-      log.error('Update check failed:', err);
-      this._manualCheck = false;
+    if (!app.isPackaged) {
+      log.info('Update check skipped — app is not packaged');
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
-        title: 'Update Check',
-        message: 'Unable to check for updates',
-        detail: 'Update checking is not available in development mode. It will work in the packaged app.',
+        title: 'Development Mode',
+        message: 'Update checking is not available',
+        detail: 'Auto-updates only work in the packaged app. Build with "npm run dist" to test updates.',
         buttons: ['OK']
       });
+      return;
     }
+
+    log.info('Manual update check triggered');
+    this._manualCheck = true;
+    this.showCheckingModal();
+
+    autoUpdater.checkForUpdates().catch((err) => {
+      log.error('Update check failed:', err);
+      this.closeCheckingModal();
+      this._manualCheck = false;
+      dialog.showMessageBox(this.mainWindow, {
+        type: 'error',
+        title: 'Update Error',
+        message: 'Failed to check for updates',
+        detail: 'Please try again later or download manually from GitHub.',
+        buttons: ['OK']
+      });
+    });
   }
 }
 
