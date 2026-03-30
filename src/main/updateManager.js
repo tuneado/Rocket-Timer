@@ -3,10 +3,13 @@
  *
  * Handles automatic updates via GitHub Releases using a single update window
  * that transitions through states: checking → found → downloading → ready
+ *
+ * Communication with the update window uses executeJavaScript (main→renderer)
+ * and page-title-updated events (renderer→main) to avoid nodeIntegration.
  */
 
 const { autoUpdater } = require('electron-updater');
-const { app, dialog, BrowserWindow, ipcMain } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 const CHECK_TIMEOUT_MS = 15000;
@@ -17,7 +20,6 @@ class UpdateManager {
     this.updateWindow = null;
     this.checkTimeout = null;
     this.setupLogging();
-    this.setupIPC();
     this.setupAutoUpdater();
   }
 
@@ -27,34 +29,12 @@ class UpdateManager {
   }
 
   // ---------------------------------------------------------------------------
-  // IPC handlers for update window button clicks
-  // ---------------------------------------------------------------------------
-
-  setupIPC() {
-    ipcMain.on('update-action', (event, action) => {
-      switch (action) {
-        case 'download':
-          this.sendToWindow('state', 'downloading');
-          autoUpdater.downloadUpdate();
-          break;
-        case 'restart':
-          autoUpdater.quitAndInstall();
-          break;
-        case 'later':
-        case 'dismiss':
-          this.closeUpdateWindow();
-          break;
-      }
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Single update window — transitions through states
+  // Single update window — transitions through states via executeJavaScript
   // ---------------------------------------------------------------------------
 
   showUpdateWindow(initialState) {
     if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-      this.sendToWindow('state', initialState);
+      this.execInWindow(initialState);
       this.updateWindow.show();
       return;
     }
@@ -71,12 +51,20 @@ class UpdateManager {
       parent: this.mainWindow,
       webPreferences: {
         nodeIntegration: false,
-        contextIsolation: false  // Allow ipcRenderer access via preload-like pattern
+        contextIsolation: true
       }
     });
 
     const html = this.getUpdateWindowHTML();
     this.updateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+    // Button clicks in the window change document.title to "action:<name>"
+    this.updateWindow.on('page-title-updated', (event, title) => {
+      event.preventDefault();
+      if (!title.startsWith('action:')) return;
+      const action = title.replace('action:', '');
+      this.handleAction(action);
+    });
 
     this.updateWindow.on('closed', () => {
       this.updateWindow = null;
@@ -87,14 +75,42 @@ class UpdateManager {
     this.updateWindow.once('ready-to-show', () => {
       if (this.updateWindow && !this.updateWindow.isDestroyed()) {
         this.updateWindow.show();
-        this.sendToWindow('state', initialState);
+        // Small delay to ensure DOM is ready
+        setTimeout(() => this.execInWindow(initialState), 50);
       }
     });
   }
 
-  sendToWindow(channel, data) {
-    if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-      this.updateWindow.webContents.send(channel, data);
+  /**
+   * Execute state/progress updates in the update window
+   */
+  execInWindow(data) {
+    if (!this.updateWindow || this.updateWindow.isDestroyed()) return;
+
+    if (typeof data === 'string') {
+      this.updateWindow.webContents.executeJavaScript(`showView('${data}')`).catch(() => {});
+    } else if (data && data.state) {
+      const json = JSON.stringify(data);
+      this.updateWindow.webContents.executeJavaScript(`applyState(${json})`).catch(() => {});
+    } else if (data && data.percent !== undefined) {
+      const json = JSON.stringify(data);
+      this.updateWindow.webContents.executeJavaScript(`applyProgress(${json})`).catch(() => {});
+    }
+  }
+
+  handleAction(action) {
+    switch (action) {
+      case 'download':
+        this.execInWindow('downloading');
+        autoUpdater.downloadUpdate();
+        break;
+      case 'restart':
+        autoUpdater.quitAndInstall();
+        break;
+      case 'later':
+      case 'dismiss':
+        this.closeUpdateWindow();
+        break;
     }
   }
 
@@ -141,8 +157,7 @@ class UpdateManager {
     margin-bottom: 20px;
   }
   .icon {
-    width: 36px;
-    height: 36px;
+    width: 36px; height: 36px;
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -158,10 +173,8 @@ class UpdateManager {
   .icon.error { background: #3a1a1a; }
   .title { font-size: 16px; font-weight: 600; }
   .subtitle { font-size: 13px; color: #888; margin-top: 2px; }
-
   .content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
   .message { font-size: 13px; color: #aaa; line-height: 1.5; }
-
   .progress-area { margin: 8px 0 4px; }
   .bar-bg {
     width: 100%; height: 6px;
@@ -175,19 +188,14 @@ class UpdateManager {
     transition: width 0.3s ease;
   }
   .progress-text { font-size: 12px; color: #666; margin-top: 6px; }
-
   .spinner-inline {
-    width: 16px; height: 16px;
+    width: 20px; height: 20px;
     border: 2px solid #333;
     border-top-color: #4a9eff;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
-    display: inline-block;
-    vertical-align: middle;
-    margin-right: 8px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-
   .actions {
     display: flex;
     justify-content: flex-end;
@@ -204,27 +212,20 @@ class UpdateManager {
     cursor: pointer;
     transition: background 0.15s;
   }
-  .btn-primary {
-    background: #4a9eff;
-    color: #fff;
-  }
+  .btn-primary { background: #4a9eff; color: #fff; }
   .btn-primary:hover { background: #3a8eef; }
-  .btn-secondary {
-    background: #333;
-    color: #ccc;
-  }
+  .btn-secondary { background: #333; color: #ccc; }
   .btn-secondary:hover { background: #444; }
-
   .view { display: none; }
   .view.active { display: flex; flex-direction: column; height: 100%; }
 </style>
 </head>
 <body>
 
-  <!-- CHECKING STATE -->
+  <!-- CHECKING -->
   <div class="view" id="view-checking">
     <div class="header">
-      <div class="icon checking"><div class="spinner-inline" style="margin:0;width:20px;height:20px;"></div></div>
+      <div class="icon checking"><div class="spinner-inline"></div></div>
       <div>
         <div class="title">Checking for updates</div>
         <div class="subtitle">Contacting update server...</div>
@@ -243,7 +244,7 @@ class UpdateManager {
     <div class="header">
       <div class="icon available">&#x2728;</div>
       <div>
-        <div class="title" id="available-title">New version available</div>
+        <div class="title">New version available</div>
         <div class="subtitle" id="available-version"></div>
       </div>
     </div>
@@ -252,14 +253,14 @@ class UpdateManager {
     </div>
     <div class="actions">
       <button class="btn btn-secondary" onclick="send('later')">Later</button>
-      <button class="btn btn-primary" onclick="send('download')">Download & Install</button>
+      <button class="btn btn-primary" onclick="send('download')">Download &amp; Install</button>
     </div>
   </div>
 
   <!-- DOWNLOADING -->
   <div class="view" id="view-downloading">
     <div class="header">
-      <div class="icon downloading"><div class="spinner-inline" style="margin:0;width:20px;height:20px;"></div></div>
+      <div class="icon downloading"><div class="spinner-inline"></div></div>
       <div>
         <div class="title">Downloading update</div>
         <div class="subtitle" id="dl-subtitle">Starting download...</div>
@@ -274,7 +275,7 @@ class UpdateManager {
     </div>
   </div>
 
-  <!-- READY TO INSTALL -->
+  <!-- READY -->
   <div class="view" id="view-ready">
     <div class="header">
       <div class="icon ready">&#x2705;</div>
@@ -327,48 +328,43 @@ class UpdateManager {
   </div>
 
 <script>
-  const { ipcRenderer } = require('electron');
-
+  // Communication: button clicks set document.title to "action:<name>"
+  // which the main process intercepts via page-title-updated event.
   function send(action) {
-    ipcRenderer.send('update-action', action);
+    document.title = 'action:' + action;
   }
 
   function showView(id) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const el = document.getElementById('view-' + id);
+    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+    var el = document.getElementById('view-' + id);
     if (el) el.classList.add('active');
   }
 
-  ipcRenderer.on('state', (event, data) => {
-    if (typeof data === 'string') {
-      showView(data);
-    } else if (data && data.state) {
-      showView(data.state);
-      if (data.version) {
-        const els = document.querySelectorAll('#available-version, #ready-version');
-        els.forEach(el => el.textContent = 'Version ' + data.version);
-      }
-      if (data.currentVersion) {
-        document.getElementById('uptodate-version').textContent = 'Version ' + data.currentVersion;
-      }
-      if (data.error) {
-        document.getElementById('error-detail').textContent = data.error;
-      }
+  function applyState(data) {
+    showView(data.state);
+    if (data.version) {
+      document.getElementById('available-version').textContent = 'Version ' + data.version;
+      document.getElementById('ready-version').textContent = 'Version ' + data.version;
     }
-  });
+    if (data.currentVersion) {
+      document.getElementById('uptodate-version').textContent = 'Version ' + data.currentVersion;
+    }
+    if (data.error) {
+      document.getElementById('error-detail').textContent = data.error;
+    }
+  }
 
-  ipcRenderer.on('download-progress', (event, data) => {
+  function applyProgress(data) {
     document.getElementById('bar').style.width = data.percent + '%';
     document.getElementById('dl-subtitle').textContent = data.percent + '% downloaded';
     if (data.speed) {
-      document.getElementById('dl-detail').textContent = data.speed + ' \u2022 ' + data.remaining;
+      document.getElementById('dl-detail').textContent = data.speed + ' \\u2022 ' + data.remaining;
     } else {
       document.getElementById('dl-detail').textContent = data.percent + '%';
     }
-  });
+  }
 
-  // ESC to close during non-critical states
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') send('dismiss');
   });
 </script>
@@ -415,7 +411,7 @@ class UpdateManager {
         : '';
 
       log.info(`Download progress: ${percent}%`);
-      this.sendToWindow('download-progress', { percent, speed, remaining });
+      this.execInWindow({ percent, speed, remaining });
 
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.setProgressBar(percent / 100);
@@ -488,7 +484,6 @@ class UpdateManager {
     this._manualCheck = true;
     this.showUpdateWindow('checking');
 
-    // Timeout if server doesn't respond
     this.checkTimeout = setTimeout(() => {
       log.warn('Update check timed out');
       this._manualCheck = false;
