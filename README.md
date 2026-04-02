@@ -2,7 +2,9 @@
 
 A professional broadcast-grade countdown timer built with Electron, featuring canvas-based rendering, multi-protocol API control, and extensive customization.
 
-**Version**: 1.0.0-beta.1 | **License**: GPL-3.0
+Rocket Timer was made by Andre Raimundo with love, shaped by real-world experience in the AV and event industry. It was built to fill the gaps and missing features that are often hard to find in other timer apps. If you have an idea, spot something missing, or want a feature to be implemented, let me know.
+
+**Version**: 1.1.0 | **License**: GPL-3.0
 
 ---
 
@@ -641,7 +643,7 @@ window.canvasRenderer.layout    // Current layout
 
 ## License
 
-MIT License — See LICENSE file for details
+GPL-3.0 — See LICENSE file for details
 
 ---
 
