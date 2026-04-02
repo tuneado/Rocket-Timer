@@ -189,14 +189,23 @@ Get current timer state and all related information.
     "name": "Main Timer",
     "totalTime": 600,
     "remainingTime": 450,
+    "elapsedTime": 150,
     "isRunning": true,
     "isPaused": false,
+    "isOvertime": false,
     "startTime": "2026-03-06T10:30:00.000Z",
     "endTime": "2026-03-06T10:37:30.000Z",
+    "endTimeFormatted": "10:37 AM",
     "formattedTime": "00:07:30",
-    "elapsedTime": "00:02:30",
-    "percentage": 75,
-    "warningLevel": "normal"
+    "formattedElapsed": "00:02:30",
+    "percentage": 25,
+    "remainingPercentage": 75,
+    "warningLevel": "normal",
+    "warningColor": "#4ade80",
+    "messageVisible": false,
+    "messageText": "",
+    "featureImageEnabled": false,
+    "soundMuted": false
   },
   "timestamp": 1772755916339
 }
@@ -696,9 +705,10 @@ Get list of all available timer layouts (built-in and custom).
   "data": [
     {"id": "classic", "name": "Classic", "description": "...", "type": "builtin"},
     {"id": "minimal", "name": "Minimal", "description": "...", "type": "builtin"},
-    {"id": "modern", "name": "Modern", "description": "...", "type": "builtin"},
-    {"id": "compact", "name": "Compact", "description": "...", "type": "builtin"},
-    {"id": "video", "name": "Video", "description": "...", "type": "builtin"},
+    {"id": "clockfocus", "name": "Clock Focus", "description": "...", "type": "builtin"},
+    {"id": "detailed", "name": "Detailed", "description": "...", "type": "builtin"},
+    {"id": "circular", "name": "Circular", "description": "...", "type": "builtin"},
+    {"id": "video", "name": "Video Input", "description": "...", "type": "builtin"},
     {"id": "my_custom", "name": "My Custom Layout", "description": "...", "type": "custom"}
   ]
 }
@@ -759,8 +769,9 @@ curl -X POST http://localhost:9999/api/layout \
 **Built-in Layout IDs:**
 - `classic` - Traditional countdown display
 - `minimal` - Clean minimal design
-- `modern` - Modern gradient style
-- `compact` - Space-efficient layout
+- `clockfocus` - Large clock-focused display
+- `detailed` - Detailed information layout
+- `circular` - Circular progress display
 - `video` - Layout optimized for video input
 
 Custom layouts created via the Layout Creator are also available. Use `GET /layouts` to discover all available layout IDs.
@@ -1159,8 +1170,13 @@ socket.on('connection-established', (data) => {
   console.log('Connected:', data);
 });
 
-// Timer state updates
+// Timer state updates (full state object on every tick)
 socket.on('timer-update', (state) => {
+  // state contains: id, name, totalTime, remainingTime, elapsedTime,
+  // isRunning, isPaused, isOvertime, formattedTime, formattedElapsed,
+  // percentage, remainingPercentage, warningLevel, warningColor,
+  // endTimeFormatted, messageVisible, messageText,
+  // featureImageEnabled, soundMuted, timestamp
   console.log('Timer updated:', state);
 });
 
@@ -1193,10 +1209,10 @@ socket.on('message-sent', (data) => {});
 socket.on('message-hidden', () => {});
 socket.on('message-toggled', () => {});
 
-// Sound
-socket.on('sound-muted', () => {});
-socket.on('sound-unmuted', () => {});
-socket.on('sound-toggled', () => {});
+// Sound (payloads include { soundMuted: true/false })
+socket.on('sound-muted', (data) => { /* data.soundMuted === true */ });
+socket.on('sound-unmuted', (data) => { /* data.soundMuted === false */ });
+socket.on('sound-toggled', (data) => { /* data.soundMuted reflects new state */ });
 
 // Responses
 socket.on('command-response', (data) => {});
@@ -1299,8 +1315,11 @@ socket.on('connect', () => {
 
 socket.on('timer-update', (state) => {
   console.log(`Time Remaining: ${state.formattedTime}`);
-  console.log(`Percentage: ${state.percentage}%`);
+  console.log(`Time Elapsed: ${state.formattedElapsed}`);
+  console.log(`Percentage: ${state.remainingPercentage}%`);
+  console.log(`Warning: ${state.warningLevel} (${state.warningColor})`);
   console.log(`Status: ${state.isRunning ? 'Running' : 'Stopped'}`);
+  console.log(`Sound Muted: ${state.soundMuted}`);
   
   // Alert when time is low
   if (state.remainingTime <= 60 && state.isRunning) {

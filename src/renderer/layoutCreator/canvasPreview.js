@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Canvas Preview for Layout Creator
  * Renders a live preview of the layout being edited.
  * Mirrors UnifiedCanvasRenderer drawing logic but with mock data and element highlights.
+ * /
  */
-
 class CanvasPreview {
   constructor(canvas, overlayEl) {
     this.canvas = canvas;

@@ -1,9 +1,14 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Unified Timer API Server
  * Provides REST, WebSocket, and OSC interfaces for professional timer control
  * Compatible with Bitfocus Companion, lighting consoles, and broadcasting systems
  */
-
 const express = require('express')
 const WebSocket = require('ws')
 const osc = require('osc')
@@ -41,7 +46,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
       endTime: null,
       warningLevel: 'normal',
       adjustments: [],
-      presets: [],
+      presets: this.config.presets || [],
       settings: {},
       message: {
         visible: false,
@@ -91,6 +96,11 @@ class UnifiedTimerAPIServer extends EventEmitter {
     // Listen for settings updates (colors)
     ipcMain.on('settings-colors-updated', (event, colors) => {
       this.updateColors(colors)
+    })
+
+    // Listen for presets updates from settings/project changes
+    ipcMain.on('settings-presets-updated', (event, presets) => {
+      this.timerState.presets = presets || []
     })
   }
 
@@ -278,7 +288,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
     
     // Flash Control
     this.app.post('/api/timer/flash', (req, res) => {
-      const { cycles, duration } = req.body
+      const { cycles, duration } = req.body || {}
       const result = this.triggerFlash(cycles, duration)
       res.json(result)
     })
@@ -318,7 +328,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
     })
     
     this.app.post('/api/display/flash', (req, res) => {
-      const { cycles, duration } = req.body
+      const { cycles, duration } = req.body || {}
       const result = this.triggerFlash(cycles, duration)
       res.json(result)
     })
@@ -420,7 +430,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
           time_total: state.totalTime,
           time_elapsed: state.totalTime - state.remainingTime,
           formatted_time: state.formattedTime,
-          formatted_elapsed: state.elapsedTime,
+          formatted_elapsed: state.formattedElapsed,
           percentage: state.percentage,
           end_time: state.endTime
         }
@@ -675,9 +685,17 @@ class UnifiedTimerAPIServer extends EventEmitter {
   
   sendOSCResponse(address, args = []) {
     if (this.servers.osc && this.servers.osc.socket) {
+      // Normalize args: wrap plain values as typed OSC args (metadata: true mode)
+      const typedArgs = args.map(a => {
+        if (a !== null && typeof a === 'object' && 'type' in a) return a
+        if (typeof a === 'string') return { type: 's', value: a }
+        if (typeof a === 'number' && Number.isInteger(a)) return { type: 'i', value: a }
+        if (typeof a === 'number') return { type: 'f', value: a }
+        return { type: 'i', value: Number(a) || 0 }
+      })
       this.servers.osc.send({
         address,
-        args
+        args: typedArgs
       })
     }
   }
@@ -1047,7 +1065,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
       console.log('🔇 Mute sound command sent')
       const result = { success: true, message: 'Sound muted' }
       
-      this.broadcastToAll('sound-muted', {})
+      this.broadcastToAll('sound-muted', { soundMuted: true })
       
       return result
     } catch (error) {
@@ -1065,7 +1083,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
       console.log('🔊 Unmute sound command sent')
       const result = { success: true, message: 'Sound unmuted' }
       
-      this.broadcastToAll('sound-unmuted', {})
+      this.broadcastToAll('sound-unmuted', { soundMuted: false })
       
       return result
     } catch (error) {
@@ -1274,12 +1292,17 @@ class UnifiedTimerAPIServer extends EventEmitter {
     // Update internal state from renderer
     this.timerState = { ...this.timerState, ...newState }
     
-    // Broadcast updates to all connected clients
+    // Broadcast updates to all connected clients (WebSocket, OSC)
     const formattedState = this.getFormattedTimerState()
     this.broadcastToAll('timer-update', formattedState)
     
-    // Also broadcast to renderer for progress bar color updates
-    this.mainWindow.webContents.send('api-timer-state-update', formattedState)
+    // Send only warning color info back to renderer (avoid sending time/progress to prevent jitter)
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('api-timer-state-update', {
+        warningLevel: formattedState.warningLevel,
+        warningColor: formattedState.warningColor,
+      })
+    }
   }
 
   getWarningColor(warningLevel, customColors = {}) {
@@ -1297,11 +1320,19 @@ class UnifiedTimerAPIServer extends EventEmitter {
     const timer = this.timerState.timer || {}
     const message = this.timerState.message || {}
     const coverImage = this.timerState.coverImage || {}
-    const totalTime = timer.totalTime || 0
-    const remainingTime = timer.remainingTime || 0
-    const elapsedTime = Math.max(0, totalTime - remainingTime)
-    const elapsedPercentage = totalTime > 0 ? (elapsedTime / totalTime) * 100 : 0
-    const remainingPercentage = Math.max(0, 100 - elapsedPercentage)
+    // appState sends values in milliseconds - convert to seconds
+    const rawTotal = timer.totalTime || 0
+    const rawRemaining = timer.remainingTime || 0
+    const totalTime = rawTotal > 86400 ? Math.floor(rawTotal / 1000) : rawTotal
+    const remainingTime = rawRemaining > 86400 ? Math.floor(rawRemaining / 1000) : rawRemaining
+    // Use real elapsed time from renderer when available (unaffected by time adjustments)
+    const elapsedTime = typeof timer.elapsedTime === 'number' && timer.elapsedTime >= 0
+      ? timer.elapsedTime
+      : Math.max(0, totalTime - remainingTime)
+    // Progress bar: use remainingTime/totalTime (matches canvas calculation)
+    // This correctly updates when time is adjusted via add/subtract buttons
+    const remainingPercentage = totalTime > 0 ? Math.max(0, Math.min(100, (remainingTime / totalTime) * 100)) : 100
+    const elapsedPercentage = Math.max(0, 100 - remainingPercentage)
     
     // Use warning level from renderer (single source of truth)
     const warningLevel = timer.warningLevel || 'normal'
@@ -1329,6 +1360,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
       messageVisible: message.visible === true,
       messageText: typeof message.text === 'string' ? message.text : '',
       featureImageEnabled: coverImage.enabled === true,
+      soundMuted: this.timerState.settings?.soundEnabled === false,
       timestamp: Date.now()
     }
   }
@@ -1340,9 +1372,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
     const minutes = Math.floor((absSeconds % 3600) / 60)
     const secs = Math.floor(absSeconds % 60)
     
-    const formatted = hours > 0 
-      ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-      : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     
     return isNegative ? `-${formatted}` : formatted
   }

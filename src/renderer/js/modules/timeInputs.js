@@ -1,8 +1,14 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Time Input Management
  * Functions for handling time input normalization and updates
+ * /
  */
-
 import { formatTime } from '../utils/timeFormatter.js';
 import appState from './appState.js';
 
@@ -85,8 +91,8 @@ export function addMinute(state, updateDisplay) {
   // Add 60 seconds (1 minute) to remaining time
   state.setRemainingTime(state.remainingTime + 60);
   
-  // Only update total time if timer is NOT running
-  // When running, totalTime should stay fixed so elapsed time tracks correctly
+  // Adjust totalTime: when not running, add the full amount;
+  // when running, expand totalTime if remainingTime now exceeds it
   if (!state.running) {
     // If we're coming back from negative time, update totalTime appropriately
     const newRemainingTime = state.remainingTime;
@@ -108,9 +114,11 @@ export function addMinute(state, updateDisplay) {
       document.getElementById("minutes").value = 0;
       document.getElementById("seconds").value = 0;
     }
+  } else if (state.remainingTime > state.totalTime) {
+    // When running and added time pushes remaining past total,
+    // expand totalTime so progress bar calculates correctly
+    state.setTotalTime(state.remainingTime);
   }
-  // When timer IS running, we don't adjust totalTime
-  // This preserves elapsed time calculation (totalTime - remainingTime)
   
   updateDisplay();
   
@@ -122,15 +130,16 @@ export function addMinute(state, updateDisplay) {
     'timer.minutes': Math.floor((Math.abs(state.remainingTime) % 3600) / 60),
     'timer.seconds': Math.abs(state.remainingTime) % 60,
     'timer.formattedTime': formattedTime,
-    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.round((state.remainingTime / state.totalTime) * 100)) : 100
+    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.min(100, Math.round((state.remainingTime / state.totalTime) * 100))) : 100
   };
   
-  // Only update totalTime and preset when timer is not running
-  // When running, totalTime must stay fixed so elapsed time tracks correctly
+  // Update totalTime when not running, or when running and totalTime was expanded
   if (!state.running) {
     updateData['timer.totalTime'] = state.totalTime * 1000;
     updateData['timer.lastSetTime'] = state.totalTime * 1000;
     updateData['timer.preset'] = null;
+  } else if (state.remainingTime >= state.totalTime) {
+    updateData['timer.totalTime'] = state.totalTime * 1000;
   }
   
   appState.update(updateData);
@@ -190,11 +199,10 @@ export function subtractMinute(state, updateDisplay) {
     'timer.minutes': Math.floor((Math.abs(state.remainingTime) % 3600) / 60),
     'timer.seconds': Math.abs(state.remainingTime) % 60,
     'timer.formattedTime': formattedTime,
-    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.round((state.remainingTime / state.totalTime) * 100)) : 100
+    'timer.percentage': state.totalTime > 0 ? Math.max(0, Math.min(100, Math.round((state.remainingTime / state.totalTime) * 100))) : 100
   };
   
   // Only update totalTime and preset when timer is not running
-  // When running, totalTime must stay fixed so elapsed time tracks correctly
   if (!state.running) {
     updateData['timer.totalTime'] = state.totalTime * 1000;
     updateData['timer.lastSetTime'] = state.totalTime * 1000;

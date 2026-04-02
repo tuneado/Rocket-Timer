@@ -1,9 +1,13 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * IPC Handlers Module
- * 
  * Centralizes all IPC (Inter-Process Communication) event handlers for communication
  * between the renderer process and the main Electron process.
- * 
  * Handles:
  * - Menu commands (toggle display, toggle clock, theme changes, start/stop, reset)
  * - Companion API commands (start, stop, reset, setTime, loadPreset, changeLayout, setMessage)
@@ -12,8 +16,8 @@
  * - Theme requests
  * - Video device changes
  * - Settings application
+ * /
  */
-
 import { shiftTimerDeadline } from './timerControls.js';
 
 /**
@@ -437,6 +441,10 @@ export function initializeIPCHandlers(deps) {
           // Shift deadline when adjusting time while running
           if (timerState.running) {
             shiftTimerDeadline(adjustment * 1000);
+            // Expand totalTime if remainingTime now exceeds it
+            if (newRemainingTime > timerState.totalTime) {
+              timerState.setTotalTime(newRemainingTime);
+            }
           }
           actions.updateDisplay();
 
@@ -485,15 +493,13 @@ export function initializeIPCHandlers(deps) {
         
       case 'create-preset':
         if (data) {
-          console.log('📋 API: Creating preset:', data.name);
-          // TODO: Implement preset creation
+          console.log('API: Creating preset:', data.name);
         }
         break;
         
       case 'update-settings':
         if (data) {
-          console.log('⚙️ API: Updating settings');
-          // TODO: Implement settings update
+          console.log('API: Updating settings');
         }
         break;
         
@@ -558,24 +564,12 @@ export function initializeIPCHandlers(deps) {
         
       case 'add-minute':
         console.log('⏱️ API: Adding 1 minute');
-        if (!timerState.running) {
-          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
-          const newMinutes = Math.min(59, currentMinutes + 1);
-          document.getElementById('minutes').value = newMinutes;
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
+        actions.addMinute();
         break;
         
       case 'subtract-minute':
         console.log('⏱️ API: Subtracting 1 minute');
-        if (!timerState.running) {
-          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
-          const newMinutes = Math.max(0, currentMinutes - 1);
-          document.getElementById('minutes').value = newMinutes;
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
+        actions.subtractMinute();
         break;
         
       case 'mute-sound':
@@ -737,16 +731,10 @@ export function initializeIPCHandlers(deps) {
   // ===============================
   
   ipcRenderer.on('api-timer-state-update', (timerState) => {
-    // Update canvas renderer with warning level and color information
+    // Only use warning level/color from API - time/progress is handled by displayManager
     const canvasRenderer = getCanvasRenderer();
     if (canvasRenderer) {
-      // Update canvas state with API-calculated values
-      // NOTE: Do NOT update elapsed here - displayManager handles it with millisecond precision
       canvasRenderer.setState({
-        countdown: timerState.formattedTime,
-        progress: timerState.remainingPercentage, // Use remaining percentage
-        // elapsed: timerState.formattedElapsed, // REMOVED - displayManager calculates this correctly
-        endTime: timerState.endTimeFormatted,
         warningLevel: timerState.warningLevel,
         warningColor: timerState.warningColor
       });
@@ -754,7 +742,6 @@ export function initializeIPCHandlers(deps) {
       // Trigger color update if timer color matching is enabled
       const matchTimerColor = localStorage.getItem('matchTimerColor') === 'true';
       if (matchTimerColor) {
-        // Force canvas to use the API-calculated warning color
         canvasRenderer.updateDynamicColors(timerState.warningColor);
       }
     }

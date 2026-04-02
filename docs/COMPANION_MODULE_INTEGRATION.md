@@ -6,7 +6,7 @@ The Countdown Timer now has a dedicated **Companion Module** for full Stream Dec
 
 **Location:** `../companion-module-rocket-timer/`  
 **Module ID:** `rocket-timer`  
-**Version:** 1.0.0 (Phase 1)  
+**Version:** 1.0.0
 **Status:** ✅ Ready for Testing
 
 ### Quick Start
@@ -28,35 +28,44 @@ The Countdown Timer now has a dedicated **Companion Module** for full Stream Dec
    - Search "Rocket Timer"
    - Configure: localhost, port 9999
 
-### Features (Phase 1)
+### Features
 
-✅ **15 Actions**
-- Timer Control (Start, Stop, Pause, Resume, Reset)
-- Time Management (Set H/M/S, Quick adjustments)
+✅ **16 Actions**
+- Timer Control (Start, Stop, Pause, Resume, Reset, Toggle, Toggle Start/Stop)
+- Time Management (Set H/M/S, Adjust, Add/Subtract minutes)
 - Preset Loading
-- Layout Switching
-- Sound Control & Display Effects
+- Layout Switching (Classic, Minimal, Clock Focus, Detailed, Circular, Video)
+- Sound Control (Mute, Unmute, Toggle)
+- Display Effects (Flash, Feature Image)
+- Message Overlays (Send, Show, Set Text, Toggle)
 
-✅ **8 Feedbacks**
-- Visual button states (Green/Orange/Red)
-- Time threshold warnings
-- Layout indicators
+✅ **11 Feedbacks**
+- Boolean feedbacks: Timer Running, Paused, Stopped, Overtime
+- Warning Level (Normal, Warning, Critical, Overtime)
+- Message Visible, Feature Image Enabled, Sound Muted
+- Connection State
+- **Advanced feedbacks:** Warning Color (Background), Warning Color (Text) — dynamically color buttons using the API's real-time warning color
 
-✅ **16 Variables**
-- Real-time time display
-- Status indicators
-- Timer metadata
+✅ **14 Variables**
+- Real-time formatted time and elapsed time (HH:MM:SS)
+- Numeric values (total/remaining/elapsed seconds, percentage)
+- Status indicators (running, paused, overtime, warning level, state)
+- Timer metadata (name, end time, connection)
 
-✅ **12 Preset Buttons**
-- Ready-to-use configurations
-- Smart feedback integration
+✅ **30+ Preset Buttons**
+- Timer control (Start/Stop, Reset, ±1/5/10 min)
+- Timer display (Remaining, Elapsed, Percentage, End Time) with dynamic warning colors
+- 8 preset buttons, custom timer
+- Message controls, sound toggle
+- 6 layout buttons (Classic, Minimal, Clock Focus, Detailed, Circular, Video)
+- Display effects (Flash, Feature Image)
+- Status display with multi-state feedback
 
 ### Documentation
 
 - **User Guide:** [README.md](../companion-module-rocket-timer/README.md)
-- **Quick Start:** [HELP.md](../companion-module-rocket-timer/HELP.md)
-- **Development:** [DEVELOPMENT.md](../companion-module-rocket-timer/DEVELOPMENT.md)
-- **Full Plan:** [COMPANION_MODULE_DEVELOPMENT_PLAN.md](COMPANION_MODULE_DEVELOPMENT_PLAN.md)
+- **Quick Start:** [HELP.md](../companion-module-rocket-timer/companion/HELP.md)
+- **API Docs:** [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
 
 ### API Requirements
 
@@ -70,9 +79,11 @@ The Companion module uses these API endpoints (all implemented):
 - `POST /api/timer/{add-minute|subtract-minute}` - Quick adjustments
 - `GET /api/presets` + `POST /api/presets/:id/load` - Presets
 - `GET /api/layouts` + `POST /api/layout` - Layouts
-- `POST /api/sound/toggle` - Sound control
+- `POST /api/sound/{mute|unmute|toggle}` - Sound control
 - `POST /api/display/flash` - Flash effect
-- `WebSocket ws://localhost:8080` - Real-time updates
+- `POST /api/display/toggle-feature-image` - Feature image
+- `POST /api/message` + `POST /api/message/{show|hide|toggle}` - Messages
+- `WebSocket ws://localhost:8080` - Real-time updates (timer-update, sound events with payload)
 
 All endpoints are documented in [API_DOCUMENTATION.md](API_DOCUMENTATION.md).
 
@@ -97,7 +108,6 @@ After successful testing:
 ### Phase 2 (Future)
 
 Planned expansions:
-- Message overlay control
 - Camera/video control
 - Display window management
 - Advanced presets

@@ -1,14 +1,22 @@
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
 const { ipcMain, clipboard, dialog, app } = require('electron');
 const path = require('path');
 const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow, getLayoutCreatorWindow } = require('./windows');
-const { updateDisplayMenuItems } = require('./menu');
+const { updateDisplayMenuItems, updateProjectsMenu } = require('./menu');
 const SettingsManager = require('./settingsManager');
 
 let settingsManager;
 
-function setupIpcHandlers(mainWindow) {
-  // Initialize settings manager
-  settingsManager = new SettingsManager();
+function setupIpcHandlers(mainWindow, sharedSettingsManager) {
+  // Initialize managers
+  settingsManager = sharedSettingsManager || new SettingsManager();
+  // ProjectManager is initialized in main.js and available as global.projectManager
 
   // App info
   ipcMain.handle('get-app-version', async () => {
@@ -37,6 +45,11 @@ function setupIpcHandlers(mainWindow) {
   ipcMain.handle('save-settings', async (event, settings) => {
     const success = settingsManager.saveSettings(settings);
     
+    // Mark project as having unsaved changes
+    if (success && global.projectManager) {
+      global.projectManager.markAsChanged();
+    }
+    
     // Notify all windows of settings change
     if (success) {
       const updatedSettings = settingsManager.getSettings();
@@ -53,6 +66,11 @@ function setupIpcHandlers(mainWindow) {
       const settingsWindow = getSettingsWindow();
       if (settingsWindow && !settingsWindow.isDestroyed()) {
         settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+
+      // Notify API server about preset changes
+      if (updatedSettings.presets) {
+        ipcMain.emit('settings-presets-updated', null, updatedSettings.presets);
       }
     }
     
@@ -62,6 +80,11 @@ function setupIpcHandlers(mainWindow) {
   ipcMain.handle('save-setting', async (event, key, value) => {
     const success = settingsManager.setSetting(key, value);
     
+    // Mark project as having unsaved changes
+    if (success && global.projectManager) {
+      global.projectManager.markAsChanged();
+    }
+    
     // Notify all windows of settings change
     if (success) {
       const updatedSettings = settingsManager.getSettings();
@@ -78,6 +101,11 @@ function setupIpcHandlers(mainWindow) {
       const settingsWindow = getSettingsWindow();
       if (settingsWindow && !settingsWindow.isDestroyed()) {
         settingsWindow.webContents.send('settings-updated', updatedSettings);
+      }
+
+      // Notify API server about preset changes
+      if (key === 'presets') {
+        ipcMain.emit('settings-presets-updated', null, value);
       }
     }
     
@@ -575,8 +603,8 @@ function setupIpcHandlers(mainWindow) {
     const path = require('path');
     const fs = require('fs');
     
-    // Try to open REST_API_SERVER_GUIDE.md
-    const docsPath = path.join(__dirname, '../../REST_API_SERVER_GUIDE.md');
+    // Try to open API_DOCUMENTATION.md
+    const docsPath = path.join(__dirname, '../../docs/API_DOCUMENTATION.md');
     
     if (fs.existsSync(docsPath)) {
       shell.openPath(docsPath);
@@ -587,7 +615,7 @@ function setupIpcHandlers(mainWindow) {
         type: 'info',
         title: 'API Documentation',
         message: 'API documentation not found',
-        detail: 'The REST_API_SERVER_GUIDE.md file could not be found in the project directory.',
+        detail: 'The API_DOCUMENTATION.md file could not be found in the docs directory.',
         buttons: ['OK']
       });
     }
@@ -700,6 +728,119 @@ function setupIpcHandlers(mainWindow) {
     if (settingsWin && !settingsWin.isDestroyed()) {
       settingsWin.webContents.send('layout-list-updated');
     }
+  });
+
+  // ========================================================================
+  // Project handlers
+  // ========================================================================
+
+  ipcMain.handle('get-projects', async () => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    return projectManager.getAllProjects();
+  });
+
+  ipcMain.handle('create-project', async (event, name, setAsDefault = false) => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    const project = await projectManager.createProject(name, setAsDefault);
+    await projectManager.loadProject(project.id);
+    updateProjectsMenu();
+    return project;
+  });
+
+  ipcMain.handle('rename-project', async (event, id, newName) => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    const result = await projectManager.renameProject(id, newName);
+    updateProjectsMenu();
+    return result;
+  });
+
+  ipcMain.handle('load-project', async (event, id) => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    const project = await projectManager.loadProject(id);
+    if (!project) return { success: false, error: 'Project not found' };
+    updateProjectsMenu();
+    return { success: true, project };
+  });
+
+  ipcMain.handle('save-project', async () => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    return projectManager.saveProject();
+  });
+
+  ipcMain.handle('delete-project', async (event, id) => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    const result = await projectManager.deleteProject(id);
+    updateProjectsMenu();
+    return result;
+  });
+
+  ipcMain.handle('duplicate-project', async (event, id, newName = null) => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    const result = await projectManager.duplicateProject(id, newName);
+    updateProjectsMenu();
+    return result;
+  });
+
+  ipcMain.handle('get-current-project', async () => {
+    const projectManager = global.projectManager;
+    if (!projectManager) throw new Error('ProjectManager not initialized');
+    return projectManager.getCurrentProject();
+  });
+
+  // ========================================================================
+  // Save-on-close prompt
+  // ========================================================================
+
+  mainWindow.on('close', async (e) => {
+    // Read project dirty state from renderer
+    let state = null;
+    try {
+      state = await mainWindow.webContents.executeJavaScript('window._projectState || null');
+    } catch (_) {
+      // If renderer is gone, allow close
+    }
+
+    if (!state || !state.activeProjectId || !state.isDirty) {
+      return; // Nothing to prompt, allow close
+    }
+
+    e.preventDefault();
+
+    const projectName = state.activeProjectName || 'current project';
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: 'Unsaved Changes',
+      message: `Save changes to "${projectName}"?`,
+      detail: 'Your project has unsaved changes.',
+      buttons: ['Save', "Don't Save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+
+    if (response === 2) {
+      // Cancel — do nothing
+      return;
+    }
+
+    if (response === 0) {
+      // Save — tell renderer to save, then quit
+      mainWindow.webContents.send('project-save-request');
+      // Give renderer a moment to save, then force close
+      setTimeout(() => {
+        mainWindow.destroy();
+      }, 500);
+      return;
+    }
+
+    // Don't Save — just close
+    mainWindow.destroy();
   });
 }
 

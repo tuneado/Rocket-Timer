@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Video Input Manager
  * Handles HDMI capture cards and video input devices
  * Allows live video feed as canvas background with timer overlay
+ * /
  */
-
 import appState from './modules/appState.js';
 
 class VideoInputManager {

@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Display Canvas Handler for External Display Window
  * Creates a canvas renderer that mirrors the main window's canvas
  * Receives state updates via IPC (Electron) or WebSocket (Browser)
+ * /
  */
-
 // Import canvas effects module
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 

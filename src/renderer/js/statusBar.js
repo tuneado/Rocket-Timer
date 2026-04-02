@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Status Footer Manager
  * Manages error/warning messages and status icons in persistent footer
  * Subscribes to appState for automatic status updates
+ * /
  */
-
 import logger from './utils/logger.js';
 import appState from './modules/appState.js';
 

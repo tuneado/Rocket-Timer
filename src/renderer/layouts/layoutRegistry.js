@@ -1,12 +1,17 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Canvas Layout Registry
  * Manages available canvas layouts for the timer display
  * Layouts define positioning and structure; styling comes from CSS
- * 
  * Note: This file is designed to work in the browser renderer process.
  * Layout JSON files should be loaded via fetch or embedded directly.
+ * /
  */
-
 // Embedded layout definitions (avoids fetch/require complexity)
 const classicLayout = {
   "name": "Classic",

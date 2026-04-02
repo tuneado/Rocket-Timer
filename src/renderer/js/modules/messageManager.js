@@ -1,13 +1,18 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Message Manager Module
- * 
  * Manages the message display system including:
  * - Character counter with visual warnings
  * - Display/hide message functionality
  * - Clear message
  * - Clipboard paste integration (Cmd+V / Ctrl+V)
+ * /
  */
-
 import appState from './appState.js';
 
 /**

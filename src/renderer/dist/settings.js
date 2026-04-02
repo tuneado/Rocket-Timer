@@ -1506,15 +1506,6 @@ function ApiSection() {
       },
       "View Full Documentation"
     )
-  )), /* @__PURE__ */ _(SettingsGroup, { title: "Protocol Support" }, /* @__PURE__ */ _(
-    SettingsItem,
-    {
-      block: true,
-      title: "Available Protocols",
-      description: "Multiple communication protocols for different integration needs"
-    },
-    /* @__PURE__ */ _("div", { className: "protocol-list space-y-2 text-sm" }, /* @__PURE__ */ _("div", { className: "p-2 rounded bg-[var(--bg-surface-raised)]" }, /* @__PURE__ */ _("strong", { className: "text-[var(--text-primary)]" }, "REST HTTP API"), /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, " - Standard web API for custom applications and web integrations")), /* @__PURE__ */ _("div", { className: "p-2 rounded bg-[var(--bg-surface-raised)]" }, /* @__PURE__ */ _("strong", { className: "text-[var(--text-primary)]" }, "WebSocket"), /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, " - Real-time bi-directional communication for live updates")), /* @__PURE__ */ _("div", { className: "p-2 rounded bg-[var(--bg-surface-raised)]" }, /* @__PURE__ */ _("strong", { className: "text-[var(--text-primary)]" }, "OSC (Open Sound Control)"), /* @__PURE__ */ _("span", { className: "text-[var(--text-secondary)]" }, " - Professional audio/video control protocol"))),
-    /* @__PURE__ */ _("p", { className: "text-xs text-[var(--text-muted)] mt-3" }, "Warning levels and colors are automatically provided in API responses based on your appearance settings.")
   )), /* @__PURE__ */ _(SettingsGroup, { title: "Security" }, /* @__PURE__ */ _(
     SettingsItem,
     {
@@ -1925,3 +1916,21 @@ function init() {
     }, 0);
   }
 }
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
+ * Settings Page Entry Point
+ * Renders the Preact settings app.
+ * /
+ */

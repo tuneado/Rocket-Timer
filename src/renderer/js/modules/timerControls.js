@@ -1,8 +1,14 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Timer Controls Module
  * Handles start, stop, reset, and timer completion logic
+ * /
  */
-
 import { createFlashAnimation } from '../canvas/canvasEffects.js';
 import { formatTime } from '../utils/timeFormatter.js';
 import PrecisionTimer from '../utils/precisionTimer.js';
@@ -289,8 +295,13 @@ export async function startTimer(timerState, {
     const percentage = timerState.totalTimeMs > 0 ? Math.max(0, Math.round((timerState.remainingTimeMs / timerState.totalTimeMs) * 100)) : 0;
     
     // Update appState with remaining time, formatted time, and end time
+    // Compute real elapsed from wall clock (unaffected by time adjustments)
+    const elapsedMs = (timerState.pausedElapsedTime || 0) + (Date.now() - (timerState.actualStartTimestamp || Date.now()));
+    const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+
     appState.update({
       'timer.remainingTime': timerState.remainingTimeMs,
+      'timer.elapsedTime': elapsedSeconds,
       'timer.hours': hours,
       'timer.minutes': minutes,
       'timer.seconds': seconds,

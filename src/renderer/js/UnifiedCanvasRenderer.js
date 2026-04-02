@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Unified Canvas Renderer - Single render process for multiple outputs
  * Eliminates duplicate rendering between preview canvas and external display
  * Provides 50% performance improvement and perfect synchronization
+ * /
  */
-
 import VideoInputManager from './videoInputManager.js';
 
 class UnifiedCanvasRenderer {

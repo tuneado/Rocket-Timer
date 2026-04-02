@@ -52,3 +52,16 @@ logs/
 
 # Cache
 .cache/
+
+# Renderer build output
+/src/renderer/dist/
+
+# Backup & temp files
+*.bak
+*.backup
+*.tmp
+**/backup/
+
+# Internal docs
+docs/FUTURE_IDEAS.md
+DISTRIBUTION_GUIDE.md

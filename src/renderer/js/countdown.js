@@ -1,3 +1,10 @@
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
 // Import canvas effects module
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 import statusBar from './statusBar.js';
@@ -191,6 +198,11 @@ if (window.electron && window.electron.settings) {
     if (canvasRenderer && settings.showWatermark !== undefined) {
       canvasRenderer.watermark.enabled = settings.showWatermark;
     }
+
+    // Apply presets to buttons when settings change (e.g., project switch)
+    if (settings.presets && settings.presets.length > 0) {
+      PresetManager.applyPresetsToButtons(settings.presets);
+    }
   });
 }
 
@@ -229,8 +241,8 @@ function addMinutes(minutes) {
   // Shift deadline if timer is running
   if (running) TimerControls.shiftTimerDeadline(minutesMs);
   
-  // Only adjust totalTime if timer is NOT running
-  // When running, totalTime should stay fixed so elapsed time tracks correctly
+  // Adjust totalTime: when not running, add the full amount;
+  // when running, expand totalTime if remainingTime now exceeds it
   if (!running) {
     timerState.setTotalTimeMs(Math.max(totalTime + minutesMs, remainingTime));
     
@@ -243,6 +255,10 @@ function addMinutes(minutes) {
     document.getElementById("hours").value = hours;
     document.getElementById("minutes").value = mins;
     document.getElementById("seconds").value = secs;
+  } else if (remainingTime > totalTime) {
+    // When running and added time pushes remaining past total,
+    // expand totalTime so progress bar calculates correctly
+    timerState.setTotalTimeMs(remainingTime);
   }
   
   // Update appState with new values
@@ -252,7 +268,7 @@ function addMinutes(minutes) {
     'timer.hours': Math.floor(remainingTime / 1000 / 3600),
     'timer.minutes': Math.floor((remainingTime / 1000 % 3600) / 60),
     'timer.seconds': Math.floor(remainingTime / 1000) % 60,
-    'timer.percentage': totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 100,
+    'timer.percentage': totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 100))) : 100,
     'timer.formattedTime': formatTime(Math.floor(remainingTime / 1000)),
     'timer.preset': running ? appState.getState().timer.preset : null // Set to custom when not running
   });
@@ -304,7 +320,7 @@ function subtractMinutes(minutes) {
     'timer.hours': Math.floor(remainingTime / 1000 / 3600),
     'timer.minutes': Math.floor((remainingTime / 1000 % 3600) / 60),
     'timer.seconds': Math.floor(remainingTime / 1000) % 60,
-    'timer.percentage': totalTime > 0 ? Math.round((remainingTime / totalTime) * 100) : 100,
+    'timer.percentage': totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 100))) : 100,
     'timer.formattedTime': formatTime(Math.floor(remainingTime / 1000)),
     'timer.preset': running ? appState.getState().timer.preset : null // Set to custom when not running
   });
@@ -1094,7 +1110,8 @@ function changeLayout(layoutId) {
   DisplayManager.changeLayout(layoutId, { 
     canvasRenderer, 
     LayoutRegistry, 
-    getElementById: document.getElementById.bind(document) 
+    getElementById: document.getElementById.bind(document),
+    ipcRenderer
   });
 }
 
@@ -1346,6 +1363,8 @@ function initializeIPCHandlersWithElements() {
       startClock,
       stopClock,
       updateMenuState,
+      addMinute,
+      subtractMinute,
       stopTimer: () => {
         // Stop the timer using the same logic as the stop button
         if (running || stoppedAtZero) {

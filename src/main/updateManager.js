@@ -1,501 +1,181 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Auto-Update Manager
- *
- * Handles automatic updates via GitHub Releases using a single update window
- * that transitions through states: checking → found → downloading → ready
- *
- * Communication with the update window uses executeJavaScript (main→renderer)
- * and page-title-updated events (renderer→main) to avoid nodeIntegration.
+ * Handles automatic updates via GitHub Releases
+ * Simple approach: Check for updates on startup, notify user, download in background
+ * /
  */
-
 const { autoUpdater } = require('electron-updater');
-const { app, dialog, BrowserWindow } = require('electron');
+const { dialog } = require('electron');
 const log = require('electron-log');
-
-const CHECK_TIMEOUT_MS = 15000;
 
 class UpdateManager {
   constructor(mainWindow) {
     this.mainWindow = mainWindow;
-    this.updateWindow = null;
-    this.checkTimeout = null;
     this.setupLogging();
     this.setupAutoUpdater();
   }
 
   setupLogging() {
+    // Configure logging for updates
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
   }
 
-  // ---------------------------------------------------------------------------
-  // Single update window — transitions through states via executeJavaScript
-  // ---------------------------------------------------------------------------
+  setupAutoUpdater() {
+    // Don't auto-download updates - let user decide
+    autoUpdater.autoDownload = false;
+    
+    // Don't install immediately - wait for user to quit
+    autoUpdater.autoInstallOnAppQuit = true;
 
-  showUpdateWindow(initialState) {
-    if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-      this.execInWindow(initialState);
-      this.updateWindow.show();
-      return;
-    }
+    // Event: Update is available
+    autoUpdater.on('update-available', (info) => {
+      log.info('Update available:', info.version);
+      this._manualCheck = false;
+      
+      dialog.showMessageBox(this.mainWindow, {
+        type: 'info',
+        title: 'Update Available',
+        message: `A new version (${info.version}) is available!`,
+        detail: 'Would you like to download it now? The update will install when you quit the app.',
+        buttons: ['Download', 'Later'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          // User clicked "Download"
+          autoUpdater.downloadUpdate();
+          
+          // Notify user that download started
+          this.mainWindow.webContents.send('update-status', {
+            status: 'downloading',
+            message: 'Downloading update...'
+          });
+        }
+      });
+    });
 
-    this.updateWindow = new BrowserWindow({
-      width: 420,
-      height: 220,
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      fullscreenable: false,
-      frame: false,
-      show: false,
-      parent: this.mainWindow,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true
+    // Event: No updates available
+    autoUpdater.on('update-not-available', (info) => {
+      log.info('App is up to date');
+      
+      if (this._manualCheck) {
+        this._manualCheck = false;
+        dialog.showMessageBox(this.mainWindow, {
+          type: 'info',
+          title: 'No Updates Available',
+          message: 'You\u2019re up to date!',
+          detail: `Rocket Timer ${require('../../package.json').version} is the latest version.`,
+          buttons: ['OK']
+        });
       }
     });
 
-    const html = this.getUpdateWindowHTML();
-    this.updateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-
-    // Button clicks in the window change document.title to "action:<name>"
-    this.updateWindow.on('page-title-updated', (event, title) => {
-      event.preventDefault();
-      if (!title.startsWith('action:')) return;
-      const action = title.replace('action:', '');
-      this.handleAction(action);
+    // Event: Download progress
+    autoUpdater.on('download-progress', (progressInfo) => {
+      const percent = Math.round(progressInfo.percent);
+      log.info(`Download progress: ${percent}%`);
+      
+      this.mainWindow.webContents.send('update-status', {
+        status: 'downloading',
+        progress: percent,
+        message: `Downloading update: ${percent}%`
+      });
     });
 
-    this.updateWindow.on('closed', () => {
-      this.updateWindow = null;
-      this._manualCheck = false;
-      this.clearCheckTimeout();
+    // Event: Update downloaded and ready
+    autoUpdater.on('update-downloaded', (info) => {
+      log.info('Update downloaded:', info.version);
+      
+      dialog.showMessageBox(this.mainWindow, {
+        type: 'info',
+        title: 'Update Ready',
+        message: 'Update downloaded successfully!',
+        detail: 'The update will be installed when you quit the app. Restart now?',
+        buttons: ['Restart Now', 'Later'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          // User wants to restart now
+          autoUpdater.quitAndInstall();
+        }
+      });
     });
 
-    this.updateWindow.once('ready-to-show', () => {
-      if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-        this.updateWindow.show();
-        // Small delay to ensure DOM is ready
-        setTimeout(() => this.execInWindow(initialState), 50);
+    // Event: Error during update
+    autoUpdater.on('error', (error) => {
+      log.error('Update error:', error);
+      
+      if (this._manualCheck) {
+        this._manualCheck = false;
+        dialog.showMessageBox(this.mainWindow, {
+          type: 'error',
+          title: 'Update Error',
+          message: 'Failed to check for updates',
+          detail: 'Please try again later or download manually from GitHub.',
+          buttons: ['OK']
+        });
       }
     });
   }
 
   /**
-   * Execute state/progress updates in the update window
+   * Check for updates
+   * Call this when the app starts
    */
-  execInWindow(data) {
-    if (!this.updateWindow || this.updateWindow.isDestroyed()) return;
-
-    if (typeof data === 'string') {
-      this.updateWindow.webContents.executeJavaScript(`showView('${data}')`).catch(() => {});
-    } else if (data && data.state) {
-      const json = JSON.stringify(data);
-      this.updateWindow.webContents.executeJavaScript(`applyState(${json})`).catch(() => {});
-    } else if (data && data.percent !== undefined) {
-      const json = JSON.stringify(data);
-      this.updateWindow.webContents.executeJavaScript(`applyProgress(${json})`).catch(() => {});
-    }
-  }
-
-  handleAction(action) {
-    switch (action) {
-      case 'download':
-        this.execInWindow('downloading');
-        autoUpdater.downloadUpdate();
-        break;
-      case 'restart':
-        autoUpdater.quitAndInstall();
-        break;
-      case 'later':
-      case 'dismiss':
-        this.closeUpdateWindow();
-        break;
-    }
-  }
-
-  closeUpdateWindow() {
-    this.clearCheckTimeout();
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.setProgressBar(-1);
-    }
-    if (this.updateWindow && !this.updateWindow.isDestroyed()) {
-      this.updateWindow.close();
-    }
-  }
-
-  clearCheckTimeout() {
-    if (this.checkTimeout) {
-      clearTimeout(this.checkTimeout);
-      this.checkTimeout = null;
-    }
-  }
-
-  getUpdateWindowHTML() {
-    return `
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #1e1e1e;
-    color: #e0e0e0;
-    height: 100vh;
-    padding: 28px 32px;
-    border-radius: 12px;
-    border: 1px solid #333;
-    user-select: none;
-    display: flex;
-    flex-direction: column;
-  }
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
-  .icon {
-    width: 36px; height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    flex-shrink: 0;
-  }
-  .icon.checking { background: #2a3a4a; }
-  .icon.available { background: #1a3a1a; }
-  .icon.downloading { background: #2a3a4a; }
-  .icon.ready { background: #1a3a1a; }
-  .icon.uptodate { background: #2a3a4a; }
-  .icon.error { background: #3a1a1a; }
-  .title { font-size: 16px; font-weight: 600; }
-  .subtitle { font-size: 13px; color: #888; margin-top: 2px; }
-  .content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-  .message { font-size: 13px; color: #aaa; line-height: 1.5; }
-  .progress-area { margin: 8px 0 4px; }
-  .bar-bg {
-    width: 100%; height: 6px;
-    background: #333; border-radius: 3px;
-    overflow: hidden;
-  }
-  .bar-fill {
-    height: 100%; width: 0%;
-    background: linear-gradient(90deg, #4a9eff, #6cb4ff);
-    border-radius: 3px;
-    transition: width 0.3s ease;
-  }
-  .progress-text { font-size: 12px; color: #666; margin-top: 6px; }
-  .spinner-inline {
-    width: 20px; height: 20px;
-    border: 2px solid #333;
-    border-top-color: #4a9eff;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: auto;
-    padding-top: 16px;
-  }
-  .btn {
-    padding: 7px 18px;
-    border-radius: 6px;
-    border: none;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-primary { background: #4a9eff; color: #fff; }
-  .btn-primary:hover { background: #3a8eef; }
-  .btn-secondary { background: #333; color: #ccc; }
-  .btn-secondary:hover { background: #444; }
-  .view { display: none; }
-  .view.active { display: flex; flex-direction: column; height: 100%; }
-</style>
-</head>
-<body>
-
-  <!-- CHECKING -->
-  <div class="view" id="view-checking">
-    <div class="header">
-      <div class="icon checking"><div class="spinner-inline"></div></div>
-      <div>
-        <div class="title">Checking for updates</div>
-        <div class="subtitle">Contacting update server...</div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="message">This should only take a moment.</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="send('dismiss')">Cancel</button>
-    </div>
-  </div>
-
-  <!-- UPDATE AVAILABLE -->
-  <div class="view" id="view-available">
-    <div class="header">
-      <div class="icon available">&#x2728;</div>
-      <div>
-        <div class="title">New version available</div>
-        <div class="subtitle" id="available-version"></div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="message">A new version is ready to download. The app will restart to apply the update.</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="send('later')">Later</button>
-      <button class="btn btn-primary" onclick="send('download')">Download &amp; Install</button>
-    </div>
-  </div>
-
-  <!-- DOWNLOADING -->
-  <div class="view" id="view-downloading">
-    <div class="header">
-      <div class="icon downloading"><div class="spinner-inline"></div></div>
-      <div>
-        <div class="title">Downloading update</div>
-        <div class="subtitle" id="dl-subtitle">Starting download...</div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="progress-area">
-        <div class="bar-bg"><div class="bar-fill" id="bar"></div></div>
-        <div class="progress-text" id="dl-detail"></div>
-      </div>
-      <div class="message" style="margin-top:8px;">Please don't quit the app.</div>
-    </div>
-  </div>
-
-  <!-- READY -->
-  <div class="view" id="view-ready">
-    <div class="header">
-      <div class="icon ready">&#x2705;</div>
-      <div>
-        <div class="title">Update ready!</div>
-        <div class="subtitle" id="ready-version"></div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="message">The update has been downloaded. Restart now to apply it, or it will install next time you open the app.</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-secondary" onclick="send('later')">Restart Later</button>
-      <button class="btn btn-primary" onclick="send('restart')">Restart Now</button>
-    </div>
-  </div>
-
-  <!-- UP TO DATE -->
-  <div class="view" id="view-uptodate">
-    <div class="header">
-      <div class="icon uptodate">&#x2714;&#xFE0F;</div>
-      <div>
-        <div class="title">You're up to date!</div>
-        <div class="subtitle" id="uptodate-version"></div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="message">You're running the latest version of Rocket Timer.</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-primary" onclick="send('dismiss')">OK</button>
-    </div>
-  </div>
-
-  <!-- ERROR -->
-  <div class="view" id="view-error">
-    <div class="header">
-      <div class="icon error">&#x26A0;&#xFE0F;</div>
-      <div>
-        <div class="title">Update failed</div>
-        <div class="subtitle" id="error-detail">Could not check for updates</div>
-      </div>
-    </div>
-    <div class="content">
-      <div class="message">Please check your internet connection and try again, or download manually from GitHub.</div>
-    </div>
-    <div class="actions">
-      <button class="btn btn-primary" onclick="send('dismiss')">OK</button>
-    </div>
-  </div>
-
-<script>
-  // Communication: button clicks set document.title to "action:<name>"
-  // which the main process intercepts via page-title-updated event.
-  function send(action) {
-    document.title = 'action:' + action;
-  }
-
-  function showView(id) {
-    document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
-    var el = document.getElementById('view-' + id);
-    if (el) el.classList.add('active');
-  }
-
-  function applyState(data) {
-    showView(data.state);
-    if (data.version) {
-      document.getElementById('available-version').textContent = 'Version ' + data.version;
-      document.getElementById('ready-version').textContent = 'Version ' + data.version;
-    }
-    if (data.currentVersion) {
-      document.getElementById('uptodate-version').textContent = 'Version ' + data.currentVersion;
-    }
-    if (data.error) {
-      document.getElementById('error-detail').textContent = data.error;
-    }
-  }
-
-  function applyProgress(data) {
-    document.getElementById('bar').style.width = data.percent + '%';
-    document.getElementById('dl-subtitle').textContent = data.percent + '% downloaded';
-    if (data.speed) {
-      document.getElementById('dl-detail').textContent = data.speed + ' \\u2022 ' + data.remaining;
-    } else {
-      document.getElementById('dl-detail').textContent = data.percent + '%';
-    }
-  }
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') send('dismiss');
-  });
-</script>
-</body>
-</html>`;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Auto-updater event handlers
-  // ---------------------------------------------------------------------------
-
-  setupAutoUpdater() {
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = true;
-
-    autoUpdater.on('update-available', (info) => {
-      log.info('Update available:', info.version);
-      this.clearCheckTimeout();
-      this._manualCheck = false;
-      this.showUpdateWindow({ state: 'available', version: info.version });
-    });
-
-    autoUpdater.on('update-not-available', () => {
-      log.info('App is up to date');
-      this.clearCheckTimeout();
-      const wasManual = this._manualCheck;
-      this._manualCheck = false;
-
-      if (wasManual) {
-        const currentVersion = require('../../package.json').version;
-        this.showUpdateWindow({ state: 'uptodate', currentVersion });
-      } else {
-        this.closeUpdateWindow();
-      }
-    });
-
-    autoUpdater.on('download-progress', (progressInfo) => {
-      const percent = Math.round(progressInfo.percent);
-      const speed = progressInfo.bytesPerSecond
-        ? this.formatBytes(progressInfo.bytesPerSecond) + '/s'
-        : '';
-      const remaining = progressInfo.transferred && progressInfo.total
-        ? `${this.formatBytes(progressInfo.transferred)} / ${this.formatBytes(progressInfo.total)}`
-        : '';
-
-      log.info(`Download progress: ${percent}%`);
-      this.execInWindow({ percent, speed, remaining });
-
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.setProgressBar(percent / 100);
-      }
-    });
-
-    autoUpdater.on('update-downloaded', (info) => {
-      log.info('Update downloaded:', info.version);
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.setProgressBar(-1);
-      }
-      this.showUpdateWindow({ state: 'ready', version: info.version });
-    });
-
-    autoUpdater.on('error', (error) => {
-      log.error('Update error:', error);
-      this.clearCheckTimeout();
-      const wasManual = this._manualCheck;
-      this._manualCheck = false;
-
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.setProgressBar(-1);
-      }
-
-      if (wasManual) {
-        this.showUpdateWindow({ state: 'error', error: error.message || 'Unknown error' });
-      } else {
-        this.closeUpdateWindow();
-      }
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
-
-  formatBytes(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  }
-
-  // ---------------------------------------------------------------------------
-  // Public API
-  // ---------------------------------------------------------------------------
-
   checkForUpdates() {
-    if (!app.isPackaged) {
-      log.info('Skipping auto update check in development mode');
+    // Only check for updates in production (not during development)
+    if (process.env.NODE_ENV === 'development') {
+      log.info('Skipping update check in development mode');
       return;
     }
+
     log.info('Checking for updates...');
     autoUpdater.checkForUpdates();
   }
 
+  /**
+   * Manual update check (e.g., from menu)
+   */
   checkForUpdatesManual() {
-    if (!app.isPackaged) {
-      log.info('Update check skipped — app is not packaged');
-      dialog.showMessageBox(this.mainWindow, {
-        type: 'info',
-        title: 'Development Mode',
-        message: 'Update checking is not available',
-        detail: 'Auto-updates only work in the packaged app. Build with "npm run dist" to test updates.',
-        buttons: ['OK']
-      });
-      return;
-    }
-
     log.info('Manual update check triggered');
     this._manualCheck = true;
-    this.showUpdateWindow('checking');
-
-    this.checkTimeout = setTimeout(() => {
-      log.warn('Update check timed out');
-      this._manualCheck = false;
-      this.showUpdateWindow({ state: 'error', error: 'Could not reach the update server. Check your internet connection.' });
-    }, CHECK_TIMEOUT_MS);
-
-    autoUpdater.checkForUpdates().catch((err) => {
+    
+    try {
+      const result = autoUpdater.checkForUpdates();
+      if (result && result.catch) {
+        result.catch((err) => {
+          log.error('Update check promise rejected:', err);
+          if (this._manualCheck) {
+            this._manualCheck = false;
+            dialog.showMessageBox(this.mainWindow, {
+              type: 'info',
+              title: 'Update Check',
+              message: 'Unable to check for updates',
+              detail: 'Update checking is not available in development mode. It will work in the packaged app.',
+              buttons: ['OK']
+            });
+          }
+        });
+      }
+    } catch (err) {
       log.error('Update check failed:', err);
-      this.clearCheckTimeout();
       this._manualCheck = false;
-      this.showUpdateWindow({ state: 'error', error: err.message || 'Connection failed' });
-    });
+      dialog.showMessageBox(this.mainWindow, {
+        type: 'info',
+        title: 'Update Check',
+        message: 'Unable to check for updates',
+        detail: 'Update checking is not available in development mode. It will work in the packaged app.',
+        buttons: ['OK']
+      });
+    }
   }
 }
 

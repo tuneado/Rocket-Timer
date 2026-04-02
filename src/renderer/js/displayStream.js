@@ -1,9 +1,15 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Display Canvas Handler - Simplified
  * Uses UnifiedCanvasRenderer's addOutput() method to register this window's canvas
  * Main window's renderer distributes frames to all registered outputs
+ * /
  */
-
 // Detect if running in Electron
 const isElectron = typeof window.electron !== 'undefined';
 const ipcRenderer = isElectron ? window.electron.ipcRenderer : null;

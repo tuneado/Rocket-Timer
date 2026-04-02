@@ -1,12 +1,17 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Settings Manager Module
- * 
  * Manages application settings including:
  * - Loading and applying settings from the settings store
  * - Applying canvas color customizations
  * - Setting default time, layout, and theme
+ * /
  */
-
 /**
  * Loads and applies all settings
  * @param {Object} timerState - Timer state object
@@ -16,8 +21,6 @@
 export async function loadAndApplySettings(timerState, { getElementById }) {
   try {
     const settings = await window.electron.settings.getAll();
-    console.log('Loaded settings:', settings);
-    console.log('🔍 DEBUGGING: settings.defaultLayout =', settings.defaultLayout);
     
     // Apply default time
     if (settings.defaultTime) {
@@ -35,18 +38,14 @@ export async function loadAndApplySettings(timerState, { getElementById }) {
       if (minutesInput) minutesInput.value = minutes;
       if (secondsInput) secondsInput.value = seconds;
       
-      console.log('Applied default time:', hours, 'h', minutes, 'm', seconds, 's');
-      console.log('Timer state after applying default time - remaining:', timerState.remainingTime, 'total:', timerState.totalTime);
     }
     
     // Apply default layout
     if (settings.defaultLayout) {
-      console.log('🔧 SettingsManager: Setting canvasLayout to:', settings.defaultLayout);
       localStorage.setItem('canvasLayout', settings.defaultLayout);
       const layoutSelector = getElementById('layoutSelector');
       if (layoutSelector) {
         layoutSelector.value = settings.defaultLayout;
-        console.log('🔧 SettingsManager: Layout selector set to:', settings.defaultLayout);
       }
     }
     
@@ -136,5 +135,4 @@ export function applyCanvasColors(colors, options = {}) {
     root.style.setProperty('--canvas-progress-danger-end', colors.progressDanger);
   }
   
-  console.log('Applied canvas colors from settings');
 }

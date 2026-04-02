@@ -1,11 +1,16 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Clock Manager Module
- * 
  * Manages the real-time clock display that can be toggled on/off.
  * Handles clock updates, starting/stopping the clock interval, and
  * synchronization with the display window.
+ * /
  */
-
 import { formatClockTime } from '../utils/timeFormatter.js';
 
 // Lightweight DOM-only clock interval (runs when main canvas clock disabled)

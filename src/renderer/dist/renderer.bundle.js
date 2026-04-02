@@ -974,3 +974,23 @@ function init() {
     G(/* @__PURE__ */ _(App, null), appRoot);
   }
 }
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
+ * UI Component Library
+ * Central export for all reusable UI components.
+ * Import from this file to use components throughout the app.
+ * import { Button, Card, Input, Switch, Select } from './components/ui';
+ * /
+ */

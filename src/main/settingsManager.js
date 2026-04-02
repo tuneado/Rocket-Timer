@@ -1,3 +1,10 @@
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
 const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
@@ -60,12 +67,16 @@ class SettingsManager {
       mirrorVideo: false,
       videoScaling: 'contain',
 
-      // Presets
+      // Presets (time in seconds)
       presets: [
-        { id: 1, time: '05:00' },
-        { id: 2, time: '10:00' },
-        { id: 3, time: '15:00' },
-        { id: 4, time: '20:00' }
+        { id: 1, name: 'Preset 1', time: 300 },
+        { id: 2, name: 'Preset 2', time: 600 },
+        { id: 3, name: 'Preset 3', time: 900 },
+        { id: 4, name: 'Preset 4', time: 1200 },
+        { id: 5, name: 'Preset 5', time: 1500 },
+        { id: 6, name: 'Preset 6', time: 1800 },
+        { id: 7, name: 'Preset 7', time: 2700 },
+        { id: 8, name: 'Preset 8', time: 3600 }
       ],
 
       // API & Integration
@@ -113,14 +124,14 @@ class SettingsManager {
       // Canvas Colors
       colors: {
         countdown: '#ffffff',
-        clock: '#a0a0a0',
+        clock: '#808080',
         elapsed: '#808080',
-        message: '#ffaa00',
+        message: '#ffffff',
         messageBackground: '#000000',
         separator: '#333333',
         background: '#000000',
         progressSuccess: '#4ade80',
-        progressWarning: '#fbbf24',
+        progressWarning: '#f59e0b',
         progressDanger: '#ef4444',
         progressOvertime: '#991b1b'
       }

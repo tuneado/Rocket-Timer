@@ -1,8 +1,14 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Settings Window JavaScript
  * Handles navigation, UI interactions, and settings persistence
+ * /
  */
-
 let currentSettings = {};
 
 /**
@@ -59,8 +65,6 @@ function showNotification(message, type = 'info') {
 // Wait for Preact to finish rendering before initializing
 // This event is dispatched by settings.jsx after render completes
 window.addEventListener('preact-settings-ready', async () => {
-  console.log('Settings window loaded');
-  console.log('🧪 TEST: This is a test log to verify changes persist');
 
   // Load settings
   await loadSettings();
@@ -136,30 +140,13 @@ window.addEventListener('preact-settings-ready', async () => {
   
   // FIX: Set default layout dropdown after layout options are populated
   setTimeout(() => {
-    console.log('🔧 DROPDOWN FIX: Attempting to set default layout dropdown');
     const defaultLayoutSelect = document.getElementById('defaultLayout');
     if (defaultLayoutSelect && currentSettings && currentSettings.defaultLayout) {
-      console.log('🔧 Current dropdown value BEFORE fix:', defaultLayoutSelect.value);
-      console.log('🔧 Target layout from settings:', currentSettings.defaultLayout);
-      console.log('🔧 Available options:', Array.from(defaultLayoutSelect.options).map(o => `${o.value}: ${o.textContent}`));
-      
       defaultLayoutSelect.value = currentSettings.defaultLayout;
-      console.log('🔧 Dropdown value AFTER setting:', defaultLayoutSelect.value);
-      
-      // Also set the selected attribute
       const targetOption = defaultLayoutSelect.querySelector(`option[value="${currentSettings.defaultLayout}"]`);
       if (targetOption) {
         targetOption.selected = true;
-        console.log('✅ Successfully selected option:', targetOption.textContent);
-      } else {
-        console.log('❌ Could not find option for layout:', currentSettings.defaultLayout);
       }
-    } else {
-      console.log('❌ Dropdown fix failed - missing elements:', {
-        dropdown: !!defaultLayoutSelect,
-        settings: !!currentSettings,
-        defaultLayout: currentSettings?.defaultLayout
-      });
     }
   }, 500);
   
@@ -213,7 +200,6 @@ function setupNavigation() {
 async function loadSettings() {
   try {
     currentSettings = await window.electron.settings.getAll();
-    console.log('Loaded settings:', currentSettings);
     
     // Populate form fields
     populateFormFields();
@@ -475,7 +461,7 @@ function setupFormHandlers() {
   });
   
   onChange('matchTimerColor', (checked) => {
-    console.log('🔄 Match timer color toggle changed to:', checked);
+    console.log('Match timer color toggle changed to:', checked);
     saveSetting('matchTimerColor', checked);
     handleTimerColorMatch(checked);
   });
@@ -898,7 +884,6 @@ async function saveSetting(key, value) {
     // Store certain settings in localStorage for access from other windows
     if (key === 'defaultLayout') {
       localStorage.setItem('canvasLayout', value);
-      console.log('🔧 Synced defaultLayout to localStorage:', value);
     }
     if (key === 'matchTimerColor') {
       localStorage.setItem('matchTimerColor', value.toString());
@@ -947,10 +932,19 @@ function renderPresets() {
   const presetList = document.getElementById('presetList');
   if (!presetList || !currentSettings.presets) return;
 
-  presetList.innerHTML = currentSettings.presets.map(preset => `
+  presetList.innerHTML = currentSettings.presets.map(preset => {
+    const totalSec = typeof preset.time === 'number' ? preset.time : 0;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const display = h > 0
+      ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    const label = preset.name ? `${preset.name} — ${display}` : display;
+    return `
     <div class="preset-item" data-id="${preset.id}">
       <i class="bi bi-grip-vertical preset-drag-handle"></i>
-      <div class="preset-time">${preset.time}</div>
+      <div class="preset-time">${label}</div>
       <div class="preset-actions">
         <button onclick="editPreset(${preset.id})" title="Edit">
           <i class="bi bi-pencil"></i>
@@ -959,8 +953,8 @@ function renderPresets() {
           <i class="bi bi-trash"></i>
         </button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 /**
@@ -976,7 +970,6 @@ window.deletePreset = async function(id) {
  * Edit preset (placeholder)
  */
 window.editPreset = function(id) {
-  // TODO: Implement preset editing
   console.log('Edit preset:', id);
 };
 

@@ -1,3 +1,10 @@
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
 import { h } from 'preact';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
 import { SettingsItem } from '../../ui/SettingsItem.jsx';
@@ -130,32 +137,6 @@ export function ApiSection() {
           >
             View Full Documentation
           </Button>
-        </SettingsItem>
-      </SettingsGroup>
-
-      <SettingsGroup title="Protocol Support">
-        <SettingsItem
-          block
-          title="Available Protocols"
-          description="Multiple communication protocols for different integration needs"
-        >
-          <div className="protocol-list space-y-2 text-sm">
-            <div className="p-2 rounded bg-[var(--bg-surface-raised)]">
-              <strong className="text-[var(--text-primary)]">REST HTTP API</strong>
-              <span className="text-[var(--text-secondary)]"> - Standard web API for custom applications and web integrations</span>
-            </div>
-            <div className="p-2 rounded bg-[var(--bg-surface-raised)]">
-              <strong className="text-[var(--text-primary)]">WebSocket</strong>
-              <span className="text-[var(--text-secondary)]"> - Real-time bi-directional communication for live updates</span>
-            </div>
-            <div className="p-2 rounded bg-[var(--bg-surface-raised)]">
-              <strong className="text-[var(--text-primary)]">OSC (Open Sound Control)</strong>
-              <span className="text-[var(--text-secondary)]"> - Professional audio/video control protocol</span>
-            </div>
-          </div>
-          <p className="text-xs text-[var(--text-muted)] mt-3">
-            Warning levels and colors are automatically provided in API responses based on your appearance settings.
-          </p>
         </SettingsItem>
       </SettingsGroup>
 

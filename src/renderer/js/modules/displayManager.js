@@ -1,12 +1,17 @@
 /**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ *
  * Display Manager Module
- * 
  * Manages display updates for both canvas and external display window:
  * - Updates canvas renderer with current timer state
  * - Syncs state to companion server for API/Socket.IO
  * - Handles layout changes
+ * /
  */
-
 import { formatTime, formatElapsedTime } from '../utils/timeFormatter.js';
 import appState from './appState.js';
 
@@ -19,7 +24,8 @@ import appState from './appState.js';
 function calculateProgress(remainingTime, totalTime) {
   // Use one decimal place for smoother visual animation
   // This allows the progress bar to update more smoothly between timer ticks
-  const progress = totalTime > 0 ? Math.max(0, Math.round((remainingTime / totalTime) * 1000) / 10) : 0;
+  // Clamp to 0-100 range (remainingTime can briefly exceed totalTime after adding time)
+  const progress = totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 1000) / 10)) : 0;
   
   return progress;
 }
@@ -175,12 +181,21 @@ export async function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer 
   const progressPercent = cachedValues?.progressPercent ?? calculateProgress(remainingTime, totalTime);
   const warningLevel = cachedValues?.warningLevel ?? await calculateWarningLevel(remainingTime, totalTime);
 
+  // Compute real elapsed time from wall clock (unaffected by time adjustments)
+  let elapsedSeconds = 0
+  if (running && timerState.actualStartTimestamp > 0) {
+    elapsedSeconds = Math.floor((timerState.pausedElapsedTime + (Date.now() - timerState.actualStartTimestamp)) / 1000)
+  } else if (timerState.pausedElapsedTime > 0) {
+    elapsedSeconds = Math.floor(timerState.pausedElapsedTime / 1000)
+  }
+
   // Update appState instead of sending direct IPC - let appState subscription handle API updates
   appState.update({
     'timer.running': running,
     'timer.paused': !running && remainingTime < totalTime && remainingTime > 0,
     'timer.remainingTime': remainingTime * 1000, // Convert to milliseconds for appState
     'timer.totalTime': totalTime * 1000,
+    'timer.elapsedTime': elapsedSeconds,
     'timer.hours': hours,
     'timer.minutes': minutes,
     'timer.seconds': seconds,
@@ -199,7 +214,7 @@ export async function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer 
  * @param {Function} dependencies.LayoutRegistry - Layout registry for getting layouts
  * @param {Function} dependencies.getElementById - Function to get DOM elements
  */
-export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, getElementById }) {
+export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, getElementById, ipcRenderer }) {
   if (canvasRenderer) {
     const layout = LayoutRegistry.getLayout(layoutId);
     if (layout) {
@@ -219,6 +234,11 @@ export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, getElem
       
       // Save to localStorage
       localStorage.setItem('canvasLayout', layoutId);
+      
+      // Notify main process so the external display window gets updated
+      if (window.electron && ipcRenderer) {
+        ipcRenderer.send('layout-changed', layoutId);
+      }
       
       console.log('Layout changed to:', layout.name);
     }

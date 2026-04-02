@@ -1,8 +1,16 @@
+/**
+ * Rocket Timer — Professional Countdown & Timer Solution
+ * @copyright 2026 50hz Event Solutions <geral@50-hz.com>
+ * @author André Raimundo
+ * @license GPL-3.0 — see LICENSE file for details
+ * @see https://github.com/tuneado/Rocket-Timer
+ */
 const { app, screen } = require('electron');
 const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
-const { setupMenu } = require('./menu');
+const { setupMenu, updateProjectsMenu } = require('./menu');
 const { setupIpcHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
+const ProjectManager = require('./projectManager');
 const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
 const UpdateManager = require('./updateManager');
 const log = require('electron-log');
@@ -14,6 +22,7 @@ log.transports.console.level = 'info';
 let mainWindow;
 let apiServer;
 let updateManager;
+let projectManager;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -27,13 +36,28 @@ if (settings.hardwareAcceleration === false) {
 }
 
 // Launch
-app.on('ready', () => {
+app.on('ready', async () => {
   mainWindow = createMainWindow();
   setupMenu(mainWindow);
-  setupIpcHandlers(mainWindow);
+  setupIpcHandlers(mainWindow, settingsManager);
   
   // Initialize update manager
   updateManager = new UpdateManager(mainWindow);
+  
+  // Initialize Project Manager
+  try {
+    projectManager = new ProjectManager(settingsManager);
+    await projectManager.initialize();
+    console.log('✅ ProjectManager initialized successfully');
+    
+    // Make it available globally for menu/IPC handlers
+    global.projectManager = projectManager;
+    
+    // Rebuild menu with project list
+    updateProjectsMenu();
+  } catch (error) {
+    console.error('🚨 Failed to initialize ProjectManager:', error);
+  }
   
   // Initialize Unified API Server
   const settings = getSettings();
@@ -45,7 +69,8 @@ app.on('ready', () => {
     enableAuth: settings.apiAuth || false,
     enableRateLimit: settings.apiRateLimit !== false,
     allowExternal: settings.companionAllowExternal === true,
-    colors: settings.colors || {}
+    colors: settings.colors || {},
+    presets: settings.presets || []
   });
   
   // Wait for main window to be ready before starting API server
@@ -112,6 +137,20 @@ app.on('ready', () => {
   }
 });
 
+// Prompt to save before quitting
+app.on('before-quit', async (e) => {
+  if (projectManager && projectManager.hasUnsaved()) {
+    e.preventDefault();
+    const parentWin = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    const safeToQuit = await projectManager.promptSaveIfNeeded(parentWin);
+    if (safeToQuit) {
+      // Clear the flag so we don't loop, then quit
+      projectManager.hasUnsavedChanges = false;
+      app.quit();
+    }
+  }
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -122,7 +161,7 @@ app.on('activate', () => {
   if (mainWindow === null) {
     mainWindow = createMainWindow();
     setupMenu(mainWindow);
-    setupIpcHandlers(mainWindow);
+    setupIpcHandlers(mainWindow, settingsManager);
   }
 });
 
