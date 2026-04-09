@@ -55,7 +55,8 @@ export class TimeUtils {
     const formatted = endTime.toLocaleTimeString('en-US', { 
       hour12: false, 
       hour: '2-digit', 
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit'
     });
     
     return { date: endTime, formatted };

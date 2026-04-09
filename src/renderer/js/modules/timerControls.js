@@ -179,7 +179,8 @@ export async function startTimer(timerState, {
   const endTimeFormatted = endTime.toLocaleTimeString('en-US', { 
     hour12: clockFormat === '12h', 
     hour: '2-digit', 
-    minute: '2-digit'
+    minute: '2-digit',
+    second: '2-digit'
   });
   
   // Update appState
@@ -258,7 +259,7 @@ export async function startTimer(timerState, {
         'timer.seconds': 0,
         'timer.formattedTime': '00:00:00',
         'timer.percentage': 0,
-        'timer.endTimeFormatted': '--:--'
+        'timer.endTimeFormatted': '--:--:--'
       });
       
       // Update button back to Start since timer has stopped
@@ -280,7 +281,8 @@ export async function startTimer(timerState, {
     const endTimeFormatted = endTime.toLocaleTimeString('en-US', { 
       hour12: clockFormat === '12h', 
       hour: '2-digit', 
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit'
     });
     
     // Calculate formatted time for this tick - handle negative time correctly
@@ -356,7 +358,7 @@ export function stopTimer(countdown, timerState, {
   appState.update({
     'timer.running': false,
     'timer.endTime': null,
-    'timer.endTimeFormatted': '--:--'
+    'timer.endTimeFormatted': '--:--:--'
   });
   
   updateButtonIcon(startStopBtn, 'play-fill', 'Start');
@@ -424,7 +426,7 @@ export function resetTimer(countdown, timerState, {
     'timer.formattedTime': formattedTime,
     'timer.percentage': percentage,
     'timer.endTime': null,
-    'timer.endTimeFormatted': '--:--'
+    'timer.endTimeFormatted': '--:--:--'
   });
 
   // Reflect last set time in UI (use seconds for input fields)

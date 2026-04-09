@@ -1349,7 +1349,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
       isPaused: timer.paused || false,
       startTime: timer.startTime || null,
       endTime: timer.endTime || null,
-      endTimeFormatted: timer.endTimeFormatted || '--:--',
+      endTimeFormatted: timer.endTimeFormatted || '--:--:--',
       warningLevel: warningLevel,
       warningColor: warningColor,
       formattedTime: timer.formattedTime || '00:00:00',

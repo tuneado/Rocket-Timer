@@ -113,7 +113,7 @@ export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer })
   }
   
   // Get end time from appState 
-  const endTimeDisplay = appState.get('timer.endTimeFormatted') || '--:--';
+  const endTimeDisplay = appState.get('timer.endTimeFormatted') || '--:--:--';
   
   // Update timer information display elements (exclude clock - handled by clockManager)
   const timerValueEl = document.getElementById('timerValue');

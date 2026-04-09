@@ -13,6 +13,19 @@ const SettingsManager = require('./settingsManager');
 
 let settingsManager;
 
+/**
+ * Safely send IPC message to a window, guarding against disposed frames.
+ */
+function safeSend(win, channel, ...args) {
+  try {
+    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send(channel, ...args);
+    }
+  } catch (_) {
+    // Frame was disposed between checks — silently ignore
+  }
+}
+
 function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // Initialize managers
   settingsManager = sharedSettingsManager || new SettingsManager();
@@ -54,19 +67,13 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     if (success) {
       const updatedSettings = settingsManager.getSettings();
       
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(mainWindow, 'settings-updated', updatedSettings);
       
       const displayWindow = getDisplayWindow();
-      if (displayWindow && !displayWindow.isDestroyed()) {
-        displayWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(displayWindow, 'settings-updated', updatedSettings);
       
       const settingsWindow = getSettingsWindow();
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(settingsWindow, 'settings-updated', updatedSettings);
 
       // Notify API server about preset changes
       if (updatedSettings.presets) {
@@ -89,19 +96,13 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     if (success) {
       const updatedSettings = settingsManager.getSettings();
       
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(mainWindow, 'settings-updated', updatedSettings);
       
       const displayWindow = getDisplayWindow();
-      if (displayWindow && !displayWindow.isDestroyed()) {
-        displayWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(displayWindow, 'settings-updated', updatedSettings);
       
       const settingsWindow = getSettingsWindow();
-      if (settingsWindow && !settingsWindow.isDestroyed()) {
-        settingsWindow.webContents.send('settings-updated', updatedSettings);
-      }
+      safeSend(settingsWindow, 'settings-updated', updatedSettings);
 
       // Notify API server about preset changes
       if (key === 'presets') {
@@ -121,15 +122,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     console.log('Applying settings from settings window');
     
     // Notify main window to apply settings
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('apply-settings', settings);
-    }
+    safeSend(mainWindow, 'apply-settings', settings);
     
     // Notify display window if open
     const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed()) {
-      displayWindow.webContents.send('apply-settings', settings);
-    }
+    safeSend(displayWindow, 'apply-settings', settings);
   });
 
   // Handle display window toggle
@@ -140,13 +137,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       console.log('Display window toggled. Now visible:', isVisible);
       
       // Send the new state back to the main window
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('display-window-state-changed', isVisible);
-        
-        // If window is now visible, request current state sync
-        if (isVisible) {
-          mainWindow.webContents.send('request-current-state-for-display');
-        }
+      safeSend(mainWindow, 'display-window-state-changed', isVisible);
+      
+      // If window is now visible, request current state sync
+      if (isVisible) {
+        safeSend(mainWindow, 'request-current-state-for-display');
       }
       
       // Update menu items
@@ -165,7 +160,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('update-clock', data);
+      safeSend(displayWindow, 'update-clock', data);
     }
   });
   
@@ -175,7 +170,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('toggle-clock-display', visible);
+      safeSend(displayWindow, 'toggle-clock-display', visible);
     }
   });
 
@@ -188,43 +183,37 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('update-display', data);
+      safeSend(displayWindow, 'update-display', data);
     }
   });
 
   ipcMain.on('update-theme', (event, theme) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('theme-updated', theme);
-    }
+    safeSend(mainWindow, 'theme-updated', theme);
     
     // Also send theme to display window if it's visible
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('theme-updated', theme);
+      safeSend(displayWindow, 'theme-updated', theme);
     }
   });
 
   // Handle theme requests from display window
   ipcMain.on('request-current-theme', (event) => {
     // Request current theme from main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('request-current-theme-for-display');
-    }
+    safeSend(mainWindow, 'request-current-theme-for-display');
   });
 
   // Forward theme response to display window
   ipcMain.on('current-theme-response', (event, theme) => {
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('theme-updated', theme);
+      safeSend(displayWindow, 'theme-updated', theme);
     }
   });
 
   // Handle clock state requests
   ipcMain.on('request-clock-state', (event) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('request-clock-state');
-    }
+    safeSend(mainWindow, 'request-clock-state');
   });
 
   // Handle menu state updates
@@ -244,7 +233,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('update-clock', data);
+      safeSend(displayWindow, 'update-clock', data);
     }
   });
 
@@ -253,9 +242,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     const isVisible = isDisplayWindowVisible();
     console.log('Display window state requested, visible:', isVisible);
     
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('display-window-state-changed', isVisible);
-    }
+    safeSend(mainWindow, 'display-window-state-changed', isVisible);
   });
 
   // Handle syncing current state to display window
@@ -269,41 +256,41 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       // Send current timer state
       if (data.timer) {
         console.log('📤 Main process sending update-display to display window:', data.timer);
-        displayWindow.webContents.send('update-display', data.timer);
+        safeSend(displayWindow, 'update-display', data.timer);
       }
       // Send current clock state
       if (data.clock) {
-        displayWindow.webContents.send('update-clock', data.clock);
+        safeSend(displayWindow, 'update-clock', data.clock);
       }
       // Send clock visibility state
       if (data.clockVisible !== undefined) {
-        displayWindow.webContents.send('toggle-clock-display', data.clockVisible);
+        safeSend(displayWindow, 'toggle-clock-display', data.clockVisible);
       }
       // Send current message state
       if (data.message) {
         if (data.message.visible && data.message.text) {
-          displayWindow.webContents.send('show-message', data.message.text);
+          safeSend(displayWindow, 'show-message', data.message.text);
         } else {
-          displayWindow.webContents.send('clear-message');
+          safeSend(displayWindow, 'clear-message');
         }
       }
       // Send current video input state
       if (data.video && data.video.enabled) {
         console.log('Syncing video input to display window:', data.video);
-        displayWindow.webContents.send('video-input-start', data.video.deviceId);
+        safeSend(displayWindow, 'video-input-start', data.video.deviceId);
         if (data.video.opacity !== undefined) {
-          displayWindow.webContents.send('video-opacity-change', data.video.opacity);
+          safeSend(displayWindow, 'video-opacity-change', data.video.opacity);
         }
       }
       // Send current cover image state
       if (data.coverImage && data.coverImage.enabled) {
         console.log('Syncing cover image to display window:', data.coverImage);
-        displayWindow.webContents.send('sync-cover-image', data.coverImage);
+        safeSend(displayWindow, 'sync-cover-image', data.coverImage);
       }
       // Send current background image state
       if (data.backgroundImage && data.backgroundImage.enabled) {
         console.log('Syncing background image to display window:', data.backgroundImage);
-        displayWindow.webContents.send('sync-background-image', data.backgroundImage);
+        safeSend(displayWindow, 'sync-background-image', data.backgroundImage);
       }
     }
   });
@@ -319,7 +306,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('show-message', message);
+      safeSend(displayWindow, 'show-message', message);
     }
   });
 
@@ -329,7 +316,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('clear-message');
+      safeSend(displayWindow, 'clear-message');
     }
   });
 
@@ -339,7 +326,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('flash-at-zero');
+      safeSend(displayWindow, 'flash-at-zero');
     }
   });
 
@@ -362,7 +349,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward layout change to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('layout-changed', layoutId);
+      safeSend(displayWindow, 'layout-changed', layoutId);
     }
   });
 
@@ -373,17 +360,15 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('video-input-start', deviceId);
+      safeSend(displayWindow, 'video-input-start', deviceId);
     }
     
     // Notify settings window with device info
     const settingsWindow = getSettingsWindow();
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.webContents.send('video-input-live', {
-        isLive: true,
-        deviceId: deviceId
-      });
-    }
+    safeSend(settingsWindow, 'video-input-live', {
+      isLive: true,
+      deviceId: deviceId
+    });
   });
 
   // Handle video input stop
@@ -393,17 +378,15 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('video-input-stop');
+      safeSend(displayWindow, 'video-input-stop');
     }
     
     // Notify settings window
     const settingsWindow = getSettingsWindow();
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.webContents.send('video-input-live', {
-        isLive: false,
-        deviceId: null
-      });
-    }
+    safeSend(settingsWindow, 'video-input-live', {
+      isLive: false,
+      deviceId: null
+    });
   });
 
   // Handle video mirror setting change
@@ -411,14 +394,12 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     console.log('Video mirror changed:', enabled);
     
     // Forward to main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('video-mirror-changed', enabled);
-    }
+    safeSend(mainWindow, 'video-mirror-changed', enabled);
     
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed()) {
-      displayWindow.webContents.send('video-mirror-changed', enabled);
+      safeSend(displayWindow, 'video-mirror-changed', enabled);
     }
   });
 
@@ -427,14 +408,12 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     console.log('Video scaling changed:', mode);
     
     // Forward to main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('video-scaling-changed', mode);
-    }
+    safeSend(mainWindow, 'video-scaling-changed', mode);
     
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed()) {
-      displayWindow.webContents.send('video-scaling-changed', mode);
+      safeSend(displayWindow, 'video-scaling-changed', mode);
     }
   });
 
@@ -443,14 +422,12 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     console.log('Video device selected in settings:', deviceId);
     
     // Forward to main window so it knows which device to use
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('video-device-changed', deviceId);
-    }
+    safeSend(mainWindow, 'video-device-changed', deviceId);
     
     // Also forward to display window if it exists
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('video-device-changed', deviceId);
+      safeSend(displayWindow, 'video-device-changed', deviceId);
     }
   });
 
@@ -461,7 +438,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('video-opacity-change', opacity);
+      safeSend(displayWindow, 'video-opacity-change', opacity);
     }
   });
 
@@ -469,9 +446,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   ipcMain.on('performance-stats-update', (event, stats) => {
     // Forward to settings window for display
     const settingsWindow = getSettingsWindow();
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.webContents.send('performance-stats-update', stats);
-    }
+    safeSend(settingsWindow, 'performance-stats-update', stats);
   });
 
   // Handle restart notification for hardware acceleration changes
@@ -529,7 +504,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('toggle-cover-image', enabled);
+      safeSend(displayWindow, 'toggle-cover-image', enabled);
     }
   });
   
@@ -540,13 +515,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Forward to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      displayWindow.webContents.send('sync-background-image', data);
+      safeSend(displayWindow, 'sync-background-image', data);
     }
     
     // Forward to main window (for preview canvas)
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('sync-background-image', data);
-    }
+    safeSend(mainWindow, 'sync-background-image', data);
   });
   
   // Handle display window initialization sync (consolidated handler)
@@ -558,14 +531,14 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.mainWindowReady) {
         console.log('Main window is ready, requesting timer state sync');
-        mainWindow.webContents.send('request-current-state-for-display');
+        safeSend(mainWindow, 'request-current-state-for-display');
       } else {
         console.log('Main window not ready yet, waiting...');
         // Wait for main window to be ready
         const checkReady = () => {
           if (mainWindow.mainWindowReady) {
             console.log('Main window now ready, requesting timer state sync');
-            mainWindow.webContents.send('request-current-state-for-display');
+            safeSend(mainWindow, 'request-current-state-for-display');
           } else {
             setTimeout(checkReady, 100);
           }
@@ -580,7 +553,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       
       // Sync cover image
       if (settings.coverImage && settings.coverImage.enabled && settings.coverImage.path) {
-        displayWindow.webContents.send('sync-cover-image', {
+        safeSend(displayWindow, 'sync-cover-image', {
           enabled: true,
           path: settings.coverImage.path
         });
@@ -588,7 +561,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       
       // Sync background image
       if (settings.backgroundImage && settings.backgroundImage.enabled && settings.backgroundImage.path) {
-        displayWindow.webContents.send('sync-background-image', {
+        safeSend(displayWindow, 'sync-background-image', {
           enabled: true,
           path: settings.backgroundImage.path,
           opacity: settings.backgroundImage.opacity || 1.0
@@ -674,9 +647,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // Layout management handlers
   ipcMain.on('layout-list-updated', () => {
     // Notify main window that layout list was updated
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('layout-list-updated');
-    }
+    safeSend(mainWindow, 'layout-list-updated');
   });
   
   ipcMain.handle('get-current-layout', async () => {
@@ -705,7 +676,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // If display window is already open and waiting, sync it now
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      mainWindow.webContents.send('request-current-state-for-display');
+      safeSend(mainWindow, 'request-current-state-for-display');
     }
   });
 
@@ -720,14 +691,10 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   ipcMain.on('layout-creator:saved', (event, data) => {
     console.log('Layout Creator saved layout:', data?.id);
     // Notify main window to refresh layout list
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('layout-list-updated');
-    }
+    safeSend(mainWindow, 'layout-list-updated');
     // Notify settings window if open
     const settingsWin = getSettingsWindow();
-    if (settingsWin && !settingsWin.isDestroyed()) {
-      settingsWin.webContents.send('layout-list-updated');
-    }
+    safeSend(settingsWin, 'layout-list-updated');
   });
 
   // ========================================================================
@@ -831,7 +798,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
 
     if (response === 0) {
       // Save — tell renderer to save, then quit
-      mainWindow.webContents.send('project-save-request');
+      safeSend(mainWindow, 'project-save-request');
       // Give renderer a moment to save, then force close
       setTimeout(() => {
         mainWindow.destroy();
