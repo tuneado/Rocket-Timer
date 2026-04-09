@@ -1,8 +1,12 @@
-const { describe, it, expect, afterAll } = require('vitest');
-const { spawn } = require('child_process');
-const path = require('path');
-const http = require('http');
+import { describe, it, expect, afterAll } from 'vitest';
+import { spawn } from 'child_process';
+import path from 'path';
+import http from 'http';
+import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const ROOT = path.resolve(__dirname, '..', '..');
 
 /**
