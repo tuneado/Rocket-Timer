@@ -15,12 +15,18 @@ let settingsManager;
 
 /**
  * Safely send IPC message to a window, guarding against disposed frames.
+ * Checks webContents.mainFrame to avoid Electron's internal error logging
+ * that occurs when send() is called on a disposed render frame.
  */
 function safeSend(win, channel, ...args) {
   try {
-    if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
-      win.webContents.send(channel, ...args);
-    }
+    if (!win || win.isDestroyed()) return;
+    const wc = win.webContents;
+    if (!wc || wc.isDestroyed()) return;
+    // mainFrame is null when the render frame is disposed — checking this
+    // prevents Electron from logging the error internally before throwing
+    if (!wc.mainFrame) return;
+    wc.send(channel, ...args);
   } catch (_) {
     // Frame was disposed between checks — silently ignore
   }

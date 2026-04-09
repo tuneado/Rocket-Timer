@@ -59,8 +59,12 @@ function createDisplayWindow() {
   // When display window finishes loading, sync current state
   displayWindow.webContents.once('did-finish-load', () => {
     // Request current state from main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('request-current-state-for-display');
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed() && mainWindow.webContents.mainFrame) {
+        mainWindow.webContents.send('request-current-state-for-display');
+      }
+    } catch (_) {
+      // Silently ignore if frame was disposed
     }
   });
 
@@ -69,8 +73,12 @@ function createDisplayWindow() {
     displayWindow = null;
     displayWindowVisible = false;
     // Notify main window that display was closed
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('display-window-closed');
+    try {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed() && mainWindow.webContents.mainFrame) {
+        mainWindow.webContents.send('display-window-closed');
+      }
+    } catch (_) {
+      // Silently ignore if frame was disposed
     }
   });
 
@@ -135,8 +143,12 @@ function setDisplayFullscreen() {
         
         // Notify main window of state change
         const mainWin = getMainWindow();
-        if (mainWin && !mainWin.isDestroyed()) {
-          mainWin.webContents.send('display-window-state-changed', true);
+        try {
+          if (mainWin && !mainWin.isDestroyed() && mainWin.webContents && !mainWin.webContents.isDestroyed() && mainWin.webContents.mainFrame) {
+            mainWin.webContents.send('display-window-state-changed', true);
+          }
+        } catch (_) {
+          // Silently ignore if frame was disposed
         }
         
         // Update menu
