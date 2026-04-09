@@ -1,7 +1,10 @@
 {
   "name": "Rocket Timer — Linux Test Environment",
-  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
     "ghcr.io/devcontainers/features/desktop-lite:1": {
       "password": "rocket",
       "webPort": "6080",
@@ -15,7 +18,7 @@
     "9999": { "label": "REST API", "onAutoForward": "silent" },
     "8080": { "label": "WebSocket", "onAutoForward": "silent" }
   },
-  "postCreateCommand": "npm ci && npm run build",
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y libgtk-3-0 libnotify4 libnss3 libxss1 libasound2t64 libgbm1 && npm ci && npm run build",
   "customizations": {
     "vscode": {
       "settings": {
