@@ -23,7 +23,14 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "publish": "npm run build && electron-builder --publish always"
+    "publish": "npm run build && electron-builder --publish always",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "test:unit": "vitest run --config vitest.config.mjs",
+    "test:unit:watch": "vitest --config vitest.config.mjs",
+    "test:unit:coverage": "vitest run --config vitest.config.mjs --coverage",
+    "test:e2e": "vitest run --config vitest.e2e.config.mjs",
+    "test": "npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.17",
@@ -31,10 +38,14 @@
     "autoprefixer": "^10.4.22",
     "electron": "^38.1.0",
     "electron-builder": "^26.8.1",
+    "@eslint/js": "^9.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
     "esbuild": "^0.19.0",
     "esbuild-plugin-postcss2": "^0.1.2",
+    "eslint": "^9.0.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.17"
+    "tailwindcss": "^4.1.17",
+    "vitest": "^3.0.0"
   },
   "dependencies": {
     "cors": "^2.8.5",

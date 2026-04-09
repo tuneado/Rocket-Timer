@@ -65,3 +65,7 @@ logs/
 # Internal docs
 docs/FUTURE_IDEAS.md
 DISTRIBUTION_GUIDE.md
+CI_TESTING_NOTES.md
+
+# Personal docs
+personal-docs/
