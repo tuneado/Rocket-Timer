@@ -453,6 +453,15 @@ class UnifiedTimerAPIServer extends EventEmitter {
       console.log(`🌐 REST API server running on ${host}:${this.config.restPort}`)
       console.log(`📖 API Documentation: http://localhost:${this.config.restPort}/api`)
     })
+
+    this.servers.rest.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`🚨 REST API port ${this.config.restPort} is already in use. Is another instance running?`)
+      } else {
+        console.error('🚨 REST API server error:', error)
+      }
+      this.emit('server-error', error)
+    })
     
     return this.servers.rest
   }
@@ -466,6 +475,15 @@ class UnifiedTimerAPIServer extends EventEmitter {
     }
     
     this.servers.ws = new WebSocket.Server(wsOptions)
+
+    this.servers.ws.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`🚨 WebSocket port ${this.config.wsPort} is already in use. Is another instance running?`)
+      } else {
+        console.error('🚨 WebSocket server error:', error)
+      }
+      this.emit('server-error', error)
+    })
     
     this.servers.ws.on('connection', (ws, req) => {
       const clientIP = req.socket.remoteAddress
