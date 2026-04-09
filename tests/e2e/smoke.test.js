@@ -15,7 +15,14 @@ const ROOT = path.resolve(__dirname, '..', '..');
 function launchApp(timeout = 15000) {
   return new Promise((resolve, reject) => {
     const electronBin = require.resolve('electron/cli.js');
-    const child = spawn(process.execPath, [electronBin, '.'], {
+    const args = [electronBin, '.'];
+
+    // Linux CI requires --no-sandbox (SUID sandbox not configured)
+    if (process.platform === 'linux') {
+      args.push('--no-sandbox', '--disable-gpu-sandbox');
+    }
+
+    const child = spawn(process.execPath, args, {
       cwd: ROOT,
       env: { ...process.env, ELECTRON_IS_TEST: '1', NODE_ENV: 'test' },
       stdio: ['ignore', 'pipe', 'pipe'],

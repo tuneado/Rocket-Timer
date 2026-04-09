@@ -35,6 +35,12 @@ if (settings.hardwareAcceleration === false) {
   app.disableHardwareAcceleration();
 }
 
+// Linux: fix common sandbox/GPU issues (AppImage, Wayland, CI environments)
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+}
+
 // Launch
 app.on('ready', async () => {
   mainWindow = createMainWindow();
