@@ -44,10 +44,12 @@ function createDisplayWindow() {
   displayWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
     icon: appIcon,
     alwaysOnTop: true,
@@ -55,6 +57,16 @@ function createDisplayWindow() {
   });
 
   displayWindow.loadFile(path.join(__dirname, '../renderer/html/display.html'));
+
+  // Show window only after content is ready to avoid white flash
+  displayWindow.once('ready-to-show', () => {
+    displayWindow.show();
+  });
+
+  // Log renderer crashes for diagnostics
+  displayWindow.webContents.on('render-process-gone', (event, details) => {
+    console.error('Display window renderer crashed:', details.reason, details.exitCode);
+  });
 
   // When display window finishes loading, sync current state
   displayWindow.webContents.once('did-finish-load', () => {

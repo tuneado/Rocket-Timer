@@ -64,8 +64,12 @@ logs/
 
 # Internal docs
 docs/FUTURE_IDEAS.md
+docs/PROJECTS_FEATURE_PLAN.md
 DISTRIBUTION_GUIDE.md
 CI_TESTING_NOTES.md
+
+# Temp files
+*.tmp
 
 # Personal docs
 personal-docs/
