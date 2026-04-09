@@ -1,6 +1,6 @@
 {
   "name": "rocket-timer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "productName": "Rocket Timer",
   "description": "The ultimate timer app for events",
   "main": "src/main/main.js",
@@ -87,7 +87,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico"
