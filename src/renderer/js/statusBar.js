@@ -271,7 +271,9 @@ class StatusBar {
       case 'good':
         color = '#4ade80'; // Green
         title = stats ? 
-          `Performance: Good\n${stats.currentFPS} FPS | ${stats.averageRenderTime}ms avg` :
+          (stats.isIdle ? 
+            `Performance: Idle\nNo changes to render | ${stats.averageRenderTime}ms avg` :
+            `Performance: Good\n${stats.currentFPS} FPS | ${stats.averageRenderTime}ms avg`) :
           'Performance: Good';
         break;
       case 'warning':

@@ -30,6 +30,11 @@ function calculateProgress(remainingTime, totalTime) {
   return progress;
 }
 
+// Cached threshold settings to avoid IPC on every tick  
+let _cachedThresholdSettings = null;
+let _thresholdCacheTime = 0;
+const THRESHOLD_CACHE_TTL = 5000; // Refresh cache every 5 seconds
+
 /**
  * Calculate warning level based on settings
  * This is the SINGLE SOURCE OF TRUTH for warning level calculations
@@ -41,16 +46,23 @@ export async function calculateWarningLevel(remainingTime, totalTime) {
   if (remainingTime < 0) return 'overtime';
   if (totalTime === 0) return 'normal';
   
-  // Get threshold settings
-  let settings = {};
-  if (window.electron && window.electron.settings) {
-    try {
-      settings = await window.electron.settings.getAll();
-    } catch (error) {
-      console.warn('Could not load threshold settings:', error);
+  // Use cached settings when available, refresh periodically
+  const now = Date.now();
+  if (!_cachedThresholdSettings || (now - _thresholdCacheTime) > THRESHOLD_CACHE_TTL) {
+    if (window.electron && window.electron.settings) {
+      try {
+        _cachedThresholdSettings = await window.electron.settings.getAll();
+        _thresholdCacheTime = now;
+      } catch (error) {
+        console.warn('Could not load threshold settings:', error);
+        if (!_cachedThresholdSettings) _cachedThresholdSettings = {};
+      }
+    } else {
+      _cachedThresholdSettings = {};
     }
   }
   
+  const settings = _cachedThresholdSettings;
   const thresholdType = settings.timerThresholdType || 'percentage';
   
   if (thresholdType === 'percentage') {
@@ -75,6 +87,14 @@ export async function calculateWarningLevel(remainingTime, totalTime) {
     if (remainingTime > criticalTimeTotal) return 'warning';
     return 'critical';
   }
+}
+
+/**
+ * Invalidate the cached threshold settings (call when settings change)
+ */
+export function invalidateThresholdCache() {
+  _cachedThresholdSettings = null;
+  _thresholdCacheTime = 0;
 }
 
 /**

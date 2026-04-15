@@ -46,8 +46,8 @@ class SettingsManager {
 
       // Canvas
       canvasResolution: '1920x1080',
-      canvasQuality: 'high',
-      frameRate: 60,
+      canvasQuality: 'balanced',
+      frameRate: 30,
 
       // External Display
       autoOpenDisplay: false,
@@ -55,8 +55,6 @@ class SettingsManager {
 
       // Performance
       hardwareAcceleration: true,
-      reduceMotion: false,
-      lowPowerMode: false,
 
       // Video Input
       defaultVideoDevice: '',

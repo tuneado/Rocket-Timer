@@ -1307,15 +1307,21 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
   
   updateTimerState(newState) {
-    // Update internal state from renderer
-    this.timerState = { ...this.timerState, ...newState }
+    // Update internal state from renderer (mutate in place to avoid spread allocation)
+    Object.assign(this.timerState, newState)
     
-    // Broadcast updates to all connected clients (WebSocket, OSC)
+    // Only format and broadcast if someone is listening
+    const hasWSClients = this.clients.websocket.size > 0
+    const hasOSC = this.servers.osc && this.servers.osc.socket
+    const hasMainWindow = this.mainWindow && !this.mainWindow.isDestroyed()
+    
+    if (!hasWSClients && !hasOSC && !hasMainWindow) return
+    
     const formattedState = this.getFormattedTimerState()
     this.broadcastToAll('timer-update', formattedState)
     
     // Send only warning color info back to renderer (avoid sending time/progress to prevent jitter)
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+    if (hasMainWindow) {
       this.mainWindow.webContents.send('api-timer-state-update', {
         warningLevel: formattedState.warningLevel,
         warningColor: formattedState.warningColor,
@@ -1408,6 +1414,8 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
   
   broadcastWebSocket(event, data) {
+    if (this.clients.websocket.size === 0) return;
+    
     const message = JSON.stringify({
       type: event,
       data,

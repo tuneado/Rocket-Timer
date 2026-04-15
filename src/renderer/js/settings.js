@@ -267,8 +267,6 @@ function populateFormFields() {
 
   // Performance
   setChecked('hardwareAcceleration', currentSettings.hardwareAcceleration);
-  setChecked('reduceMotion', currentSettings.reduceMotion);
-  setChecked('lowPowerMode', currentSettings.lowPowerMode);
 
   // Video Input
   setValue('defaultVideoDevice', currentSettings.defaultVideoDevice);
@@ -430,8 +428,6 @@ function setupFormHandlers() {
       window.electron.ipcRenderer.send('show-restart-notification');
     }
   });
-  onChange('reduceMotion', (checked) => saveSetting('reduceMotion', checked));
-  onChange('lowPowerMode', (checked) => saveSetting('lowPowerMode', checked));
 
   // Video Input
   onChange('defaultVideoDevice', (value) => saveSetting('defaultVideoDevice', value));
@@ -2050,59 +2046,55 @@ function setupPerformanceMonitoring() {
  * @param {object} stats - Performance stats object from canvasRenderer
  */
 function updatePerformanceStats(stats = null) {
+  const statStatus = document.getElementById('statStatus');
   const statFPS = document.getElementById('statFPS');
   const statRenderTime = document.getElementById('statRenderTime');
-  const statDroppedFrames = document.getElementById('statDroppedFrames');
-  const statCacheSize = document.getElementById('statCacheSize');
+  const statFramesRendered = document.getElementById('statFramesRendered');
   
   if (!stats) {
     // No stats available yet
+    if (statStatus) statStatus.textContent = '--';
     if (statFPS) statFPS.textContent = '--';
     if (statRenderTime) statRenderTime.textContent = '--';
-    if (statDroppedFrames) statDroppedFrames.textContent = '--';
-    if (statCacheSize) statCacheSize.textContent = '--';
+    if (statFramesRendered) statFramesRendered.textContent = '--';
     return;
   }
   
-  if (statFPS) {
-    // Smart color logic: compare against effective target (display-limited)
-    const currentFPS = parseFloat(stats.currentFPS);
-    const effectiveTarget = stats.effectiveTargetFPS || stats.targetFPS;
-    
-    let fpsColor = 'text-green-500';
-    let fpsNote = '';
-    
-    if (stats.isDisplayLimited) {
-      // Target exceeds display refresh rate
-      if (currentFPS >= stats.displayRefreshRate * 0.9) {
-        fpsColor = 'text-green-500';
-        fpsNote = `<span class="text-blue-400 text-[10px]">⚡ Display limited (${stats.displayRefreshRate}Hz)</span>`;
-      } else {
-        fpsColor = 'text-yellow-500';
-        fpsNote = `<span class="text-yellow-400 text-[10px]">(${stats.displayRefreshRate}Hz max)</span>`;
-      }
+  // Status: Idle or Active
+  if (statStatus) {
+    if (stats.isIdle) {
+      statStatus.innerHTML = '<span class="text-blue-400">Idle — nothing to render</span>';
     } else {
-      // Target is within display capabilities
-      if (currentFPS >= stats.targetFPS * 0.9) {
-        fpsColor = 'text-green-500';
-      } else if (currentFPS >= stats.targetFPS * 0.7) {
-        fpsColor = 'text-yellow-500';
-      } else {
-        fpsColor = 'text-red-500';
-      }
+      const avgRenderTime = parseFloat(stats.averageRenderTime);
+      const frameBudget = 1000 / stats.targetFPS;
+      const load = Math.round((avgRenderTime / frameBudget) * 100);
+      const loadColor = load > 80 ? 'text-red-500' : load > 50 ? 'text-yellow-500' : 'text-green-500';
+      statStatus.innerHTML = `<span class="${loadColor}">Active — ${load}% render load</span>`;
     }
-    
-    statFPS.innerHTML = `<span class="${fpsColor}">${stats.currentFPS} / ${stats.targetFPS}</span> ${fpsNote}`;
   }
+  
+  if (statFPS) {
+    const currentFPS = parseFloat(stats.currentFPS);
+    let fpsColor = 'text-green-500';
+    if (!stats.isIdle) {
+      if (currentFPS < stats.targetFPS * 0.7) fpsColor = 'text-red-500';
+      else if (currentFPS < stats.targetFPS * 0.9) fpsColor = 'text-yellow-500';
+    }
+    statFPS.innerHTML = `<span class="${fpsColor}">${stats.currentFPS}</span> / ${stats.targetFPS} target`;
+  }
+  
   if (statRenderTime) {
-    statRenderTime.textContent = `${stats.averageRenderTime}ms (${stats.minRenderTime}-${stats.maxRenderTime}ms)`;
+    statRenderTime.textContent = `${stats.averageRenderTime}ms avg (${stats.minRenderTime}–${stats.maxRenderTime}ms)`;
   }
-  if (statDroppedFrames) {
-    const droppedColor = stats.droppedFrames > 100 ? 'text-red-500' : stats.droppedFrames > 10 ? 'text-yellow-500' : 'text-green-500';
-    statDroppedFrames.innerHTML = `<span class="${droppedColor}">${stats.droppedFrames}</span> / ${stats.frameCount} frames`;
-  }
-  if (statCacheSize) {
-    statCacheSize.textContent = `Text: ${stats.cacheSize.textMetrics}, Images: ${stats.cacheSize.images}`;
+  
+  if (statFramesRendered) {
+    const skipped = stats.skippedFrames || 0;
+    const total = stats.totalLoopIterations || 0;
+    const rendered = total - skipped;
+    const skippedPct = total > 0 ? Math.round((skipped / total) * 100) : 0;
+    statFramesRendered.textContent = skippedPct > 0
+      ? `${rendered}/s rendered, ${skipped}/s skipped (${skippedPct}% saved)`
+      : `${rendered}/s rendered`;
   }
 }
 

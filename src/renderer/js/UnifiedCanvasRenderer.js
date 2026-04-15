@@ -90,10 +90,8 @@ class UnifiedCanvasRenderer {
     
     // Performance settings
     this.performanceSettings = {
-      frameRate: 60,
-      canvasQuality: 'high',
-      reduceMotion: false,
-      lowPowerMode: false
+      frameRate: 30,
+      canvasQuality: 'balanced',
     };
     
     // Timer threshold settings
@@ -111,6 +109,14 @@ class UnifiedCanvasRenderer {
     this.lastFrameTime = 0;
     this.frameInterval = 1000 / this.performanceSettings.frameRate;
     this.animationId = null;
+    
+    // Dirty-flag rendering: skip frames when nothing changed
+    this._dirty = true;
+    this._skippedFrames = 0;
+    this._totalLoopIterations = 0;
+    
+    // Reusable render queue to avoid per-frame allocation
+    this._renderQueue = [];
     
     // Performance monitoring
     this.renderTimes = [];
@@ -139,8 +145,8 @@ class UnifiedCanvasRenderer {
     // Setup visibility change listener for throttling
     this.setupVisibilityListener();
     
-    // Setup canvas stream for external display
-    this.setupStream();
+    // Canvas stream created lazily via getStream()
+    this.stream = null;
     
     // Load performance settings
     this.loadPerformanceSettings();
@@ -298,30 +304,31 @@ class UnifiedCanvasRenderer {
    */
   setLayout(layout) {
     this.layout = layout;
+    this._dirty = true;
     console.log(`🎨 Layout set: ${layout.name}`);
-    
-    // Force immediate render to show layout change
-    if (this.isRendering) {
-      this.renderFrame();
-      this.distributeToOutputs();
-    }
   }
   
   /**
    * Update renderer state
    */
   setState(newState) {
+    // Check if any value actually changed before marking dirty
+    let changed = false;
+    for (const key in newState) {
+      if (this.state[key] !== newState[key]) {
+        changed = true;
+        break;
+      }
+    }
+    
+    if (!changed) return;
+    
     this.state = { ...this.state, ...newState };
+    this._dirty = true;
     
     // Update progress animation target when progress changes
     if (newState.progress !== undefined) {
       this.progressAnimation.target = newState.progress;
-    }
-    
-    // Force immediate render for important state changes
-    if (this.isRendering && (newState.countdown || newState.progress !== undefined)) {
-      this.renderFrame();
-      this.distributeToOutputs();
     }
   }
   
@@ -362,6 +369,16 @@ class UnifiedCanvasRenderer {
   }
   
   /**
+   * Get canvas stream (lazy initialization)
+   */
+  getStream() {
+    if (!this.stream) {
+      this.setupStream();
+    }
+    return this.stream;
+  }
+  
+  /**
    * Start the render loop
    */
   start() {
@@ -396,6 +413,21 @@ class UnifiedCanvasRenderer {
     
     // Only render if enough time has passed
     if (deltaTime >= this.frameInterval) {
+      this._totalLoopIterations++;
+      
+      // Skip render if nothing changed (dirty-flag optimization)
+      // Always render when progress is animating toward target
+      const progressAnimating = Math.abs(this.progressAnimation.current - this.progressAnimation.target) > 0.1;
+      const coverFading = this.coverImage.enabled && Math.abs(this.coverImage.currentOpacity - this.coverImage.targetOpacity) > 0.001;
+      const videoActive = this.videoInputManager && this.videoInputManager.isEnabled();
+      if (!this._dirty && !progressAnimating && !coverFading && !videoActive) {
+        this._skippedFrames++;
+        this.lastFrameTime = now;
+        this.animationId = requestAnimationFrame(() => this.renderLoop());
+        return;
+      }
+      this._dirty = false;
+      
       const renderStart = performance.now();
       
       // Render to master canvas
@@ -409,10 +441,10 @@ class UnifiedCanvasRenderer {
       this.trackPerformance(renderTime);
       
       // Adaptive frame rate adjustment (only when page is visible)
-      if (this.isPageVisible && !this.performanceSettings.lowPowerMode) {
+      if (this.isPageVisible) {
         if (renderTime > this.frameInterval * 0.8) {
           // Render is taking too long, reduce target fps
-          this.adaptiveFrameRate = Math.max(30, this.performanceSettings.frameRate - 10);
+          this.adaptiveFrameRate = Math.max(15, this.adaptiveFrameRate - 5);
           this.frameInterval = 1000 / this.adaptiveFrameRate;
           this.droppedFrames++;
         } else if (renderTime < this.frameInterval * 0.3 && this.adaptiveFrameRate < this.performanceSettings.frameRate) {
@@ -453,8 +485,9 @@ class UnifiedCanvasRenderer {
     // Clear canvas with theme-appropriate background
     this.clearCanvas();
     
-    // Build render queue with all elements and their z-index
-    const renderQueue = [];
+    // Reuse render queue array to avoid allocation every frame
+    const renderQueue = this._renderQueue;
+    renderQueue.length = 0;
     
     // Video frame (zIndex: 0) - supports both videoFrame and video properties
     const videoConfig = this.layout.videoFrame || this.layout.video;
@@ -660,6 +693,11 @@ class UnifiedCanvasRenderer {
   getCachedTextMetrics(text, font) {
     const key = `${font}::${text}`;
     if (!this.textMetricsCache.has(key)) {
+      // Evict oldest entries when cache exceeds limit
+      if (this.textMetricsCache.size >= 100) {
+        const firstKey = this.textMetricsCache.keys().next().value;
+        this.textMetricsCache.delete(firstKey);
+      }
       this.ctx.font = font;
       this.textMetricsCache.set(key, this.ctx.measureText(text));
     }
@@ -681,6 +719,7 @@ class UnifiedCanvasRenderer {
   }
   
   updateStyleCache() {
+    this._dirty = true;
     const styles = getComputedStyle(document.documentElement);
     
     this.styles = {
@@ -1591,6 +1630,7 @@ class UnifiedCanvasRenderer {
     // Update frame rate
     if (settings.frameRate) {
       this.performanceSettings.frameRate = settings.frameRate;
+      this.adaptiveFrameRate = settings.frameRate;
       this.frameInterval = 1000 / settings.frameRate;
       console.log('Applied frame rate:', settings.frameRate);
     }
@@ -1599,30 +1639,6 @@ class UnifiedCanvasRenderer {
     if (settings.canvasQuality) {
       this.performanceSettings.canvasQuality = settings.canvasQuality;
       this.applyCanvasQuality(settings.canvasQuality);
-    }
-
-    // Update reduce motion
-    if (settings.reduceMotion !== undefined) {
-      this.performanceSettings.reduceMotion = settings.reduceMotion;
-      // Apply to document for CSS
-      document.documentElement.setAttribute('data-reduce-motion', settings.reduceMotion.toString());
-      console.log('Reduce motion:', settings.reduceMotion ? 'enabled' : 'disabled');
-    }
-
-    // Update low power mode
-    if (settings.lowPowerMode !== undefined) {
-      this.performanceSettings.lowPowerMode = settings.lowPowerMode;
-      
-      // Low power mode: reduce frame rate to 30fps
-      if (settings.lowPowerMode) {
-        this.performanceSettings.frameRate = 30;
-        this.frameInterval = 1000 / 30;
-        console.log('Low power mode enabled: reduced to 30fps');
-      } else if (settings.frameRate) {
-        // Restore normal frame rate if low power is disabled
-        this.performanceSettings.frameRate = settings.frameRate;
-        this.frameInterval = 1000 / settings.frameRate;
-      }
     }
 
     // Update timer thresholds
@@ -1826,6 +1842,13 @@ class UnifiedCanvasRenderer {
     const effectiveTarget = Math.min(this.performanceSettings.frameRate, this.displayRefreshRate);
     const isDisplayLimited = this.performanceSettings.frameRate > this.displayRefreshRate;
     
+    const skipped = this._skippedFrames;
+    const iterations = this._totalLoopIterations;
+    
+    // Reset counters for next measurement window
+    this._skippedFrames = 0;
+    this._totalLoopIterations = 0;
+    
     return {
       averageRenderTime: avg.toFixed(2),
       maxRenderTime: max.toFixed(2),
@@ -1843,7 +1866,10 @@ class UnifiedCanvasRenderer {
         textMetrics: this.textMetricsCache.size,
         images: this.imageCache.size
       },
-      isPageVisible: this.isPageVisible
+      isPageVisible: this.isPageVisible,
+      skippedFrames: skipped,
+      totalLoopIterations: iterations,
+      isIdle: iterations > 0 && (skipped / iterations) > 0.8
     };
   }
   
@@ -1960,6 +1986,7 @@ class UnifiedCanvasRenderer {
       this.coverImage.targetOpacity = 1.0;
       this.coverImage.currentOpacity = 0.0;
       this.coverImage.enabled = true;
+      this._dirty = true;
       console.log('✅ Cover image loaded from cache:', imagePath);
       return Promise.resolve();
     }
@@ -1974,6 +2001,7 @@ class UnifiedCanvasRenderer {
         this.coverImage.targetOpacity = 1.0;
         this.coverImage.currentOpacity = 0.0; // Start from 0 for fade-in
         this.coverImage.enabled = true;
+        this._dirty = true;
         console.log('✅ Cover image loaded:', imagePath);
         resolve();
       };
@@ -1993,6 +2021,7 @@ class UnifiedCanvasRenderer {
   disableCoverImage() {
     // Fade out before disabling
     this.coverImage.targetOpacity = 0.0;
+    this._dirty = true;
     
     // Wait for fade out to complete, then disable
     const checkFadeOut = () => {

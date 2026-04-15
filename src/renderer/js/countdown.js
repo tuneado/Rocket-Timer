@@ -19,6 +19,7 @@ import * as MessageManager from './modules/messageManager.js';
 import * as PresetManager from './modules/presetManager.js';
 import * as SettingsManager from './modules/settingsManager.js';
 import * as DisplayManager from './modules/displayManager.js';
+import { invalidateThresholdCache } from './modules/displayManager.js';
 import * as TimerControls from './modules/timerControls.js';
 import * as VideoManager from './modules/videoManager.js';
 import { initializeIPCHandlers } from './modules/ipcHandlers.js';
@@ -140,6 +141,9 @@ function applyCanvasColors(colors) {
  */
 if (window.electron && window.electron.settings) {
   window.electron.settings.onUpdate((settings) => {
+    
+    // Invalidate cached threshold settings
+    invalidateThresholdCache();
     
     // Reapply colors
     if (settings.colors) {
@@ -638,9 +642,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (stateUpdateThrottle) return;
     
     stateUpdateThrottle = setTimeout(() => {
-      // Send complete appState to REST API server
-      const state = appState.getState();
-      ipcRenderer.send('companion-state-update', state);
+      // Send appState to REST API server (IPC serializes via structured clone)
+      ipcRenderer.send('companion-state-update', appState.getStateRef());
       stateUpdateThrottle = null;
     }, 100);
   });
@@ -685,7 +688,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   
   // Send initial state immediately
-  ipcRenderer.send('companion-state-update', appState.getState());
+  ipcRenderer.send('companion-state-update', appState.getStateRef());
   
   // ===================================
   // PERFORMANCE MONITORING
@@ -696,15 +699,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(() => {
       const stats = canvasRenderer.getPerformanceStats();
       if (stats) {
-        // Determine status based on FPS and dropped frames
+        // Determine status based on render health
         let status = 'good';
-        const fpsRatio = parseFloat(stats.currentFPS) / stats.targetFPS;
-        const dropRatio = stats.droppedFrames / Math.max(stats.frameCount, 1);
         
-        if (fpsRatio < 0.7 || dropRatio > 0.1) {
-          status = 'critical';
-        } else if (fpsRatio < 0.85 || dropRatio > 0.05) {
-          status = 'warning';
+        if (stats.isIdle) {
+          // Frames are being skipped intentionally (dirty-flag: nothing to render)
+          // This is efficient — not a performance problem
+          status = 'good';
+        } else {
+          // Actively rendering — evaluate based on render time vs budget
+          const avgRenderTime = parseFloat(stats.averageRenderTime);
+          const frameBudget = 1000 / stats.targetFPS;
+          const renderRatio = avgRenderTime / frameBudget;
+          const dropRatio = stats.droppedFrames / Math.max(stats.frameCount, 1);
+          
+          if (renderRatio > 0.9 || dropRatio > 0.1) {
+            status = 'critical';
+          } else if (renderRatio > 0.6 || dropRatio > 0.05) {
+            status = 'warning';
+          }
         }
         
         statusBar.setPerformanceStatus(status, stats);
@@ -714,7 +727,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           window.electron.ipcRenderer.send('performance-stats-update', stats);
         }
       }
-    }, 2000); // Update every 2 seconds
+    }, 1000); // Update every 1 second
   }
   
   // Initialize UI controls after Preact components have rendered

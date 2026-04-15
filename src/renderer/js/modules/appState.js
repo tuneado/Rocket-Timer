@@ -268,10 +268,18 @@ class AppState {
   }
 
   /**
-   * Get entire state (deep copy)
+   * Get entire state (deep copy for safe mutation)
    */
   getState() {
     return JSON.parse(JSON.stringify(this.state));
+  }
+
+  /**
+   * Get direct state reference (no copy — use when value is immediately
+   * consumed/serialized and not mutated, e.g. IPC send)
+   */
+  getStateRef() {
+    return this.state;
   }
 
   /**
@@ -351,6 +359,9 @@ class AppState {
    * @private
    */
   addToHistory(path, oldValue, newValue) {
+    // Skip history for high-frequency timer paths to reduce memory churn
+    if (path.startsWith('timer.')) return;
+    
     this.history.push({
       timestamp: Date.now(),
       path,

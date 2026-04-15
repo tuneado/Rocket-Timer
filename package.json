@@ -1,6 +1,6 @@
 {
   "name": "rocket-timer",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "productName": "Rocket Timer",
   "description": "The ultimate timer app for events",
   "main": "src/main/main.js",

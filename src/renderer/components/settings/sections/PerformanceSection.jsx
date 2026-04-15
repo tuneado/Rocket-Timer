@@ -24,7 +24,7 @@ export function PerformanceSection() {
         Optimize performance and resource usage
       </p>
 
-      <SettingsGroup title="Rendering Quality">
+      <SettingsGroup title="Rendering">
         <SettingsItem
           title="Canvas Quality"
           description="Rendering quality affects GPU usage and visual smoothness"
@@ -38,46 +38,34 @@ export function PerformanceSection() {
 
         <SettingsItem
           title="Frame Rate"
-          description="Higher frame rates use more CPU/GPU"
+          description="Target rendering speed for canvas output"
         >
           <Select id="frameRate" className="w-48">
-            <option value="30">30 FPS (Battery Saver)</option>
-            <option value="60">60 FPS (Recommended)</option>
-            <option value="120">120 FPS (High Performance)</option>
+            <option value="15">15 FPS — Low Power</option>
+            <option value="30">30 FPS — Balanced</option>
+            <option value="60">60 FPS — Smooth</option>
           </Select>
         </SettingsItem>
-      </SettingsGroup>
 
-      <SettingsGroup title="Optimization">
         <SettingsItem
           title="Hardware Acceleration"
           description="Use GPU for rendering (recommended, requires restart)"
         >
           <Switch id="hardwareAcceleration" checked />
         </SettingsItem>
-
-        <SettingsItem
-          title="Reduce Motion"
-          description="Minimize animations for better performance"
-        >
-          <Switch id="reduceMotion" />
-        </SettingsItem>
-
-        <SettingsItem
-          title="Low Power Mode"
-          description="Reduce resource usage for battery saving (caps at 30 FPS)"
-        >
-          <Switch id="lowPowerMode" />
-        </SettingsItem>
       </SettingsGroup>
       
-      <SettingsGroup title="Performance Monitoring">
+      <SettingsGroup title="Monitor">
         <SettingsItem
           block
-          title="Current Performance"
+          title="Renderer Status"
           description="Real-time rendering statistics"
         >
           <div id="performanceStats" className="mt-2 p-3 rounded-lg bg-[var(--bg-surface-raised)] font-mono text-xs space-y-1">
+            <div className="flex justify-between">
+              <span className="text-[var(--text-secondary)]">Status:</span>
+              <span id="statStatus" className="text-[var(--text-primary)]">--</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-[var(--text-secondary)]">FPS:</span>
               <span id="statFPS" className="text-[var(--text-primary)]">--</span>
@@ -87,12 +75,8 @@ export function PerformanceSection() {
               <span id="statRenderTime" className="text-[var(--text-primary)]">--</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--text-secondary)]">Dropped Frames:</span>
-              <span id="statDroppedFrames" className="text-[var(--text-primary)]">--</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-[var(--text-secondary)]">Cache Size:</span>
-              <span id="statCacheSize" className="text-[var(--text-primary)]">--</span>
+              <span className="text-[var(--text-secondary)]">Frames Rendered:</span>
+              <span id="statFramesRendered" className="text-[var(--text-primary)]">--</span>
             </div>
           </div>
         </SettingsItem>
