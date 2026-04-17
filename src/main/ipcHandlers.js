@@ -7,7 +7,7 @@
  */
 const { ipcMain, clipboard, dialog, app } = require('electron');
 const path = require('path');
-const { createMainWindow, createDisplayWindow, toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow, getLayoutCreatorWindow } = require('./windows');
+const { toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow } = require('./windows');
 const { updateDisplayMenuItems, updateProjectsMenu } = require('./menu');
 const SettingsManager = require('./settingsManager');
 

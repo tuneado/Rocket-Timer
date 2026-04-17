@@ -59,7 +59,7 @@ class UpdateManager {
     });
 
     // Event: No updates available
-    autoUpdater.on('update-not-available', (info) => {
+    autoUpdater.on('update-not-available', (_info) => {
       log.info('App is up to date');
       
       if (this._manualCheck) {
@@ -157,7 +157,7 @@ class UpdateManager {
     log.info('Installing update and restarting...');
     this.sendStatus('installing', 'Installing update...');
     // isSilent=false (show installer), isForceRunAfter=true (relaunch app after install)
-    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    setTimeout(() => autoUpdater.quitAndInstall(false, true), 0);
   }
 
   /**
