@@ -2091,13 +2091,6 @@ class UnifiedCanvasRenderer {
   }
 
   /**
-   * Get the canvas media stream (for external display)
-   */
-  getStream() {
-    return this.stream;
-  }
-
-  /**
    * Cleanup resources
    */
   destroy() {

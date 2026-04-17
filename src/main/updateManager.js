@@ -52,11 +52,8 @@ class UpdateManager {
           // User clicked "Download"
           autoUpdater.downloadUpdate();
           
-          // Notify user that download started
-          this.mainWindow.webContents.send('update-status', {
-            status: 'downloading',
-            message: 'Downloading update...'
-          });
+          // Notify renderer that download started
+          this.sendStatus('downloading', 'Downloading update...', 0);
         }
       });
     });
@@ -82,29 +79,26 @@ class UpdateManager {
       const percent = Math.round(progressInfo.percent);
       log.info(`Download progress: ${percent}%`);
       
-      this.mainWindow.webContents.send('update-status', {
-        status: 'downloading',
-        progress: percent,
-        message: `Downloading update: ${percent}%`
-      });
+      this.sendStatus('downloading', `Downloading update: ${percent}%`, percent);
     });
 
     // Event: Update downloaded and ready
     autoUpdater.on('update-downloaded', (info) => {
       log.info('Update downloaded:', info.version);
       
+      this.sendStatus('ready', `Update ${info.version} ready to install`, 100);
+      
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
         title: 'Update Ready',
         message: 'Update downloaded successfully!',
-        detail: 'The update will be installed when you quit the app. Restart now?',
+        detail: 'The update will be installed when you restart the app. Restart now?',
         buttons: ['Restart Now', 'Later'],
         defaultId: 0,
         cancelId: 1
       }).then((result) => {
         if (result.response === 0) {
-          // User wants to restart now
-          autoUpdater.quitAndInstall();
+          this.installAndRestart();
         }
       });
     });
@@ -112,6 +106,8 @@ class UpdateManager {
     // Event: Error during update
     autoUpdater.on('error', (error) => {
       log.error('Update error:', error);
+      
+      this.sendStatus('error', 'Update failed');
       
       if (this._manualCheck) {
         this._manualCheck = false;
@@ -139,6 +135,29 @@ class UpdateManager {
 
     log.info('Checking for updates...');
     autoUpdater.checkForUpdates();
+  }
+
+  /**
+   * Send update status to renderer
+   */
+  sendStatus(status, message, progress) {
+    try {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('update-status', { status, message, progress });
+      }
+    } catch (_) {
+      // Window may be destroyed during quit
+    }
+  }
+
+  /**
+   * Install update and force restart
+   */
+  installAndRestart() {
+    log.info('Installing update and restarting...');
+    this.sendStatus('installing', 'Installing update...');
+    // isSilent=false (show installer), isForceRunAfter=true (relaunch app after install)
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
   }
 
   /**

@@ -1627,6 +1627,25 @@ if (window.electron && window.electron.ipcRenderer) {
     
     logger.debug('SYSTEM', `Server status updated: ${serverStatus.running ? 'running' : 'stopped'}${serverStatus.port ? ` on port ${serverStatus.port}` : ''}`);
   });
+
+  // Handle update status from main process (download progress, ready, error)
+  window.electron.ipcRenderer.on('update-status', (data) => {
+    if (!data) return;
+    switch (data.status) {
+      case 'downloading':
+        statusBar.info(data.message || 'Downloading update...', 0);
+        break;
+      case 'ready':
+        statusBar.success(data.message || 'Update ready — restart to apply', 0);
+        break;
+      case 'installing':
+        statusBar.info(data.message || 'Installing update...', 0);
+        break;
+      case 'error':
+        statusBar.error(data.message || 'Update failed', 8000);
+        break;
+    }
+  });
   
   // Handle background image sync from settings window
   window.electron.ipcRenderer.on('sync-background-image', async (data) => {

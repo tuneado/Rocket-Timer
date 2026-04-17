@@ -772,19 +772,23 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // ========================================================================
 
   mainWindow.on('close', async (e) => {
+    // Always prevent close first so the window stays visible while we check/prompt
+    e.preventDefault();
+
     // Read project dirty state from renderer
     let state = null;
     try {
       state = await mainWindow.webContents.executeJavaScript('window._projectState || null');
     } catch (_) {
       // If renderer is gone, allow close
+      mainWindow.destroy();
+      return;
     }
 
     if (!state || !state.activeProjectId || !state.isDirty) {
-      return; // Nothing to prompt, allow close
+      mainWindow.destroy();
+      return;
     }
-
-    e.preventDefault();
 
     const projectName = state.activeProjectName || 'current project';
     const { response } = await dialog.showMessageBox(mainWindow, {

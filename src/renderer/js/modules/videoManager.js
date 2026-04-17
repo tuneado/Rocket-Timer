@@ -73,7 +73,7 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
         }
 
         // Validate device ID exists among detected devices; if not, try initialize again
-        const deviceExists = videoManager.devices.some(d => d.id === savedDeviceId);
+        const deviceExists = videoManager.devices.some(d => d.deviceId === savedDeviceId);
         if (!deviceExists) {
           console.log('🔍 Saved device not in current list, reinitializing devices...');
           const devices = await videoManager.initialize();
@@ -86,19 +86,16 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
         } catch (error) {
           console.error('❌ Failed to start video input:', error);
           
-          // Update camera status to error
-          if (statusBar) {
-            statusBar.setCameraStatus('error');
-            
-            // Show appropriate error message
-            const errorMsg = error.name === 'NotAllowedError' 
-              ? 'Camera access denied - check permissions'
-              : error.name === 'NotFoundError'
-              ? 'Camera device not found'
-              : 'Camera access failed';
-            
-            statusBar.error(errorMsg, 0);
-          }
+          // Update camera status to error via appState (status bar subscribes automatically)
+          const { default: appState } = await import('./appState.js');
+          appState.set('camera.active', 'error');
+          
+          const errorMsg = error.name === 'NotAllowedError' 
+            ? 'Camera access denied - check permissions'
+            : error.name === 'NotFoundError'
+            ? 'Camera device not found'
+            : 'Camera access failed';
+          console.warn('⚠️', errorMsg);
           
           return; // Don't continue if video failed
         }
@@ -132,9 +129,8 @@ export async function handleVideoInputForLayout(layout, { canvasRenderer, ipcRen
       
       // Only show warning if layout explicitly requires video AND user is trying to use it
       // Don't show error during normal operation - device selection happens in Settings
-      if (statusBar && layout.video && layout.video.enabled) {
-        // Set camera as inactive, not error - user may not have configured yet
-        statusBar.setCameraStatus(false);
+      if (layout.video && layout.video.enabled) {
+        console.log('⚠️ No video device selected — configure in Settings > Video Input');
       }
     } else if (videoManager.isEnabled()) {
       console.log('✅ Video already active');
