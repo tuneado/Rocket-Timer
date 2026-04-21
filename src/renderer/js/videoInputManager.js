@@ -37,21 +37,59 @@ class VideoInputManager {
    */
   async initialize() {
     try {
-      // Request permissions first
-      await navigator.mediaDevices.getUserMedia({ video: true });
-      
-      // Get all devices
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      this.devices = devices.filter(device => device.kind === 'videoinput');
-      
+      // First, try to enumerate devices without opening a probe stream.
+      // If labels are already available (permission previously granted),
+      // we can skip getUserMedia entirely — this avoids the Windows
+      // "AbortError: Timeout starting video source" cold-start issue.
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      let videoInputs = devices.filter(d => d.kind === 'videoinput');
+      const hasLabels = videoInputs.some(d => d.label && d.label.length > 0);
+
+      if (!hasLabels && videoInputs.length > 0) {
+        // Labels missing → need a probe stream to trigger permission/labels.
+        // Use progressive constraints: default → 720p@30 → 480p@15.
+        const attempts = [
+          { video: true },
+          { video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } },
+          { video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } } }
+        ];
+        let probeStream = null;
+        let lastErr;
+        for (let i = 0; i < attempts.length; i++) {
+          try {
+            probeStream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+            if (i > 0) console.log('[videoInputManager] probe succeeded with relaxed constraints #' + i);
+            break;
+          } catch (err) {
+            lastErr = err;
+            console.warn('[videoInputManager] probe attempt', i, 'failed:', err.name, err.message);
+            const transient = err && (err.name === 'AbortError' || err.name === 'NotReadableError');
+            if (!transient) throw err;
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
+        if (!probeStream) {
+          // All attempts failed — still return the (unlabeled) device list so
+          // callers can attempt deviceId-specific starts which sometimes work.
+          console.warn('[videoInputManager] all probe attempts failed, returning unlabeled devices:', lastErr && lastErr.name);
+        } else {
+          // Release the probe stream immediately.
+          probeStream.getTracks().forEach(t => t.stop());
+          // Re-enumerate to pick up labels now that permission is granted.
+          devices = await navigator.mediaDevices.enumerateDevices();
+          videoInputs = devices.filter(d => d.kind === 'videoinput');
+        }
+      }
+
+      this.devices = videoInputs;
       console.log('📹 Available video input devices:', this.devices);
-      
+
       return this.devices.map(device => ({
         id: device.deviceId,
         label: device.label || `Camera ${device.deviceId.substring(0, 8)}`,
         groupId: device.groupId
       }));
-      
+
     } catch (error) {
       console.error('Error enumerating video devices:', error);
       throw error;
@@ -65,25 +103,41 @@ class VideoInputManager {
     try {
       // Stop existing stream if any
       this.stopVideoInput();
-      
+
       this.selectedDeviceId = deviceId;
-      
+
       // Create video element
       this.videoElement = document.createElement('video');
       this.videoElement.autoplay = true;
       this.videoElement.playsInline = true;
       this.videoElement.muted = true; // Prevent audio feedback
-      
-      // Request video stream from specific device
-      // When deviceId is provided, use 'exact' to ensure we get the right device
-      const constraints = {
-        video: deviceId ? {
-          deviceId: { exact: deviceId }
-        } : true,
-        audio: false // No audio needed for timer overlay
-      };
-      
-      this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Progressive constraint fallback: Windows capture engine frequently
+      // times out on the default (max-resolution) request. Try lower
+      // resolutions before giving up.
+      const baseDevice = deviceId ? { deviceId: { exact: deviceId } } : {};
+      const attempts = [
+        { video: { ...baseDevice }, audio: false },
+        { video: { ...baseDevice, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false },
+        { video: { ...baseDevice, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } }, audio: false }
+      ];
+
+      let lastErr;
+      for (let i = 0; i < attempts.length; i++) {
+        try {
+          this.stream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+          if (i > 0) console.log('[videoInputManager] startVideoInput: relaxed constraints #' + i + ' succeeded');
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.warn('[videoInputManager] startVideoInput attempt', i, 'failed:', err.name, err.message);
+          const transient = err && (err.name === 'AbortError' || err.name === 'NotReadableError' || err.name === 'OverconstrainedError');
+          if (!transient) throw err;
+          await new Promise(r => setTimeout(r, 400));
+        }
+      }
+      if (!this.stream) throw lastErr;
+
       this.videoElement.srcObject = this.stream;
       
       // Wait for video to be ready
