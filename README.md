@@ -19,6 +19,7 @@ Rocket Timer was made by Andre Raimundo with love, shaped by real-world experien
 - [Settings](#settings)
 - [Architecture](#architecture)
 - [Development](#development)
+- [Windows Debug Workflow](#windows-debug-workflow)
 
 ---
 
@@ -521,6 +522,12 @@ src/
 ---
 
 ## Development
+
+### Windows Debug Workflow
+
+For a complete cross-machine workflow (Mac + Windows), including branch strategy, debug loop, logging, CI expectations, and Git line-ending setup, see:
+
+- [docs/WINDOWS_DEBUG_WORKFLOW.md](docs/WINDOWS_DEBUG_WORKFLOW.md)
 
 ### Setup Development Environment
 ```bash
