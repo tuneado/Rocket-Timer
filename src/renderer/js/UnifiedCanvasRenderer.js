@@ -1207,14 +1207,14 @@ class UnifiedCanvasRenderer {
     if (showLabel) {
       this.ctx.globalAlpha = opacity * 0.7;
       this.ctx.font = `normal ${labelSize}px ${this.styles.fontFamily}`;
-      this.ctx.fillStyle = this.styles.clockColor;
+      this.ctx.fillStyle = this.styles.elapsedColor;
       this.ctx.fillText(label, x, y - fontSize * 0.7);
     }
     
     // Draw end time
     this.ctx.globalAlpha = opacity;
     this.ctx.font = `${this.styles.clockWeight} ${fontSize}px ${this.styles.fontFamily}`;
-    this.ctx.fillStyle = this.styles.clockColor;
+    this.ctx.fillStyle = this.styles.elapsedColor;
     this.ctx.fillText(text, x, y);
     
     // Reset
