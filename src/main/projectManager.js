@@ -41,9 +41,29 @@ class ProjectManager {
         const defaultProject = await this.createProject('Default', true);
         await this.loadProject(defaultProject.id);
       } else {
-        // Load default project if set, otherwise load first project
-        const projectId = manifest.defaultProjectId || manifest.projects[0].id;
-        await this.loadProject(projectId);
+        // Prefer the last-opened project so users resume where they left off.
+        // Fallback order: currentProjectId → defaultProjectId → first project.
+        const candidateIds = [
+          manifest.currentProjectId,
+          manifest.defaultProjectId,
+          manifest.projects[0].id
+        ].filter(Boolean);
+
+        let loaded = false;
+        for (const id of candidateIds) {
+          // Guard: ensure the candidate still exists in the manifest.
+          if (!manifest.projects.some(p => p.id === id)) continue;
+          try {
+            await this.loadProject(id);
+            loaded = true;
+            break;
+          } catch (err) {
+            console.warn(`⚠️  Could not load project ${id}, trying next:`, err && err.message);
+          }
+        }
+        if (!loaded) {
+          throw new Error('No loadable project found in manifest');
+        }
       }
       
       this.initialized = true;

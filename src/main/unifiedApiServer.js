@@ -692,7 +692,15 @@ class UnifiedTimerAPIServer extends EventEmitter {
       })
       
       this.servers.osc.on('error', (error) => {
-        console.error('🚨 OSC Error:', error)
+        // Fix: detect port-in-use explicitly (Windows often has other DAW/
+        // VJ tools bound to common OSC ports like 7000).
+        if (error && (error.code === 'EADDRINUSE' || /EADDRINUSE/i.test(error.message || ''))) {
+          console.error(`🚨 OSC port ${this.config.oscPort} is already in use. ` +
+            `Another app (DAW, VJ tool, another Rocket Timer instance) may be bound to it. ` +
+            `Change the OSC port in settings or close the conflicting app.`)
+        } else {
+          console.error('🚨 OSC Error:', error)
+        }
       })
       
       this.servers.osc.open()

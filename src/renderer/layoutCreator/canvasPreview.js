@@ -501,13 +501,13 @@ class CanvasPreview {
     if (config.showLabel) {
       ctx.globalAlpha = opacity * 0.7;
       ctx.font = `normal ${labelSize}px ${this.styles.fontFamily}`;
-      ctx.fillStyle = this.styles.clockColor;
+      ctx.fillStyle = this.styles.elapsedColor;
       ctx.fillText(label, x, y - fontSize * 0.7);
     }
 
     ctx.globalAlpha = opacity;
     ctx.font = `${this.styles.clockWeight} ${fontSize}px ${this.styles.fontFamily}`;
-    ctx.fillStyle = this.styles.clockColor;
+    ctx.fillStyle = this.styles.elapsedColor;
     ctx.fillText(this.mockState.endTime, x, y);
     ctx.restore();
   }

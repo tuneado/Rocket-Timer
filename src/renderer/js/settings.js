@@ -1137,31 +1137,105 @@ function setupVideoInputControls() {
         
         // Request camera permission first
         showNotification('Requesting camera permission...', 'info');
-        
+
+        // Make sure any previous preview fully releases the device before we
+        // probe again (Windows capture stack often refuses concurrent opens).
+        try { if (isPreviewActive) { await stopPreview(true); } } catch (_) { /* noop */ }
+
+        // Helper: try to acquire a short-lived probe stream, with progressively
+        // relaxed constraints. On Windows, the default `{ video: true }` call
+        // sometimes asks for full resolution + 30fps and the MediaFoundation
+        // capture engine times out ("AbortError: Timeout starting video source").
+        // Trying lower resolutions usually succeeds.
+        const acquireProbeStream = async () => {
+          const attempts = [
+            { video: true },
+            { video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } } },
+            { video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } } }
+          ];
+          let lastErr;
+          for (let i = 0; i < attempts.length; i++) {
+            try {
+              const s = await navigator.mediaDevices.getUserMedia(attempts[i]);
+              if (i > 0) console.log('[detect-camera] probe succeeded with relaxed constraints #' + i);
+              return s;
+            } catch (err) {
+              lastErr = err;
+              const transient = err && (err.name === 'AbortError' || err.name === 'NotReadableError');
+              console.warn('[detect-camera] probe attempt', i, 'failed:', err.name, err.message);
+              if (!transient) throw err;
+              // brief back-off before next attempt
+              await new Promise(r => setTimeout(r, 400));
+            }
+          }
+          throw lastErr;
+        };
+
+        // Diagnostic: enumerate devices BEFORE probing so we can log what the
+        // system sees even when getUserMedia times out.
+        let preEnumDevices = [];
         try {
-          // Request a temporary stream to trigger permission dialog
-          const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          
-          // Stop the temporary stream immediately
+          preEnumDevices = (await navigator.mediaDevices.enumerateDevices())
+            .filter(d => d.kind === 'videoinput');
+          console.log('[detect-camera] pre-probe videoinput count:', preEnumDevices.length,
+            preEnumDevices.map(d => ({ id: d.deviceId ? d.deviceId.slice(0, 8) : '', label: d.label })));
+        } catch (e) {
+          console.warn('[detect-camera] pre-probe enumerateDevices failed:', e);
+        }
+
+        let probeSucceeded = false;
+        try {
+          const tempStream = await acquireProbeStream();
           tempStream.getTracks().forEach(track => track.stop());
-          
+          probeSucceeded = true;
           showNotification('Permission granted. Detecting devices...', 'info');
-          
         } catch (permissionError) {
           console.error('Camera permission denied:', permissionError);
-          
+
           if (permissionError.name === 'NotAllowedError') {
             showNotification('Camera permission denied. Please allow camera access and try again.', 'error');
+            detectBtn.disabled = false;
+            detectBtn.classList.remove('opacity-50', 'cursor-wait');
+            return;
           } else if (permissionError.name === 'NotFoundError') {
             showNotification('No camera devices found on this system.', 'warning');
+            detectBtn.disabled = false;
+            detectBtn.classList.remove('opacity-50', 'cursor-wait');
+            return;
+          } else if (permissionError.name === 'AbortError' || permissionError.name === 'NotReadableError') {
+            // Windows capture engine timed out. Don't abort the whole flow —
+            // if enumerateDevices already returned devices with labels, the
+            // user has granted permission before and can still pick one and
+            // try starting the preview (which uses a specific deviceId and
+            // often succeeds where the generic probe fails).
+            const haveLabels = preEnumDevices.some(d => d.label && d.label.length > 0);
+            if (preEnumDevices.length > 0 && haveLabels) {
+              showNotification(
+                'Camera probe timed out, but ' + preEnumDevices.length +
+                ' device(s) were detected. Select one and click Start Preview.',
+                'warning'
+              );
+              // fall through to the enumeration block below
+            } else {
+              showNotification(
+                'Camera could not start (timeout). Likely causes on Windows: the camera is in use by another app, ' +
+                'or a driver issue. Close other camera apps, reconnect the device, or try a different USB port.',
+                'error'
+              );
+              detectBtn.disabled = false;
+              detectBtn.classList.remove('opacity-50', 'cursor-wait');
+              return;
+            }
           } else {
             showNotification('Error accessing camera: ' + permissionError.message, 'error');
+            detectBtn.disabled = false;
+            detectBtn.classList.remove('opacity-50', 'cursor-wait');
+            return;
           }
-          
-          detectBtn.disabled = false;
-          detectBtn.classList.remove('opacity-50', 'cursor-wait');
-          return;
         }
+
+        // Unused flag reserved for future diagnostics
+        void probeSucceeded;
         
         // Now enumerate devices
         const devices = await navigator.mediaDevices.enumerateDevices();

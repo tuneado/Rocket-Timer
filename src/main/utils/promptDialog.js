@@ -15,6 +15,32 @@ const path = require('path');
 const fs = require('fs');
 
 /**
+ * Returns the directory used for transient prompt artefacts (preload/HTML).
+ * Kept in a dedicated subfolder of the system temp dir so we can safely
+ * purge stale files on startup if a previous run crashed / was force-killed.
+ */
+function getPromptTempDir() {
+  const dir = path.join(app.getPath('temp'), 'rocket-timer-prompts');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (_) { /* noop */ }
+  return dir;
+}
+
+/**
+ * Remove stale prompt-* / prompt-preload-* files left over from a previous
+ * process (crash, force quit, power loss). Safe to call on app startup.
+ */
+function cleanupStalePromptFiles() {
+  try {
+    const dir = getPromptTempDir();
+    const entries = fs.readdirSync(dir);
+    for (const name of entries) {
+      if (!/^prompt(-preload)?-\d+\.(js|html)$/.test(name)) continue;
+      try { fs.unlinkSync(path.join(dir, name)); } catch (_) { /* noop */ }
+    }
+  } catch (_) { /* noop */ }
+}
+
+/**
  * Show a text input prompt dialog.
  * @param {BrowserWindow} parentWindow - The parent window
  * @param {Object} options
@@ -45,7 +71,7 @@ function showPrompt(parentWindow, options = {}) {
     const channel = `prompt-result-${Date.now()}`;
 
     // Write a preload script that exposes the IPC channel
-    const preloadPath = path.join(app.getPath('temp'), `prompt-preload-${Date.now()}.js`);
+    const preloadPath = path.join(getPromptTempDir(), `prompt-preload-${Date.now()}.js`);
     const preloadScript = `
       const { contextBridge, ipcRenderer } = require('electron');
       contextBridge.exposeInMainWorld('promptAPI', {
@@ -214,7 +240,7 @@ function showPrompt(parentWindow, options = {}) {
     });
 
     // Write HTML to temp file (data: URLs don't support nodeIntegration/preload in Electron 28+)
-    const htmlPath = path.join(app.getPath('temp'), `prompt-${Date.now()}.html`);
+    const htmlPath = path.join(getPromptTempDir(), `prompt-${Date.now()}.html`);
     fs.writeFileSync(htmlPath, html, 'utf8');
 
     promptWindow.loadFile(htmlPath);
@@ -238,4 +264,4 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;');
 }
 
-module.exports = { showPrompt };
+module.exports = { showPrompt, cleanupStalePromptFiles };

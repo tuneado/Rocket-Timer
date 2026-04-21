@@ -37,6 +37,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   settingsManager = sharedSettingsManager || new SettingsManager();
   // ProjectManager is initialized in main.js and available as global.projectManager
 
+  // Cached current layout id, updated by the renderer's 'layout-changed'
+  // event and read by the 'get-current-layout' IPC handler. Avoids racing
+  // executeJavaScript calls against the renderer.
+  let lastKnownLayoutId = 'classic';
+
   // App info
   ipcMain.handle('get-app-version', async () => {
     return require('../../package.json').version;
@@ -351,7 +356,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // Handle layout changes
   ipcMain.on('layout-changed', (event, layoutId) => {
     console.log('Layout changed to:', layoutId);
-    
+
+    // Cache for `get-current-layout` so we don't need to poll the renderer
+    // via executeJavaScript (which races during window close / reload).
+    lastKnownLayoutId = layoutId || lastKnownLayoutId;
+
     // Forward layout change to display window
     const displayWindow = getDisplayWindow();
     if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
@@ -657,21 +666,10 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   });
   
   ipcMain.handle('get-current-layout', async () => {
-    // Request current layout from main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      try {
-        return await mainWindow.webContents.executeJavaScript(`
-          (() => {
-            const layoutSelector = document.getElementById('layoutSelector');
-            return layoutSelector ? layoutSelector.value : (window.LayoutRegistry ? window.LayoutRegistry.getDefaultLayout() : 'classic');
-          })()
-        `);
-      } catch (error) {
-        console.error('Error getting current layout:', error);
-        return 'classic';
-      }
-    }
-    return 'classic'; // Default fallback
+    // Return the cached value set by the renderer's 'layout-changed' event.
+    // Avoids executeJavaScript against the renderer, which can race when the
+    // window is closing or still initialising on Windows.
+    return lastKnownLayoutId || 'classic';
   });
   
   // Handle main window ready notification
@@ -771,53 +769,42 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // Save-on-close prompt
   // ========================================================================
 
+  // Track whether the user already confirmed it's safe to close, so the
+  // second synthetic `close` (after we destroy/quit) doesn't re-prompt.
+  let confirmedCloseSafe = false;
+
   mainWindow.on('close', async (e) => {
-    // Always prevent close first so the window stays visible while we check/prompt
+    if (confirmedCloseSafe) return; // allow the close to proceed
+
+    const projectManager = global.projectManager;
+    // No project manager or nothing dirty → let the window close normally.
+    if (!projectManager || !projectManager.hasUnsaved || !projectManager.hasUnsaved()) {
+      return;
+    }
+
+    // Dirty: prevent the close synchronously, then prompt with mainWindow
+    // still visible as the dialog parent.
     e.preventDefault();
 
-    // Read project dirty state from renderer
-    let state = null;
     try {
-      state = await mainWindow.webContents.executeJavaScript('window._projectState || null');
-    } catch (_) {
-      // If renderer is gone, allow close
-      mainWindow.destroy();
-      return;
-    }
-
-    if (!state || !state.activeProjectId || !state.isDirty) {
-      mainWindow.destroy();
-      return;
-    }
-
-    const projectName = state.activeProjectName || 'current project';
-    const { response } = await dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      title: 'Unsaved Changes',
-      message: `Save changes to "${projectName}"?`,
-      detail: 'Your project has unsaved changes.',
-      buttons: ['Save', "Don't Save", 'Cancel'],
-      defaultId: 0,
-      cancelId: 2,
-    });
-
-    if (response === 2) {
-      // Cancel — do nothing
-      return;
-    }
-
-    if (response === 0) {
-      // Save — tell renderer to save, then quit
-      safeSend(mainWindow, 'project-save-request');
-      // Give renderer a moment to save, then force close
+      const safe = await projectManager.promptSaveIfNeeded(mainWindow);
+      if (!safe) {
+        // User cancelled — keep the window open, do nothing.
+        return;
+      }
+      // Safe to quit. Mark and re-issue close so the window can actually close.
+      confirmedCloseSafe = true;
+      // Also clear the flag on projectManager so `before-quit` doesn't re-prompt.
+      projectManager.hasUnsavedChanges = false;
+      // Close on next tick to let the dialog fully dismiss on Windows.
       setTimeout(() => {
-        mainWindow.destroy();
-      }, 500);
-      return;
+        if (!mainWindow.isDestroyed()) mainWindow.close();
+      }, 0);
+    } catch (err) {
+      console.error('Error during save-on-close prompt:', err);
+      // On error, don't silently destroy — keep the window open so the user
+      // can try again or quit manually.
     }
-
-    // Don't Save — just close
-    mainWindow.destroy();
   });
 }
 

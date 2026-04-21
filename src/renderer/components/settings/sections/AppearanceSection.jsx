@@ -63,7 +63,7 @@ export function AppearanceSection() {
             {/* Other color pickers */}
             <div id="otherColorPickers" className="color-picker-group grid grid-cols-2 sm:grid-cols-3 gap-3">
               <ColorPickerItem id="clockColor" label="Clock" defaultValue="#808080" />
-              <ColorPickerItem id="elapsedColor" label="Elapsed" defaultValue="#808080" />
+              <ColorPickerItem id="elapsedColor" label="Elapsed / End At" defaultValue="#808080" />
               <ColorPickerItem id="messageColor" label="Message" defaultValue="#ffffff" />
               <ColorPickerItem id="messageBackgroundColor" label="Message Background" defaultValue="#000000" />
               <ColorPickerItem id="separatorColor" label="Separator" defaultValue="#333333" />

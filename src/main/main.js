@@ -19,6 +19,26 @@ const log = require('electron-log');
 log.transports.file.level = 'info';
 log.transports.console.level = 'info';
 
+// Fix #1: Global error handlers. Without these, an unhandled promise
+// rejection or sync exception in the main process can silently crash the
+// app (especially on Windows, where the default behaviour differs from
+// macOS). Log and keep running.
+process.on('unhandledRejection', (reason, promise) => {
+  try {
+    log.error('Unhandled promise rejection:', reason);
+  } catch (_) {
+    console.error('Unhandled promise rejection:', reason, promise);
+  }
+});
+
+process.on('uncaughtException', (error) => {
+  try {
+    log.error('Uncaught exception:', error);
+  } catch (_) {
+    console.error('Uncaught exception:', error);
+  }
+});
+
 let mainWindow;
 let apiServer;
 let updateManager;
@@ -41,8 +61,25 @@ if (process.platform === 'linux') {
   app.commandLine.appendSwitch('disable-gpu-sandbox');
 }
 
+// Windows: work around Chromium's MediaFoundation D3D11 capture path which
+// frequently fails with "AbortError: Timeout starting video source" on
+// Windows (especially with integrated / USB webcams and capture cards).
+// Falling back to the non-D3D11 MediaFoundation path is stable and has no
+// effect on macOS/Linux.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'MediaFoundationD3D11VideoCapture');
+}
+
 // Launch
 app.on('ready', async () => {
+  // Purge stale prompt temp files left over by a previous crashed/killed run.
+  try {
+    const { cleanupStalePromptFiles } = require('./utils/promptDialog');
+    cleanupStalePromptFiles();
+  } catch (err) {
+    log.warn('cleanupStalePromptFiles failed:', err && err.message);
+  }
+
   mainWindow = createMainWindow();
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow, settingsManager);

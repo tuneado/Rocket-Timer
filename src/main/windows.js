@@ -287,11 +287,21 @@ function createSettingsWindow() {
       nodeIntegration: false,
     },
     title: 'Preferences',
+    // Windows/Linux: hide the native menu bar on secondary windows (it shows
+    // the main app menu by default, which is irrelevant for Preferences).
+    // macOS uses the global menu bar and is unaffected.
+    autoHideMenuBar: true,
     resizable: true,
     minimizable: true,
     maximizable: true,
     show: false, // Don't show until ready
   });
+
+  // Ensure the menu bar is fully removed on Win/Linux (not just auto-hidden).
+  if (process.platform !== 'darwin') {
+    settingsWindow.setMenuBarVisibility(false);
+    settingsWindow.setMenu(null);
+  }
 
   settingsWindow.loadFile(path.join(__dirname, '../renderer/html/settings.html'));
 
@@ -334,11 +344,17 @@ function createLayoutCreatorWindow(editLayoutId) {
       nodeIntegration: false,
     },
     title: 'Layout Creator',
+    autoHideMenuBar: true,
     resizable: true,
     minimizable: true,
     maximizable: true,
     show: false,
   });
+
+  if (process.platform !== 'darwin') {
+    layoutCreatorWindow.setMenuBarVisibility(false);
+    layoutCreatorWindow.setMenu(null);
+  }
 
   let url = path.join(__dirname, '../renderer/html/layoutCreator.html');
   if (editLayoutId) {
