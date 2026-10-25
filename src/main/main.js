@@ -6,11 +6,13 @@
  * @see https://github.com/tuneado/Rocket-Timer
  */
 const { app, screen } = require('electron');
+const path = require('path');
 const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
 const { setupMenu, updateProjectsMenu } = require('./menu');
-const { setupIpcHandlers } = require('./ipcHandlers');
+const { setupIpcHandlers, setupLayoutStoreHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
 const ProjectManager = require('./projectManager');
+const LayoutStore = require('./layoutStore');
 const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
 const UpdateManager = require('./updateManager');
 const log = require('electron-log');
@@ -79,6 +81,9 @@ app.on('ready', async () => {
   } catch (err) {
     log.warn('cleanupStalePromptFiles failed:', err && err.message);
   }
+
+  // Custom layouts: registered before any window loads (renderers read them synchronously)
+  setupLayoutStoreHandlers(new LayoutStore(path.join(app.getPath('userData'), 'layouts.json')));
 
   mainWindow = createMainWindow();
   setupMenu(mainWindow);

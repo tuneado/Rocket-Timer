@@ -101,6 +101,20 @@ const ELEMENT_META = {
   video:       { icon: 'bi-camera-video-fill', label: 'Video' }
 };
 
+const SHAPE_META = {
+  rect:    { icon: 'bi-square-fill', label: 'Rectangle' },
+  ellipse: { icon: 'bi-circle-fill', label: 'Ellipse' },
+  line:    { icon: 'bi-slash-lg',    label: 'Line' }
+};
+
+const SHAPE_DEFAULTS = {
+  rect:    { size: { width: '25%', height: '25%' }, fill: 'rgba(59,130,246,1)', stroke: 'rgba(255,255,255,1)', strokeWidth: 0, cornerRadius: 0 },
+  ellipse: { size: { width: '20%', height: '35.56%' }, fill: 'rgba(59,130,246,1)', stroke: 'rgba(255,255,255,1)', strokeWidth: 0 },
+  line:    { size: { width: '50%', height: '2%' }, stroke: 'rgba(255,255,255,1)', strokeWidth: 4 }
+};
+
+const isShape = (config) => !!config && config.kind === 'shape';
+
 class LayoutEditorState {
   constructor() {
     this.layout = null;
@@ -236,6 +250,98 @@ class LayoutEditorState {
   }
 
   /**
+   * Update several element properties as one undo step
+   * @param {string} elementKey - e.g., 'video'
+   * @param {Object} updates - { 'size.width': '50%', 'position.x': 0, ... }
+   * @param {string} [eventProp] - propPath reported to subscribers
+   */
+  updateElementProps(elementKey, updates, eventProp) {
+    if (!this.layout || !this.layout[elementKey]) return;
+
+    for (const [propPath, value] of Object.entries(updates)) {
+      const parts = propPath.split('.');
+      let obj = this.layout[elementKey];
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!obj[parts[i]]) obj[parts[i]] = {};
+        obj = obj[parts[i]];
+      }
+      obj[parts[parts.length - 1]] = value;
+    }
+
+    this.dirty = true;
+    this._pushHistory();
+    this._notify('element', elementKey, eventProp);
+  }
+
+  /**
+   * Add a shape centred on the canvas, on top of the layer order, and select it
+   * @param {'rect'|'ellipse'|'line'} type
+   */
+  addShape(type) {
+    if (!this.layout || !SHAPE_META[type]) return null;
+    const key = `shape-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const defaults = JSON.parse(JSON.stringify(SHAPE_DEFAULTS[type]));
+    const w = parseFloat(defaults.size.width);
+    const h = parseFloat(defaults.size.height);
+    const count = this.getElementOrder().filter(k => this.layout[k]?.shape === type).length;
+
+    this.layout[key] = {
+      kind: 'shape',
+      shape: type,
+      name: `${SHAPE_META[type].label} ${count + 1}`,
+      enabled: true,
+      position: { x: `${(50 - w / 2).toFixed(2)}%`, y: `${(50 - h / 2).toFixed(2)}%` },
+      opacity: 1,
+      ...defaults
+    };
+    this.getElementOrder().unshift(key);
+    this.selectedElement = key;
+    this.dirty = true;
+    this._pushHistory();
+    this._notify('reorder');
+    this._notify('select', key);
+    return key;
+  }
+
+  /**
+   * Copy a shape just above the original, nudged so both stay visible
+   */
+  duplicateShape(key) {
+    const src = this.layout?.[key];
+    if (!isShape(src)) return null;
+    const copyKey = `shape-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.name = `${src.name || SHAPE_META[src.shape]?.label || 'Shape'} copy`;
+    const offset = (v) => (typeof v === 'string' && v.includes('%')) ? `${(parseFloat(v) + 2).toFixed(2)}%` : v;
+    copy.position = { x: offset(src.position?.x), y: offset(src.position?.y) };
+
+    this.layout[copyKey] = copy;
+    const order = this.getElementOrder();
+    order.splice(order.indexOf(key), 0, copyKey);
+    this.selectedElement = copyKey;
+    this.dirty = true;
+    this._pushHistory();
+    this._notify('reorder');
+    this._notify('select', copyKey);
+    return copyKey;
+  }
+
+  /**
+   * Delete a shape (built-in elements can only be hidden)
+   */
+  removeShape(key) {
+    if (!isShape(this.layout?.[key])) return false;
+    delete this.layout[key];
+    this.layout.elementOrder = this.getElementOrder().filter(k => k !== key);
+    if (this.selectedElement === key) this.selectedElement = null;
+    this.dirty = true;
+    this._pushHistory();
+    this._notify('reorder');
+    this._notify('select', null);
+    return true;
+  }
+
+  /**
    * Toggle element enabled/disabled
    */
   toggleElement(elementKey) {
@@ -366,6 +472,34 @@ class LayoutEditorState {
    */
   static getElementMeta() {
     return ELEMENT_META;
+  }
+
+  static isShape(config) {
+    return isShape(config);
+  }
+
+  static getShapeTypes() {
+    return SHAPE_META;
+  }
+
+  /**
+   * Icon and label for any element in a layout, including shapes
+   */
+  static getMetaFor(layout, key) {
+    const config = layout?.[key];
+    if (isShape(config)) {
+      const m = SHAPE_META[config.shape] || SHAPE_META.rect;
+      return { icon: m.icon, label: config.name || m.label };
+    }
+    return ELEMENT_META[key];
+  }
+
+  /**
+   * Built-in element keys plus the layout's shape keys
+   */
+  static getAllKeys(layout) {
+    const shapes = layout ? Object.keys(layout).filter(k => isShape(layout[k])) : [];
+    return [...Object.keys(ELEMENT_META), ...shapes];
   }
 
   /**

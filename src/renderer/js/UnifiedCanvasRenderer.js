@@ -488,12 +488,12 @@ class UnifiedCanvasRenderer {
     // Reuse render queue array to avoid allocation every frame
     const renderQueue = this._renderQueue;
     renderQueue.length = 0;
-    
+
     // Video frame (zIndex: 0) - supports both videoFrame and video properties
     const videoConfig = this.layout.videoFrame || this.layout.video;
     if (videoConfig && videoConfig.enabled) {
       renderQueue.push({
-        zIndex: videoConfig.zIndex || 0,
+        zIndex: this.getLayerZIndex('video', videoConfig, 0),
         draw: () => this.drawVideoFrame()
       });
     }
@@ -534,7 +534,7 @@ class UnifiedCanvasRenderer {
     if (this.layout.progressBar.enabled) {
       const pb = this.layout.progressBar;
       renderQueue.push({
-        zIndex: pb.zIndex || 20,
+        zIndex: this.getLayerZIndex('progressBar', pb, 20),
         draw: () => {
           if (pb.type === 'circular') {
             const centerX = this.parsePosition(pb.position.x, 'x', width);
@@ -558,7 +558,7 @@ class UnifiedCanvasRenderer {
     if (this.layout.separator && this.layout.separator.enabled) {
       const sep = this.layout.separator;
       renderQueue.push({
-        zIndex: sep.zIndex || 30,
+        zIndex: this.getLayerZIndex('separator', sep, 30),
         draw: () => {
           const sepY = this.parsePosition(sep.position.y, 'y', height);
           const sepWidth = this.parseSize(sep.width, width);
@@ -571,7 +571,7 @@ class UnifiedCanvasRenderer {
     // Countdown (zIndex: 40)
     if (this.layout.countdown.enabled) {
       renderQueue.push({
-        zIndex: this.layout.countdown.zIndex || 40,
+        zIndex: this.getLayerZIndex('countdown', this.layout.countdown, 40),
         draw: () => {
           const countdownX = this.parsePosition(this.layout.countdown.position.x, 'x', width);
           const countdownY = this.parsePosition(this.layout.countdown.position.y, 'y', height);
@@ -583,7 +583,7 @@ class UnifiedCanvasRenderer {
     // Clock (zIndex: 50)
     if (this.state.showClock && this.layout.clock.enabled) {
       renderQueue.push({
-        zIndex: this.layout.clock.zIndex || 50,
+        zIndex: this.getLayerZIndex('clock', this.layout.clock, 50),
         draw: () => {
           const clockX = this.parsePosition(this.layout.clock.position.x, 'x', width);
           const clockY = this.parsePosition(this.layout.clock.position.y, 'y', height);
@@ -595,7 +595,7 @@ class UnifiedCanvasRenderer {
     // Elapsed time (zIndex: 60)
     if (this.layout.elapsed && this.layout.elapsed.enabled) {
       renderQueue.push({
-        zIndex: this.layout.elapsed.zIndex || 60,
+        zIndex: this.getLayerZIndex('elapsed', this.layout.elapsed, 60),
         draw: () => {
           const elapsedX = this.parsePosition(this.layout.elapsed.position.x, 'x', width);
           const elapsedY = this.parsePosition(this.layout.elapsed.position.y, 'y', height);
@@ -607,7 +607,7 @@ class UnifiedCanvasRenderer {
     // End time (zIndex: 70)
     if (this.layout.endTime && this.layout.endTime.enabled) {
       renderQueue.push({
-        zIndex: this.layout.endTime.zIndex || 70,
+        zIndex: this.getLayerZIndex('endTime', this.layout.endTime, 70),
         draw: () => {
           const endTimeX = this.parsePosition(this.layout.endTime.position.x, 'x', width);
           const endTimeY = this.parsePosition(this.layout.endTime.position.y, 'y', height);
@@ -619,13 +619,24 @@ class UnifiedCanvasRenderer {
     // Message (zIndex: 80)
     if (this.state.showMessage && this.state.message && this.layout.message && this.layout.message.enabled) {
       renderQueue.push({
-        zIndex: this.layout.message.zIndex || 80,
+        zIndex: this.getLayerZIndex('message', this.layout.message, 80),
         draw: () => {
           const msgX = this.parsePosition(this.layout.message.position.x, 'x', width);
           const msgY = this.parsePosition(this.layout.message.position.y, 'y', height);
           this.drawMessage(msgX, msgY);
         }
       });
+    }
+    
+    // Shapes added in the Layout Creator (stacked through elementOrder like other elements)
+    for (const key in this.layout) {
+      const shape = this.layout[key];
+      if (shape && shape.kind === 'shape' && shape.enabled) {
+        renderQueue.push({
+          zIndex: this.getLayerZIndex(key, shape, 25),
+          draw: () => this.drawShape(shape)
+        });
+      }
     }
     
     // Watermark (zIndex: 5 - above background/video, below UI elements)
@@ -642,7 +653,31 @@ class UnifiedCanvasRenderer {
     // Render all elements in order
     renderQueue.forEach(item => item.draw());
   }
-  
+
+  /**
+   * Get the zIndex for a layout element.
+   * Layouts saved by the Layout Creator store their stacking order in
+   * `elementOrder` (first = top). Those elements are stacked in that order
+   * in the 20+ band, above the background image, watermark and flash.
+   * Video keeps zIndex 0 when it is the bottom layer.
+   */
+  getLayerZIndex(key, config, fallback) {
+    if (this._layerZLayout !== this.layout) {
+      this._layerZLayout = this.layout;
+      this._layerZ = null;
+      const order = this.layout.elementOrder;
+      if (Array.isArray(order)) {
+        this._layerZ = {};
+        // Last in elementOrder = bottom layer = lowest zIndex
+        order.filter(k => this.layout[k]).reverse().forEach((k, i) => {
+          this._layerZ[k] = (i === 0 && k === 'video') ? 0 : 20 + i;
+        });
+      }
+    }
+    if (this._layerZ && this._layerZ[key] !== undefined) return this._layerZ[key];
+    return config.zIndex || fallback;
+  }
+
   /**
    * Distribute master canvas content to all output canvases
    */
@@ -1032,27 +1067,18 @@ class UnifiedCanvasRenderer {
   /**
    * Draw text background box if element has background config
    */
-  drawTextBackground(x, y, text, fontSize, alignment, bgConfig) {
+  drawTextBackground(x, y, text, fontSize, alignment, bgConfig, label = null) {
     if (!bgConfig || !bgConfig.enabled) return;
     
-    // Measure text
-    const metrics = this.ctx.measureText(text);
-    const textWidth = metrics.width;
-    const textHeight = fontSize;
+    // Box around the text, and the label above it when shown
+    const content = this.getTextBlockBox(x, y, text, fontSize, alignment, label);
     
     // Calculate padding
     const padding = bgConfig.padding !== undefined ? bgConfig.padding : fontSize * 0.3;
-    const boxWidth = textWidth + padding * 2;
-    const boxHeight = textHeight + padding * 2;
-    
-    // Calculate box position based on text alignment
-    let boxX = x - boxWidth / 2; // default center
-    if (alignment === 'left') {
-      boxX = x - padding;
-    } else if (alignment === 'right') {
-      boxX = x - textWidth - padding;
-    }
-    const boxY = y - boxHeight / 2;
+    const boxX = content.x - padding;
+    const boxY = content.y - padding;
+    const boxWidth = content.w + padding * 2;
+    const boxHeight = content.h + padding * 2;
     
     // Draw background with optional border radius
     this.ctx.fillStyle = bgConfig.color || 'rgba(0, 0, 0, 0.7)';
@@ -1067,6 +1093,51 @@ class UnifiedCanvasRenderer {
       // Regular rectangle
       this.ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
     }
+  }
+
+  /**
+   * Box around a text line (and the label drawn above it), before padding.
+   * Measures `text` with the current ctx.font.
+   * @param {{text: string, font: string, size: number, offset: number}|null} label
+   */
+  getTextBlockBox(x, y, text, fontSize, alignment, label = null) {
+    let width = this.ctx.measureText(text).width;
+    let top = y - fontSize / 2;
+    const bottom = y + fontSize / 2;
+
+    if (label) {
+      const font = this.ctx.font;
+      this.ctx.font = label.font;
+      width = Math.max(width, this.ctx.measureText(label.text).width);
+      this.ctx.font = font;
+      top = Math.min(top, y - label.offset - label.size / 2);
+    }
+
+    let left = x - width / 2; // center
+    if (alignment === 'left') left = x;
+    else if (alignment === 'right') left = x - width;
+
+    return { x: left, y: top, w: width, h: bottom - top };
+  }
+
+  /**
+   * Label settings for elapsed / end time, or null when the label is hidden.
+   * labelLineHeight sets the label-to-time spacing like CSS line-height over the
+   * two lines' average size; layouts without it keep the original spacing.
+   */
+  getTimeLabel(config, defaultLabel) {
+    if (config.showLabel === false) return null;
+    const fontSize = config.fontSize;
+    const size = config.labelSize || fontSize * 0.5;
+    const offset = config.labelLineHeight !== undefined
+      ? config.labelLineHeight * (fontSize + size) / 2
+      : fontSize * 0.7;
+    return {
+      text: config.label || defaultLabel,
+      font: `normal ${size}px ${this.styles.fontFamily}`,
+      size,
+      offset
+    };
   }
 
   /**
@@ -1143,9 +1214,7 @@ class UnifiedCanvasRenderer {
   drawElapsed(x, y) {
     const config = this.layout.elapsed;
     const fontSize = config.fontSize;
-    const showLabel = config.showLabel !== false;
-    const labelSize = config.labelSize || fontSize * 0.5;
-    const label = config.label || 'ELAPSED';
+    const label = this.getTimeLabel(config, 'ELAPSED');
     const text = this.state.elapsed;
     const alignment = config.alignment || 'center';
     
@@ -1155,18 +1224,18 @@ class UnifiedCanvasRenderer {
     
     // Draw background if configured
     if (config.background) {
-      this.drawTextBackground(x, y, text, fontSize, alignment, config.background);
+      this.drawTextBackground(x, y, text, fontSize, alignment, config.background, label);
     }
     
     // Set opacity
     const opacity = config.opacity !== undefined ? config.opacity : 1.0;
     
     // Draw label if enabled
-    if (showLabel) {
+    if (label) {
       this.ctx.globalAlpha = opacity * 0.7;
-      this.ctx.font = `normal ${labelSize}px ${this.styles.fontFamily}`;
+      this.ctx.font = label.font;
       this.ctx.fillStyle = this.styles.elapsedColor;
-      this.ctx.fillText(label, x, y - fontSize * 0.7);
+      this.ctx.fillText(label.text, x, y - label.offset);
     }
     
     // Draw time
@@ -1185,9 +1254,7 @@ class UnifiedCanvasRenderer {
   drawEndTime(x, y) {
     const config = this.layout.endTime;
     const fontSize = config.fontSize;
-    const showLabel = config.showLabel !== false;
-    const labelSize = config.labelSize || fontSize * 0.5;
-    const label = config.label || 'ENDS AT';
+    const label = this.getTimeLabel(config, 'ENDS AT');
     const text = this.state.endTime;
     const alignment = config.alignment || 'center';
     
@@ -1197,18 +1264,18 @@ class UnifiedCanvasRenderer {
     
     // Draw background if configured
     if (config.background) {
-      this.drawTextBackground(x, y, text, fontSize, alignment, config.background);
+      this.drawTextBackground(x, y, text, fontSize, alignment, config.background, label);
     }
     
     // Set opacity (default 0.8)
     const opacity = config.opacity !== undefined ? config.opacity : 0.8;
     
     // Draw label if enabled
-    if (showLabel) {
+    if (label) {
       this.ctx.globalAlpha = opacity * 0.7;
-      this.ctx.font = `normal ${labelSize}px ${this.styles.fontFamily}`;
+      this.ctx.font = label.font;
       this.ctx.fillStyle = this.styles.elapsedColor;
-      this.ctx.fillText(label, x, y - fontSize * 0.7);
+      this.ctx.fillText(label.text, x, y - label.offset);
     }
     
     // Draw end time
@@ -1231,6 +1298,50 @@ class UnifiedCanvasRenderer {
     this.ctx.moveTo(x, y);
     this.ctx.lineTo(x + width, y);
     this.ctx.stroke();
+  }
+
+  /**
+   * Draw a layout shape: rect (optional corner radius), ellipse, or line.
+   * position is the top-left corner of the shape's box; a line runs along the
+   * box's longer side, through its centre, strokeWidth thick.
+   */
+  drawShape(shape) {
+    const { width, height } = this.masterCanvas;
+    const x = this.parsePosition(shape.position?.x ?? 0, 'x', width);
+    const y = this.parsePosition(shape.position?.y ?? 0, 'y', height);
+    const w = this.parseSize(shape.size?.width ?? '20%', width);
+    const h = this.parseSize(shape.size?.height ?? '20%', height);
+    const strokeWidth = shape.strokeWidth || 0;
+    const ctx = this.ctx;
+
+    ctx.save();
+    ctx.globalAlpha = shape.opacity !== undefined ? shape.opacity : 1;
+
+    if (shape.shape === 'line') {
+      const t = Math.max(1, strokeWidth || 4);
+      ctx.fillStyle = shape.stroke || shape.fill || '#ffffff';
+      if (w >= h) ctx.fillRect(x, y + h / 2 - t / 2, w, t);
+      else ctx.fillRect(x + w / 2 - t / 2, y, t, h);
+      ctx.restore();
+      return;
+    }
+
+    ctx.beginPath();
+    if (shape.shape === 'ellipse') {
+      ctx.ellipse(x + w / 2, y + h / 2, Math.abs(w / 2), Math.abs(h / 2), 0, 0, 2 * Math.PI);
+    } else {
+      ctx.roundRect(x, y, w, h, Math.min(shape.cornerRadius || 0, w / 2, h / 2));
+    }
+    if (shape.fill) {
+      ctx.fillStyle = shape.fill;
+      ctx.fill();
+    }
+    if (strokeWidth > 0 && shape.stroke) {
+      ctx.lineWidth = strokeWidth;
+      ctx.strokeStyle = shape.stroke;
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**
@@ -1357,60 +1468,11 @@ class UnifiedCanvasRenderer {
       const videoWidth = videoElement.videoWidth;
       const videoHeight = videoElement.videoHeight;
       
-      // Calculate draw parameters based on scaling mode
-      let sx = 0, sy = 0, sw = videoWidth, sh = videoHeight;
-      let dx = frameX, dy = frameY, dw = frameWidth, dh = frameHeight;
-      
-      switch (this.videoScaling) {
-        case 'cover': {
-          // Fill frame, cropping excess (like object-fit: cover)
-          // Crop is centered: center,center alignment
-          const videoAspect = videoWidth / videoHeight;
-          const frameAspect = frameWidth / frameHeight;
-          if (videoAspect > frameAspect) {
-            // Video is wider - crop left/right sides equally (center horizontally)
-            sw = videoHeight * frameAspect;
-            sx = (videoWidth - sw) / 2; // Center crop horizontally
-          } else {
-            // Video is taller - crop top/bottom equally (center vertically)
-            sh = videoWidth / frameAspect;
-            sy = (videoHeight - sh) / 2; // Center crop vertically
-          }
-          break;
-        }
-        case 'stretch':
-          // Stretch to fill exactly (distort if needed)
-          // Default drawImage behavior - just use frame dimensions
-          break;
-        case 'none': {
-          // Original size, centered
-          dw = Math.min(videoWidth, frameWidth);
-          dh = Math.min(videoHeight, frameHeight);
-          dx = frameX + (frameWidth - dw) / 2;
-          dy = frameY + (frameHeight - dh) / 2;
-          sw = dw;
-          sh = dh;
-          sx = (videoWidth - sw) / 2;
-          sy = (videoHeight - sh) / 2;
-          break;
-        }
-        case 'contain':
-        default: {
-          // Fit inside frame, maintaining aspect ratio (like object-fit: contain)
-          const videoAspect = videoWidth / videoHeight;
-          const frameAspect = frameWidth / frameHeight;
-          if (videoAspect > frameAspect) {
-            // Video is wider - fit to width
-            dh = frameWidth / videoAspect;
-            dy = frameY + (frameHeight - dh) / 2;
-          } else {
-            // Video is taller - fit to height
-            dw = frameHeight * videoAspect;
-            dx = frameX + (frameWidth - dw) / 2;
-          }
-          break;
-        }
-      }
+      // A layout can set its own scaling; otherwise use the app setting
+      const { sx, sy, sw, sh, dx, dy, dw, dh } = this.getVideoDrawRect(
+        videoWidth, videoHeight, frameX, frameY, frameWidth, frameHeight,
+        vf.scaling || this.videoScaling
+      );
       
       // Apply mirror transform if enabled
       if (this.videoMirror) {
@@ -1424,6 +1486,68 @@ class UnifiedCanvasRenderer {
     
     // Restore context
     this.ctx.restore();
+  }
+
+  /**
+   * Source and destination rectangles for drawing a video into a frame
+   * @param {string} mode - contain, cover, stretch or none
+   */
+  getVideoDrawRect(videoWidth, videoHeight, frameX, frameY, frameWidth, frameHeight, mode) {
+    let sx = 0, sy = 0, sw = videoWidth, sh = videoHeight;
+    let dx = frameX, dy = frameY, dw = frameWidth, dh = frameHeight;
+
+    switch (mode) {
+      case 'cover': {
+        // Fill frame, cropping excess (like object-fit: cover)
+        // Crop is centered: center,center alignment
+        const videoAspect = videoWidth / videoHeight;
+        const frameAspect = frameWidth / frameHeight;
+        if (videoAspect > frameAspect) {
+          // Video is wider - crop left/right sides equally (center horizontally)
+          sw = videoHeight * frameAspect;
+          sx = (videoWidth - sw) / 2; // Center crop horizontally
+        } else {
+          // Video is taller - crop top/bottom equally (center vertically)
+          sh = videoWidth / frameAspect;
+          sy = (videoHeight - sh) / 2; // Center crop vertically
+        }
+        break;
+      }
+      case 'stretch':
+        // Stretch to fill exactly (distort if needed)
+        // Default drawImage behavior - just use frame dimensions
+        break;
+      case 'none': {
+        // Original size, centered
+        dw = Math.min(videoWidth, frameWidth);
+        dh = Math.min(videoHeight, frameHeight);
+        dx = frameX + (frameWidth - dw) / 2;
+        dy = frameY + (frameHeight - dh) / 2;
+        sw = dw;
+        sh = dh;
+        sx = (videoWidth - sw) / 2;
+        sy = (videoHeight - sh) / 2;
+        break;
+      }
+      case 'contain':
+      default: {
+        // Fit inside frame, maintaining aspect ratio (like object-fit: contain)
+        const videoAspect = videoWidth / videoHeight;
+        const frameAspect = frameWidth / frameHeight;
+        if (videoAspect > frameAspect) {
+          // Video is wider - fit to width
+          dh = frameWidth / videoAspect;
+          dy = frameY + (frameHeight - dh) / 2;
+        } else {
+          // Video is taller - fit to height
+          dw = frameHeight * videoAspect;
+          dx = frameX + (frameWidth - dw) / 2;
+        }
+        break;
+      }
+    }
+
+    return { sx, sy, sw, sh, dx, dy, dw, dh };
   }
 
   /**

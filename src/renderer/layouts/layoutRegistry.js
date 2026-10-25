@@ -408,11 +408,40 @@ const layouts = {
   video: videoLayout
 };
 
-// Custom layouts storage (loaded from localStorage)
+// Custom layouts: stored by the main process in <userData>/layouts.json; this is the
+// window's cached copy. Without the Electron bridge (plain browser), localStorage is used.
 let customLayouts = {};
+const layoutBridge = typeof window !== 'undefined' ? window.electron?.layouts : null;
 
-// Load custom layouts from localStorage
+// Move layouts saved by older versions (renderer localStorage) into the main-process store
+function migrateLegacyLayouts() {
+  try {
+    const stored = localStorage.getItem('customLayouts');
+    if (!stored) return;
+    if (layoutBridge.importLegacy(JSON.parse(stored))) {
+      // Keep a copy instead of deleting outright
+      localStorage.setItem('customLayouts.migrated', stored);
+      localStorage.removeItem('customLayouts');
+    }
+  } catch (error) {
+    console.warn('Failed to migrate custom layouts:', error);
+  }
+}
+
+// Load custom layouts
 function loadCustomLayouts() {
+  if (layoutBridge) {
+    migrateLegacyLayouts();
+    try {
+      customLayouts = layoutBridge.getAll() || {};
+    } catch (error) {
+      console.warn('Failed to load custom layouts:', error);
+      customLayouts = {};
+    }
+    // Saves from any window update every window's copy
+    layoutBridge.onChanged((layouts) => { customLayouts = layouts || {}; });
+    return;
+  }
   try {
     const stored = localStorage.getItem('customLayouts');
     if (stored) {
@@ -424,7 +453,7 @@ function loadCustomLayouts() {
   }
 }
 
-// Save custom layouts to localStorage
+// Save custom layouts to localStorage (browser fallback only)
 function saveCustomLayouts() {
   try {
     localStorage.setItem('customLayouts', JSON.stringify(customLayouts));
@@ -536,6 +565,11 @@ class LayoutRegistry {
         throw new Error('Layout ID conflicts with built-in layout');
       }
       
+      if (layoutBridge) {
+        if (!layoutBridge.save(layoutId, layoutData)) throw new Error('Main process could not save the layout');
+        customLayouts = { ...customLayouts, [layoutId]: layoutData };
+        return true;
+      }
       customLayouts[layoutId] = layoutData;
       saveCustomLayouts();
       return true;
@@ -552,6 +586,12 @@ class LayoutRegistry {
    */
   static removeCustomLayout(layoutId) {
     if (customLayouts.hasOwnProperty(layoutId)) {
+      if (layoutBridge) {
+        if (!layoutBridge.remove(layoutId)) return false;
+        customLayouts = { ...customLayouts };
+        delete customLayouts[layoutId];
+        return true;
+      }
       delete customLayouts[layoutId];
       saveCustomLayouts();
       return true;
@@ -565,6 +605,11 @@ class LayoutRegistry {
    */
   static clearAllCustomLayouts() {
     try {
+      if (layoutBridge) {
+        if (!layoutBridge.clear()) throw new Error('Main process could not clear layouts');
+        customLayouts = {};
+        return true;
+      }
       customLayouts = {};
       saveCustomLayouts();
       return true;

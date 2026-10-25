@@ -36,7 +36,7 @@
     preview = new CanvasPreview(canvas, overlay);
 
     // Inspector
-    inspectorUI = new LayoutEditorUI($('inspectorPanel'), state);
+    inspectorUI = new LayoutEditorUI($('inspectorPanel'), state, preview);
 
     // Check if we received edit data via query params or IPC
     const params = new URLSearchParams(window.location.search);
@@ -76,7 +76,7 @@
   let _isDragging = false;
 
   // Properties whose change requires a full inspector rebuild (they show/hide other fields)
-  const STRUCTURAL_PROPS = new Set(['showLabel', 'type', 'background.enabled', 'showBackground']);
+  const STRUCTURAL_PROPS = new Set(['showLabel', 'type', 'background.enabled', 'showBackground', 'frame', 'scaling']);
 
   function onStateChange(event, ...args) {
     if (_isDragging) {
@@ -142,12 +142,13 @@
     const container = $('elementListItems');
     container.innerHTML = '';
 
-    const meta = LayoutEditorState.getElementMeta();
     const keys = state.getElementOrder(); // respects drag-reordered z-order
 
     for (const key of keys) {
-      const m = meta[key];
+      const m = LayoutEditorState.getMetaFor(state.layout, key);
       const el = state.layout?.[key];
+      if (!m || !el) continue;
+      const shape = LayoutEditorState.isShape(el);
       const enabled = el?.enabled ?? false;
 
       const item = document.createElement('div');
@@ -157,11 +158,15 @@
       item.innerHTML = `
         <span class="lc-drag-handle" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></span>
         <i class="bi ${m.icon}"></i>
-        <span class="lc-el-name">${m.label}</span>
+        <span class="lc-el-name"></span>
+        ${shape ? '<button class="lc-el-delete" title="Delete shape"><i class="bi bi-trash3"></i></button>' : ''}
         <button class="lc-el-toggle" title="${enabled ? 'Hide' : 'Show'}">
           <i class="bi ${enabled ? 'bi-eye-fill' : 'bi-eye-slash'}"></i>
         </button>
       `;
+
+      // Shape names are user text
+      item.querySelector('.lc-el-name').textContent = m.label;
 
       // --- Drag handle: only make draggable when handle is grabbed ---
       const handle = item.querySelector('.lc-drag-handle');
@@ -200,9 +205,16 @@
 
       // Click → select
       item.addEventListener('click', (e) => {
-        if (e.target.closest('.lc-el-toggle') || e.target.closest('.lc-drag-handle')) return;
+        if (e.target.closest('.lc-el-toggle, .lc-el-delete, .lc-drag-handle')) return;
         state.selectElement(key);
       });
+
+      if (shape) {
+        item.querySelector('.lc-el-delete').addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.removeShape(key);
+        });
+      }
 
       // Toggle visibility
       item.querySelector('.lc-el-toggle').addEventListener('click', (e) => {
@@ -242,6 +254,23 @@
     // Undo / Redo
     $('btnUndo').addEventListener('click', () => state.undo());
     $('btnRedo').addEventListener('click', () => state.redo());
+
+    // Add shape menu
+    const shapeMenu = $('addShapeMenu');
+    const closeShapeMenu = () => { shapeMenu.style.display = 'none'; };
+    $('btnAddShape').addEventListener('click', (e) => {
+      e.stopPropagation();
+      shapeMenu.style.display = shapeMenu.style.display === 'none' ? '' : 'none';
+    });
+    shapeMenu.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-shape]');
+      if (!btn) return;
+      closeShapeMenu();
+      state.addShape(btn.dataset.shape);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.lc-add-shape')) closeShapeMenu();
+    });
 
     // Grid toggle
     $('btnGrid').addEventListener('click', () => {
@@ -312,7 +341,8 @@
       // Resize
       if (preview.resizeState) {
         e.preventDefault();
-        const result = preview.moveResize(e.clientX, e.clientY);
+        // Shift keeps the aspect ratio (video, shapes, linear progress bar); Alt skips snapping
+        const result = preview.moveResize(e.clientX, e.clientY, e.shiftKey, !e.altKey);
         if (result) {
           for (const [prop, val] of Object.entries(result.updates)) {
             const parts = prop.split('.');
@@ -326,6 +356,7 @@
           state.dirty = true;
           preview.updateLayoutRef(state.layout);
           preview.render();
+          preview.syncHighlight(result.elementKey);
           inspectorUI.render();
         }
         return;
@@ -334,13 +365,15 @@
       // Drag
       if (!preview.dragState) return;
       e.preventDefault();
-      const result = preview.moveDrag(e.clientX, e.clientY);
+      // Alt/Option drags without snapping
+      const result = preview.moveDrag(e.clientX, e.clientY, !e.altKey);
       if (result && state.layout[result.elementKey]) {
         state.layout[result.elementKey].position.x = result.x;
         state.layout[result.elementKey].position.y = result.y;
         state.dirty = true;
         preview.updateLayoutRef(state.layout);
         preview.render();
+        preview.syncHighlight(result.elementKey);
         inspectorUI.render();
       }
     });
@@ -370,19 +403,99 @@
   // KEYBOARD SHORTCUTS
   // ===========================
 
+  // Arrow key → [dx, dy]
+  const NUDGE_KEYS = {
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1]
+  };
+
+  let _nudgeCommit = null;
+  let _nudgeKey = null;
+
+  /**
+   * Move the selected element by canvas pixels.
+   * Repeated presses are grouped into one undo step.
+   */
+  function nudgeSelected(dx, dy) {
+    const key = state.selectedElement;
+    const config = key && state.layout[key];
+    if (!config || !config.enabled || !config.position) return;
+
+    const { width, height } = state.layout.resolution;
+    const { parsePosition } = UnifiedCanvasRenderer.prototype;
+    const toPct = (px, dim) => `${((px / dim) * 100).toFixed(2)}%`;
+
+    // Separator is always centred horizontally
+    if (dx && key !== 'separator') {
+      config.position.x = toPct(parsePosition(config.position.x, 'x', width) + dx, width);
+    }
+    if (dy) {
+      config.position.y = toPct(parsePosition(config.position.y, 'y', height) + dy, height);
+    }
+
+    state.dirty = true;
+    preview.updateLayoutRef(state.layout);
+    preview.render();
+    preview.updateHighlights();
+    inspectorUI.render();
+    updateDOM();
+
+    clearTimeout(_nudgeCommit);
+    _nudgeKey = key;
+    _nudgeCommit = setTimeout(flushNudge, 400);
+  }
+
+  function flushNudge() {
+    if (!_nudgeCommit) return;
+    clearTimeout(_nudgeCommit);
+    _nudgeCommit = null;
+    if (state.layout[_nudgeKey]) state.commitDrag(_nudgeKey);
+  }
+
+  function toggleShortcuts(show) {
+    const modal = $('shortcutsModal');
+    modal.style.display = (show ?? modal.style.display === 'none') ? '' : 'none';
+  }
+
   function bindKeyboard() {
+    // Show the platform's modifier key in the shortcuts list
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    document.querySelectorAll('.lc-kbd-mod').forEach(el => { el.textContent = isMac ? '⌘' : 'Ctrl'; });
+    document.querySelectorAll('.lc-kbd-alt').forEach(el => { el.textContent = isMac ? '⌥' : 'Alt'; });
+    $('btnShortcuts').addEventListener('click', () => toggleShortcuts(true));
+    $('shortcutsClose').addEventListener('click', () => toggleShortcuts(false));
+    $('shortcutsModal').addEventListener('click', (e) => {
+      if (e.target === $('shortcutsModal')) toggleShortcuts(false);
+    });
+
     document.addEventListener('keydown', (e) => {
       const isMeta = e.metaKey || e.ctrlKey;
+      const inField = e.target.closest('input, textarea, select');
+      const key = e.key.toLowerCase();
 
       // Ctrl+Z → Undo
-      if (isMeta && !e.shiftKey && e.key === 'z') {
+      if (isMeta && !e.shiftKey && key === 'z') {
         e.preventDefault();
+        flushNudge();
         state.undo();
       }
       // Ctrl+Shift+Z or Ctrl+Y → Redo
-      if ((isMeta && e.shiftKey && e.key === 'z') || (isMeta && e.key === 'y')) {
+      if ((isMeta && e.shiftKey && key === 'z') || (isMeta && key === 'y')) {
         e.preventDefault();
+        flushNudge();
         state.redo();
+      }
+      // Arrows → Nudge selected element (Shift = 10px)
+      if (NUDGE_KEYS[e.key] && !isMeta && !inField && state.selectedElement) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        nudgeSelected(NUDGE_KEYS[e.key][0] * step, NUDGE_KEYS[e.key][1] * step);
+      }
+      // ? → Keyboard shortcuts
+      if (e.key === '?' && !inField) {
+        toggleShortcuts();
       }
       // Ctrl+S → Save
       if (isMeta && e.key === 's') {
@@ -394,19 +507,26 @@
         e.preventDefault();
         handleExport();
       }
-      // Escape → Deselect
+      // Escape → Close shortcuts, else deselect
       if (e.key === 'Escape') {
-        state.selectElement(null);
+        if ($('shortcutsModal').style.display !== 'none') toggleShortcuts(false);
+        else if ($('addShapeMenu').style.display !== 'none') $('addShapeMenu').style.display = 'none';
+        else state.selectElement(null);
       }
       // G → Toggle Grid
       if (e.key === 'g' && !e.target.closest('input, textarea, select')) {
         const on = preview.toggleGrid();
         $('btnGrid').classList.toggle('active', on);
       }
-      // Delete → Toggle off selected element
-      if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedElement && !e.target.closest('input, textarea, select')) {
+      // Delete → Delete a shape, hide any other element
+      if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedElement && !inField) {
         e.preventDefault();
-        state.toggleElement(state.selectedElement);
+        if (!state.removeShape(state.selectedElement)) state.toggleElement(state.selectedElement);
+      }
+      // Ctrl+D → Duplicate selected shape
+      if (isMeta && key === 'd' && state.selectedElement && !inField) {
+        e.preventDefault();
+        state.duplicateShape(state.selectedElement);
       }
     });
   }

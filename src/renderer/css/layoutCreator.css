@@ -377,6 +377,20 @@
   background: rgba(59, 130, 246, 0.08);
 }
 
+/* Position point marker (what X/Y set) — selected element only */
+.lc-anchor {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #ff3bd4;
+  border: 2px solid #fff;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 11;
+}
+
 /* Resize handles — only visible on selected element */
 .lc-resize-handle {
   position: absolute;
@@ -547,6 +561,83 @@
   color: var(--text-muted);
   padding: 0 12px;
   margin-bottom: 8px;
+}
+
+/* Elements header with the add-shape menu */
+.lc-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 8px;
+  margin-bottom: 8px;
+}
+
+.lc-sidebar-header .lc-sidebar-title {
+  margin-bottom: 0;
+}
+
+.lc-add-shape {
+  position: relative;
+}
+
+.lc-btn-xs {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+}
+
+.lc-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 150px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.lc-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lc-menu button:hover,
+.lc-menu button:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+
+.lc-element-item .lc-el-delete {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.lc-element-item:hover .lc-el-delete,
+.lc-element-item.active .lc-el-delete {
+  opacity: 1;
+}
+
+.lc-element-item .lc-el-delete:hover {
+  color: var(--color-danger);
 }
 
 .lc-sidebar-section {
@@ -805,6 +896,135 @@
 }
 
 /* ===================================
+   INSPECTOR LAYOUT
+   Fixed label column so every control starts at the same x
+   =================================== */
+
+.lc-inspector .lc-prop-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+}
+
+.lc-inspector .lc-prop-label {
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.lc-inspector .lc-input {
+  width: 100%;
+  height: 28px;
+  box-sizing: border-box;
+}
+
+.lc-inspector .lc-number-wrapper .lc-input-number {
+  flex: 1;
+  width: auto;
+}
+
+.lc-inspector .lc-stepper-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.lc-inspector .lc-toggle {
+  justify-self: start;
+}
+
+.lc-inspector .lc-prop-row-btn > .lc-btn {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.lc-prop-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lc-inspector .lc-preset-bar {
+  margin-bottom: 0;
+}
+
+.lc-inspector .lc-preset-btn {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* Color picker */
+.lc-color-field {
+  display: flex;
+  gap: 6px;
+}
+
+.lc-color-swatch {
+  position: relative;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+  cursor: pointer;
+  /* Checkerboard shows through transparent colors */
+  background: repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 10px 10px;
+}
+
+.lc-color-swatch:hover {
+  border-color: var(--color-primary);
+}
+
+.lc-color-swatch > span {
+  position: absolute;
+  inset: 0;
+}
+
+.lc-color-swatch > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.lc-inspector .lc-input.invalid {
+  border-color: var(--color-danger);
+}
+
+.lc-color-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.lc-color-preset {
+  position: relative;
+  flex: 1;
+  height: 18px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+  cursor: pointer;
+  background: repeating-conic-gradient(#666 0% 25%, #999 0% 50%) 50% / 8px 8px;
+}
+
+.lc-color-preset:hover {
+  border-color: var(--color-primary);
+}
+
+.lc-color-preset > span {
+  position: absolute;
+  inset: 0;
+}
+
+/* ===================================
    BADGES
    =================================== */
 
@@ -916,6 +1136,45 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+/* ===================================
+   KEYBOARD SHORTCUTS
+   =================================== */
+
+.lc-shortcuts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  align-items: center;
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
+.lc-shortcuts dt {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.lc-shortcuts dd {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.lc-shortcuts kbd {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+  border-bottom-width: 2px;
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  text-align: center;
 }
 
 /* ===================================

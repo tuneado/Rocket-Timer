@@ -44,6 +44,9 @@
         <button id="btnGrid" class="lc-btn lc-btn-icon" title="Toggle Grid">
           <i class="bi bi-grid-3x3"></i>
         </button>
+        <button id="btnShortcuts" class="lc-btn lc-btn-icon" title="Keyboard shortcuts (?)">
+          <i class="bi bi-keyboard"></i>
+        </button>
         <span class="lc-toolbar-sep"></span>
         <button id="btnExport" class="lc-btn lc-btn-sm" title="Export layout as JSON">
           <i class="bi bi-box-arrow-up"></i> Export
@@ -59,7 +62,19 @@
 
       <!-- LEFT: Element List -->
       <aside class="lc-sidebar" id="elementList">
-        <h3 class="lc-sidebar-title">Elements</h3>
+        <div class="lc-sidebar-header">
+          <h3 class="lc-sidebar-title">Elements</h3>
+          <div class="lc-add-shape">
+            <button id="btnAddShape" class="lc-btn lc-btn-icon lc-btn-xs" title="Add shape" aria-haspopup="menu">
+              <i class="bi bi-plus-lg"></i>
+            </button>
+            <div id="addShapeMenu" class="lc-menu" role="menu" style="display:none">
+              <button role="menuitem" data-shape="rect"><i class="bi bi-square-fill"></i> Rectangle</button>
+              <button role="menuitem" data-shape="ellipse"><i class="bi bi-circle-fill"></i> Ellipse</button>
+              <button role="menuitem" data-shape="line"><i class="bi bi-slash-lg"></i> Line</button>
+            </div>
+          </div>
+        </div>
         <div id="elementListItems" class="lc-element-list">
           <!-- Dynamically populated -->
         </div>
@@ -118,6 +133,31 @@
     </div>
   </div>
 
+  <!-- ===== KEYBOARD SHORTCUTS ===== -->
+  <div id="shortcutsModal" class="lc-modal-overlay" style="display:none">
+    <div class="lc-modal">
+      <h3>Keyboard Shortcuts</h3>
+      <dl class="lc-shortcuts">
+        <dt><kbd>←</kbd><kbd>↑</kbd><kbd>→</kbd><kbd>↓</kbd></dt><dd>Nudge selected element 1px</dd>
+        <dt><kbd>Shift</kbd> + arrows</dt><dd>Nudge 10px</dd>
+        <dt><kbd>Shift</kbd> + resize</dt><dd>Keep aspect ratio (video, progress bar)</dd>
+        <dt><kbd class="lc-kbd-alt">Alt</kbd> + drag</dt><dd>Move or resize without snapping</dd>
+        <dt><kbd class="lc-kbd-mod">Ctrl</kbd> <kbd>Z</kbd></dt><dd>Undo</dd>
+        <dt><kbd class="lc-kbd-mod">Ctrl</kbd> <kbd>Shift</kbd> <kbd>Z</kbd></dt><dd>Redo</dd>
+        <dt><kbd class="lc-kbd-mod">Ctrl</kbd> <kbd>S</kbd></dt><dd>Save layout</dd>
+        <dt><kbd class="lc-kbd-mod">Ctrl</kbd> <kbd>E</kbd></dt><dd>Export JSON</dd>
+        <dt><kbd>G</kbd></dt><dd>Toggle grid</dd>
+        <dt><kbd>Delete</kbd></dt><dd>Hide selected element, or delete a shape</dd>
+        <dt><kbd class="lc-kbd-mod">Ctrl</kbd> <kbd>D</kbd></dt><dd>Duplicate selected shape</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Deselect</dd>
+        <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+      </dl>
+      <div class="lc-modal-actions">
+        <button id="shortcutsClose" class="lc-btn lc-btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== TOAST ===== -->
   <div id="toast" class="lc-toast" style="display:none"></div>
 
@@ -125,6 +165,8 @@
   <input id="importInput" type="file" accept=".json" style="display:none">
 
   <!-- Scripts -->
+  <!-- Module: runs before DOMContentLoaded, when layoutCreator.js creates the preview -->
+  <script type="module" src="../js/UnifiedCanvasRenderer.js"></script>
   <script src="../layouts/layoutRegistry.js"></script>
   <script src="../layoutCreator/layoutEditorState.js"></script>
   <script src="../layoutCreator/canvasPreview.js"></script>

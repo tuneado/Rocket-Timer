@@ -39,6 +39,17 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.on('settings-updated', (event, settings) => callback(settings));
     }
   },
+  // Custom layouts (stored by the main process). Synchronous so LayoutRegistry stays synchronous.
+  layouts: {
+    getAll: () => ipcRenderer.sendSync('layouts:get-all'),
+    save: (id, layoutData) => ipcRenderer.sendSync('layouts:save', id, layoutData),
+    remove: (id) => ipcRenderer.sendSync('layouts:remove', id),
+    clear: () => ipcRenderer.sendSync('layouts:clear'),
+    importLegacy: (legacyLayouts) => ipcRenderer.sendSync('layouts:import-legacy', legacyLayouts),
+    onChanged: (callback) => {
+      ipcRenderer.on('layouts:changed', (event, layouts) => callback(layouts));
+    }
+  },
   // Projects API
   projects: {
     list: () => ipcRenderer.invoke('get-projects'),

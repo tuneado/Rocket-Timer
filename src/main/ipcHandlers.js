@@ -5,7 +5,7 @@
  * @license GPL-3.0 — see LICENSE file for details
  * @see https://github.com/tuneado/Rocket-Timer
  */
-const { ipcMain, clipboard, dialog, app } = require('electron');
+const { ipcMain, clipboard, dialog, app, BrowserWindow } = require('electron');
 const path = require('path');
 const { toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow } = require('./windows');
 const { updateDisplayMenuItems, updateProjectsMenu } = require('./menu');
@@ -808,4 +808,34 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   });
 }
 
-module.exports = { setupIpcHandlers };
+/**
+ * Custom layout storage handlers. Registered once at startup, before any window loads,
+ * because LayoutRegistry reads the layouts synchronously when its script runs.
+ * Sync IPC keeps LayoutRegistry's existing synchronous API.
+ */
+function setupLayoutStoreHandlers(layoutStore) {
+  // Keep every window's cached copy current
+  const broadcast = () => {
+    const layouts = layoutStore.getAll();
+    for (const win of BrowserWindow.getAllWindows()) {
+      safeSend(win, 'layouts:changed', layouts);
+    }
+  };
+
+  ipcMain.on('layouts:get-all', (event) => {
+    event.returnValue = layoutStore.getAll();
+  });
+
+  // event.returnValue is write-only (setting it sends the reply), so keep the result locally
+  const reply = (event, ok) => {
+    event.returnValue = ok;
+    if (ok) broadcast();
+  };
+
+  ipcMain.on('layouts:save', (event, id, layoutData) => reply(event, layoutStore.save(id, layoutData)));
+  ipcMain.on('layouts:remove', (event, id) => reply(event, layoutStore.remove(id)));
+  ipcMain.on('layouts:clear', (event) => reply(event, layoutStore.clear()));
+  ipcMain.on('layouts:import-legacy', (event, legacyLayouts) => reply(event, layoutStore.importLegacy(legacyLayouts)));
+}
+
+module.exports = { setupIpcHandlers, setupLayoutStoreHandlers };

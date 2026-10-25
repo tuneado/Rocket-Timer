@@ -10,14 +10,35 @@
  * Isolated module for Layout Creator feature.
  * /
  */
+const VIDEO_FRAME_PRESETS = [
+  { value: 'full', label: 'Full' },
+  { value: '16:9', label: '16:9', ratio: 16 / 9 },
+  { value: '4:3', label: '4:3', ratio: 4 / 3 },
+  { value: '1:1', label: '1:1', ratio: 1 },
+  { value: '9:16', label: '9:16', ratio: 9 / 16 }
+];
+
+const COLOR_PRESETS = [
+  'rgba(0,0,0,0.7)',
+  'rgba(0,0,0,0.4)',
+  'rgba(255,255,255,0.15)',
+  'rgba(255,255,255,1)',
+  'rgba(255,71,87,1)',
+  'rgba(255,149,0,1)',
+  'rgba(76,175,80,1)',
+  'rgba(59,130,246,1)'
+];
+
 class LayoutEditorUI {
   /**
    * @param {HTMLElement} container - Inspector panel mount point
    * @param {LayoutEditorState} state - Editor state instance
+   * @param {CanvasPreview} preview - Used to align element boxes to the canvas
    */
-  constructor(container, state) {
+  constructor(container, state, preview) {
     this.container = container;
     this.state = state;
+    this.preview = preview;
     this._inputDebounces = {};
   }
 
@@ -37,14 +58,15 @@ class LayoutEditorUI {
       return;
     }
 
-    const meta = LayoutEditorState.getElementMeta()[key];
     const el = this.state.layout[key];
     if (!el) return;
+    const meta = LayoutEditorState.getMetaFor(this.state.layout, key);
 
-    // Header
+    // Header (shape names are user text)
     const header = document.createElement('div');
     header.className = 'lc-inspector-header';
-    header.innerHTML = `<i class="bi ${meta.icon}"></i> <span>${meta.label}</span>`;
+    header.innerHTML = `<i class="bi ${meta.icon}"></i> <span></span>`;
+    header.querySelector('span').textContent = meta.label;
     this.container.appendChild(header);
 
     // Enabled toggle
@@ -102,6 +124,8 @@ class LayoutEditorUI {
       case 'video':
         this._buildVideoProps(key, el);
         break;
+      default:
+        if (LayoutEditorState.isShape(el)) this._buildShapeProps(key, el);
     }
   }
 
@@ -182,6 +206,7 @@ class LayoutEditorUI {
       this._addNumber('Label Size', el.labelSize ?? 20, 10, 100, 1, (v) => {
         this.state.updateElement(key, 'labelSize', v);
       });
+      this._addLabelLineHeight(key, el);
     }
   }
 
@@ -203,7 +228,21 @@ class LayoutEditorUI {
       this._addNumber('Label Size', el.labelSize ?? 35, 10, 100, 1, (v) => {
         this.state.updateElement(key, 'labelSize', v);
       });
+      this._addLabelLineHeight(key, el);
     }
+  }
+
+  /**
+   * Spacing between a time label and the time, like CSS line-height.
+   * Layouts without a value show the spacing they already render with.
+   */
+  _addLabelLineHeight(key, el) {
+    const fontSize = el.fontSize ?? 60;
+    const labelSize = el.labelSize || fontSize * 0.5;
+    const current = el.labelLineHeight ?? (1.4 * fontSize) / (fontSize + labelSize);
+    this._addRange('Line Height', current, 0.5, 2.5, 0.05, (v) => {
+      this.state.updateElement(key, 'labelLineHeight', v);
+    });
   }
 
   _buildSeparatorProps(key, el) {
@@ -245,26 +284,131 @@ class LayoutEditorUI {
   }
 
   _buildVideoProps(key, el) {
-    this._addSection('Visibility');
-    this._addToggle('Enabled', el.enabled ?? false, (v) => {
-      this.state.updateElement(key, 'enabled', v);
+    this._addSection('Frame');
+    this._addPresetButtons('Shape', VIDEO_FRAME_PRESETS, this._getVideoFramePreset(el), (preset) => {
+      this._applyVideoFramePreset(key, el, preset);
     });
-    this._addSection('Video Options');
     this._addTextInput('Width', el.size?.width || '100%', (v) => {
       this.state.updateElement(key, 'size.width', v);
     });
     this._addTextInput('Height', el.size?.height || '100%', (v) => {
       this.state.updateElement(key, 'size.height', v);
     });
-    this._addButton('Fit to Canvas', () => {
-      this.state.updateElement(key, 'position.x', 0);
-      this.state.updateElement(key, 'position.y', 0);
-      this.state.updateElement(key, 'size.width', '100%');
-      this.state.updateElement(key, 'size.height', '100%');
+
+    this._addSection('Video');
+    this._addSelect('Scaling', el.scaling || '', [
+      { value: '', label: 'App setting' },
+      { value: 'contain', label: 'Fit (show whole image)' },
+      { value: 'cover', label: 'Fill (crop to frame)' },
+      { value: 'stretch', label: 'Stretch' },
+      { value: 'none', label: 'Original size' }
+    ], (v) => {
+      this.state.updateElementProps(key, { scaling: v || undefined }, 'scaling');
     });
     this._addRange('Opacity', el.opacity ?? 1, 0, 1, 0.05, (v) => {
       this.state.updateElement(key, 'opacity', v);
     });
+  }
+
+  _buildShapeProps(key, el) {
+    const isLine = el.shape === 'line';
+
+    this._addSection('Size');
+    this._addTextInput('Width', el.size?.width || '20%', (v) => {
+      this.state.updateElement(key, 'size.width', v);
+    });
+    this._addTextInput('Height', el.size?.height || '20%', (v) => {
+      this.state.updateElement(key, 'size.height', v);
+    });
+
+    this._addSection('Shape');
+    this._addTextInput('Name', el.name || '', (v) => {
+      this.state.updateElement(key, 'name', v);
+    });
+    this._addSelect('Type', el.shape || 'rect', Object.entries(LayoutEditorState.getShapeTypes())
+      .map(([value, m]) => ({ value, label: m.label })), (v) => {
+      // Lines are drawn in the stroke colour; give them one and a visible thickness
+      const updates = { shape: v };
+      if (v === 'line' && !el.strokeWidth) updates.strokeWidth = 4;
+      this.state.updateElementProps(key, updates, 'type');
+    });
+    if (el.shape === 'rect') {
+      this._addNumber('Corner Radius', el.cornerRadius ?? 0, 0, 1000, 1, (v) => {
+        this.state.updateElement(key, 'cornerRadius', v);
+      });
+    }
+    if (!isLine) {
+      this._addColor('Fill', el.fill || 'rgba(0,0,0,0)', (v) => {
+        this.state.updateElement(key, 'fill', v);
+      });
+    }
+    this._addColor(isLine ? 'Color' : 'Stroke', el.stroke || 'rgba(255,255,255,1)', (v) => {
+      this.state.updateElement(key, 'stroke', v);
+    });
+    this._addNumber(isLine ? 'Thickness' : 'Stroke Width', el.strokeWidth ?? 0, isLine ? 1 : 0, 200, 1, (v) => {
+      this.state.updateElement(key, 'strokeWidth', v);
+    });
+    this._addRange('Opacity', el.opacity ?? 1, 0, 1, 0.05, (v) => {
+      this.state.updateElement(key, 'opacity', v);
+    });
+
+    this._addSection('Actions');
+    this._addButton('Duplicate', () => this.state.duplicateShape(key));
+    this._addButton('Delete Shape', () => this.state.removeShape(key));
+  }
+
+  /**
+   * Which frame preset matches the current video size, if any
+   */
+  _getVideoFramePreset(el) {
+    const res = this.state.layout.resolution;
+    const { parsePosition, parseSize } = UnifiedCanvasRenderer.prototype;
+    const w = parseSize(el.size?.width || '100%', res.width);
+    const h = parseSize(el.size?.height || '100%', res.height);
+    const x = parsePosition(el.position?.x ?? 0, 'x', res.width);
+    const y = parsePosition(el.position?.y ?? 0, 'y', res.height);
+
+    if (Math.abs(w - res.width) < 1 && Math.abs(h - res.height) < 1 && Math.abs(x) < 1 && Math.abs(y) < 1) {
+      return 'full';
+    }
+    const match = VIDEO_FRAME_PRESETS.find(p => p.ratio && Math.abs(w / h - p.ratio) / p.ratio < 0.01);
+    return match ? match.value : null;
+  }
+
+  /**
+   * Resize the video frame to a preset shape.
+   * Ratio presets keep the frame centred and as large as fits the current frame.
+   */
+  _applyVideoFramePreset(key, el, preset) {
+    if (preset.value === 'full') {
+      this.state.updateElementProps(key, {
+        'position.x': 0, 'position.y': 0, 'size.width': '100%', 'size.height': '100%'
+      }, 'frame');
+      return;
+    }
+
+    const res = this.state.layout.resolution;
+    const { parsePosition, parseSize } = UnifiedCanvasRenderer.prototype;
+    const curW = parseSize(el.size?.width || '100%', res.width);
+    const curH = parseSize(el.size?.height || '100%', res.height);
+    const curX = parsePosition(el.position?.x ?? 0, 'x', res.width);
+    const curY = parsePosition(el.position?.y ?? 0, 'y', res.height);
+
+    let w = curW;
+    let h = w / preset.ratio;
+    if (h > curH) { h = curH; w = h * preset.ratio; }
+
+    // Centre on the old frame, then keep it on the canvas
+    const x = Math.min(Math.max(0, curX + (curW - w) / 2), res.width - w);
+    const y = Math.min(Math.max(0, curY + (curH - h) / 2), res.height - h);
+    const pct = (v, dim) => `${((v / dim) * 100).toFixed(1)}%`;
+
+    this.state.updateElementProps(key, {
+      'position.x': pct(x, res.width),
+      'position.y': pct(y, res.height),
+      'size.width': pct(w, res.width),
+      'size.height': pct(h, res.height)
+    }, 'frame');
   }
 
   _buildBackgroundProps(key, el) {
@@ -274,7 +418,7 @@ class LayoutEditorUI {
       this.state.updateElement(key, 'background.enabled', v);
     });
     if (el.background.enabled) {
-      this._addTextInput('Color', el.background.color || 'rgba(0,0,0,0.7)', (v) => {
+      this._addColor('Color', el.background.color || 'rgba(0,0,0,0.7)', (v) => {
         this.state.updateElement(key, 'background.color', v);
       });
       this._addNumber('Padding', el.background.padding ?? 20, 0, 100, 1, (v) => {
@@ -302,25 +446,8 @@ class LayoutEditorUI {
     const posValue = el.position?.[axis] ?? (axis === 'x' ? 'center' : 'middle');
 
     const row = this._createRow(label);
-
-    // Preset buttons
-    const presets = axis === 'x'
-      ? ['left', 'center', 'right']
-      : ['top', 'middle', 'bottom'];
-
-    const presetBar = document.createElement('div');
-    presetBar.className = 'lc-preset-bar';
-
-    for (const preset of presets) {
-      const btn = document.createElement('button');
-      btn.className = `lc-preset-btn${String(posValue).toLowerCase() === preset ? ' active' : ''}`;
-      btn.textContent = preset.charAt(0).toUpperCase() + preset.slice(1);
-      btn.onclick = () => {
-        this.state.updateElement(key, `position.${axis}`, preset);
-      };
-      presetBar.appendChild(btn);
-    }
-    row.appendChild(presetBar);
+    const stack = document.createElement('div');
+    stack.className = 'lc-prop-stack';
 
     // Manual input
     const input = document.createElement('input');
@@ -328,6 +455,38 @@ class LayoutEditorUI {
     input.className = 'lc-input';
     input.value = posValue;
     input.placeholder = 'e.g., 50%, center, 960';
+
+    // Preset buttons align the element's box to the canvas edge or centre
+    const presets = axis === 'x'
+      ? [['start', 'Left'], ['center', 'Center'], ['end', 'Right']]
+      : [['start', 'Top'], ['center', 'Middle'], ['end', 'Bottom']];
+
+    const presetBar = document.createElement('div');
+    presetBar.className = 'lc-preset-bar';
+
+    const syncActive = () => {
+      const aligned = this.preview?.getAlignment(key, axis);
+      for (const btn of presetBar.children) {
+        btn.classList.toggle('active', aligned === btn.dataset.align);
+      }
+    };
+
+    for (const [align, text] of presets) {
+      const btn = document.createElement('button');
+      btn.className = 'lc-preset-btn';
+      btn.dataset.align = align;
+      btn.textContent = text;
+      btn.title = `Align to canvas ${text.toLowerCase()}`;
+      btn.onclick = () => {
+        const value = this.preview?.getAlignedPosition(key, axis, align);
+        if (value === null || value === undefined) return;
+        input.value = value;
+        this.state.updateElement(key, `position.${axis}`, value);
+        syncActive();
+      };
+      presetBar.appendChild(btn);
+    }
+
     input.oninput = () => {
       this._debounce(`pos.${key}.${axis}`, () => {
         const v = input.value.trim();
@@ -337,10 +496,123 @@ class LayoutEditorUI {
         } else {
           this.state.updateElement(key, `position.${axis}`, v);
         }
+        syncActive();
       }, 300);
     };
-    row.appendChild(input);
 
+    syncActive();
+    stack.appendChild(presetBar);
+    stack.appendChild(input);
+    row.appendChild(stack);
+    this.container.appendChild(row);
+  }
+
+  /**
+   * Row of preset buttons; presets are { value, label }
+   */
+  _addPresetButtons(label, presets, activeValue, onPick) {
+    const row = this._createRow(label);
+    const bar = document.createElement('div');
+    bar.className = 'lc-preset-bar';
+    for (const preset of presets) {
+      const btn = document.createElement('button');
+      btn.className = `lc-preset-btn${preset.value === activeValue ? ' active' : ''}`;
+      btn.textContent = preset.label;
+      btn.onclick = () => onPick(preset);
+      bar.appendChild(btn);
+    }
+    row.appendChild(bar);
+    this.container.appendChild(row);
+  }
+
+  /**
+   * Color control: swatch (native picker), text value, alpha slider and quick presets.
+   * Emits colors as rgba() strings.
+   */
+  _addColor(label, value, onChange) {
+    const row = this._createRow(label);
+    const stack = document.createElement('div');
+    stack.className = 'lc-prop-stack';
+
+    const field = document.createElement('div');
+    field.className = 'lc-color-field';
+
+    const swatch = document.createElement('label');
+    swatch.className = 'lc-color-swatch';
+    const swatchFill = document.createElement('span');
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    swatch.appendChild(swatchFill);
+    swatch.appendChild(picker);
+
+    const text = document.createElement('input');
+    text.type = 'text';
+    text.className = 'lc-input';
+    text.spellcheck = false;
+
+    field.appendChild(swatch);
+    field.appendChild(text);
+
+    const alphaWrap = document.createElement('div');
+    alphaWrap.className = 'lc-range-wrapper';
+    const alpha = document.createElement('input');
+    alpha.type = 'range';
+    alpha.className = 'lc-range';
+    alpha.min = 0;
+    alpha.max = 1;
+    alpha.step = 0.05;
+    alpha.title = 'Opacity';
+    const alphaValue = document.createElement('span');
+    alphaValue.className = 'lc-range-value';
+    alphaWrap.appendChild(alpha);
+    alphaWrap.appendChild(alphaValue);
+
+    const presetRow = document.createElement('div');
+    presetRow.className = 'lc-color-presets';
+
+    let color = this._parseColor(value) || { r: 0, g: 0, b: 0, a: 1 };
+
+    // Update every control except the one the change came from, then emit
+    const apply = (next, source, emit = true) => {
+      color = next;
+      const css = `rgba(${color.r},${color.g},${color.b},${+color.a.toFixed(2)})`;
+      swatchFill.style.background = css;
+      if (source !== picker) picker.value = this._toHex(color);
+      if (source !== text) text.value = css;
+      if (source !== alpha) alpha.value = color.a;
+      alphaValue.textContent = `${Math.round(color.a * 100)}%`;
+      if (emit) this._debounce(`color.${label}`, () => onChange(css), 150);
+    };
+
+    picker.oninput = () => {
+      const rgb = this._parseColor(picker.value);
+      apply({ ...rgb, a: color.a }, picker);
+    };
+    alpha.oninput = () => apply({ ...color, a: parseFloat(alpha.value) }, alpha);
+    text.oninput = () => {
+      const parsed = this._parseColor(text.value.trim());
+      text.classList.toggle('invalid', !parsed);
+      if (parsed) apply(parsed, text);
+    };
+
+    for (const preset of COLOR_PRESETS) {
+      const btn = document.createElement('button');
+      btn.className = 'lc-color-preset';
+      btn.title = preset;
+      const fill = document.createElement('span');
+      fill.style.background = preset;
+      btn.appendChild(fill);
+      btn.onclick = () => apply(this._parseColor(preset), null);
+      presetRow.appendChild(btn);
+    }
+
+    apply(color, null, false);
+    text.value = value;
+
+    stack.appendChild(field);
+    stack.appendChild(alphaWrap);
+    stack.appendChild(presetRow);
+    row.appendChild(stack);
     this.container.appendChild(row);
   }
 
@@ -488,6 +760,27 @@ class LayoutEditorUI {
     lbl.textContent = label;
     row.appendChild(lbl);
     return row;
+  }
+
+  /**
+   * Parse any CSS color into { r, g, b, a }, or null if it isn't one
+   */
+  _parseColor(str) {
+    if (!str || !window.CSS.supports('color', str)) return null;
+    if (!this._colorCtx) this._colorCtx = document.createElement('canvas').getContext('2d');
+    const ctx = this._colorCtx;
+    ctx.fillStyle = '#000';
+    ctx.fillStyle = str;
+    const v = ctx.fillStyle; // '#rrggbb' or 'rgba(r, g, b, a)'
+    if (v.startsWith('#')) {
+      return { r: parseInt(v.slice(1, 3), 16), g: parseInt(v.slice(3, 5), 16), b: parseInt(v.slice(5, 7), 16), a: 1 };
+    }
+    const [r, g, b, a] = v.match(/[\d.]+/g).map(Number);
+    return { r, g, b, a: a ?? 1 };
+  }
+
+  _toHex({ r, g, b }) {
+    return '#' + [r, g, b].map(n => n.toString(16).padStart(2, '0')).join('');
   }
 
   _debounce(id, fn, delay) {
