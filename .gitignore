@@ -73,3 +73,9 @@ CI_TESTING_NOTES.md
 
 # Personal docs
 personal-docs/
+
+# AI agent instructions (kept local, not public)
+CLAUDE.md
+AGENTS.md
+.github/copilot-instructions.md
+.claude/
