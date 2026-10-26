@@ -71,7 +71,11 @@ class UnifiedTimerAPIServer extends EventEmitter {
     }
     
     this.started = false // Track if server was actually started
-    
+
+    // The countdown runs in the main process; clients follow it directly
+    this.timerEngine = this.config.timerEngine
+    this.timerEngine.on('change', () => this.broadcastTimerState())
+
     this.setupIPCHandlers()
   }
 
@@ -763,148 +767,54 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
 
   // ===== CORE TIMER METHODS =====
+  /**
+   * Run a timer command on the shared engine and tell connected clients.
+   * Response messages and broadcast events are unchanged for existing clients.
+   */
+  runTimerCommand(command, { message, event, eventData = {}, extra = {} }) {
+    try {
+      this.timerEngine.command(command)
+      console.log(`⏱️ API timer command: ${command.action}`)
+      this.broadcastToAll(event, eventData)
+      return { success: true, message, ...extra }
+    } catch (error) {
+      console.error(`🚨 Timer ${command.action} error:`, error)
+      return { success: false, error: error.message }
+    }
+  }
+
   startTimer() {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'start-timer'
-      })
-      
-      console.log('⏰ Timer start command sent via API')
-      const result = { success: true, message: 'Timer start command sent' }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('timer-start-requested', {})
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Start timer error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'start' }, { message: 'Timer start command sent', event: 'timer-start-requested' })
   }
-  
+
   stopTimer() {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'stop-timer'
-      })
-      
-      console.log('⏹️ Timer stop command sent via API')
-      const result = { success: true, message: 'Timer stop command sent' }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('timer-stop-requested', {})
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Stop timer error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'stop' }, { message: 'Timer stop command sent', event: 'timer-stop-requested' })
   }
-  
+
   pauseTimer() {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'pause-timer'
-      })
-      
-      console.log('⏸️ Timer pause command sent via API')
-      const result = { success: true, message: 'Timer pause command sent' }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('timer-pause-requested', {})
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Pause timer error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'pause' }, { message: 'Timer pause command sent', event: 'timer-pause-requested' })
   }
-  
+
   resumeTimer() {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'resume-timer'
-      })
-      
-      console.log('▶️ Timer resume command sent via API')
-      const result = { success: true, message: 'Timer resume command sent' }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('timer-resume-requested', {})
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Resume timer error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'resume' }, { message: 'Timer resume command sent', event: 'timer-resume-requested' })
   }
-  
+
   resetTimer() {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'reset-timer'
-      })
-      
-      console.log('🔄 Timer reset command sent via API')
-      const result = { success: true, message: 'Timer reset command sent' }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('timer-reset-requested', {})
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Reset timer error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'reset' }, { message: 'Timer reset command sent', event: 'timer-reset-requested' })
   }
-  
+
   adjustTime(seconds) {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'adjust-time',
-        data: { seconds }
-      })
-      
-      console.log(`⏱️ Time adjust command sent: ${seconds} seconds via API`)
-      const result = { success: true, message: 'Time adjust command sent', adjustment: seconds }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('time-adjust-requested', { seconds })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Adjust time error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'adjust', seconds: Math.trunc(seconds) }, {
+      message: 'Time adjust command sent', event: 'time-adjust-requested', eventData: { seconds }, extra: { adjustment: seconds }
+    })
   }
-  
+
   setTime(totalSeconds) {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'set-time',
-        data: { totalSeconds }
-      })
-      
-      console.log(`⏱️ Set time command sent: ${totalSeconds} seconds via API`)
-      const result = { success: true, message: 'Set time command sent', totalSeconds }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('time-set-requested', { totalSeconds })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Set time error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'set-time', seconds: totalSeconds }, {
+      message: 'Set time command sent', event: 'time-set-requested', eventData: { totalSeconds }, extra: { totalSeconds }
+    })
   }
-  
+
   createPreset(name, duration, category = 'custom', settings = {}) {
     try {
       const preset = {
@@ -931,26 +841,12 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
   
   loadPreset(presetId) {
-    try {
-      // Send command to renderer
-      this.mainWindow.webContents.send('api-command', {
-        action: 'load-preset',
-        data: { presetId }
-      })
-      
-      console.log(`📋 Preset load command sent: ${presetId}`)
-      const result = { success: true, message: 'Preset load command sent', presetId }
-      
-      // Broadcast to all connected clients
-      this.broadcastToAll('preset-load-requested', { presetId })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Load preset error:', error)
-      return { success: false, error: error.message }
-    }
+    // presetId is the preset's index (0-7)
+    return this.runTimerCommand({ action: 'load-preset', index: Number(presetId) }, {
+      message: 'Preset load command sent', event: 'preset-load-requested', eventData: { presetId }, extra: { presetId }
+    })
   }
-  
+
   updateSettings(newSettings) {
     try {
       // Send command to renderer
@@ -989,98 +885,35 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
   
   setHours(hours) {
-    try {
-      this.mainWindow.webContents.send('api-command', {
-        action: 'set-hours',
-        data: { hours }
-      })
-      
-      console.log(`🕐 Set hours command sent: ${hours}`)
-      const result = { success: true, message: `Hours set to ${hours}`, data: { hours } }
-      
-      this.broadcastToAll('time-component-set', { component: 'hours', value: hours })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Set hours error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'set-component', part: 'hours', value: hours }, {
+      message: `Hours set to ${hours}`, event: 'time-component-set', eventData: { component: 'hours', value: hours }, extra: { data: { hours } }
+    })
   }
-  
+
   setMinutes(minutes) {
-    try {
-      this.mainWindow.webContents.send('api-command',{
-        action: 'set-minutes',
-        data: { minutes }
-      })
-      
-      console.log(`🕐 Set minutes command sent: ${minutes}`)
-      const result = { success: true, message: `Minutes set to ${minutes}`, data: { minutes } }
-      
-      this.broadcastToAll('time-component-set', { component: 'minutes', value: minutes })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Set minutes error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'set-component', part: 'minutes', value: minutes }, {
+      message: `Minutes set to ${minutes}`, event: 'time-component-set', eventData: { component: 'minutes', value: minutes }, extra: { data: { minutes } }
+    })
   }
-  
+
   setSeconds(seconds) {
-    try {
-      this.mainWindow.webContents.send('api-command', {
-        action: 'set-seconds',
-        data: { seconds }
-      })
-      
-      console.log(`🕐 Set seconds command sent: ${seconds}`)
-      const result = { success: true, message: `Seconds set to ${seconds}`, data: { seconds } }
-      
-      this.broadcastToAll('time-component-set', { component: 'seconds', value: seconds })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Set seconds error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'set-component', part: 'seconds', value: seconds }, {
+      message: `Seconds set to ${seconds}`, event: 'time-component-set', eventData: { component: 'seconds', value: seconds }, extra: { data: { seconds } }
+    })
   }
-  
+
   addMinute() {
-    try {
-      this.mainWindow.webContents.send('api-command', {
-        action: 'add-minute'
-      })
-      
-      console.log('⏱️ Add minute command sent')
-      const result = { success: true, message: 'Added 1 minute', data: { adjustment: 60 } }
-      
-      this.broadcastToAll('time-adjusted', { adjustment: 60 })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Add minute error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'adjust', seconds: 60 }, {
+      message: 'Added 1 minute', event: 'time-adjusted', eventData: { adjustment: 60 }, extra: { data: { adjustment: 60 } }
+    })
   }
-  
+
   subtractMinute() {
-    try {
-      this.mainWindow.webContents.send('api-command', {
-        action: 'subtract-minute'
-      })
-      
-      console.log('⏱️ Subtract minute command sent')
-      const result = { success: true, message: 'Subtracted 1 minute', data: { adjustment: -60 } }
-      
-      this.broadcastToAll('time-adjusted', { adjustment: -60 })
-      
-      return result
-    } catch (error) {
-      console.error('🚨 Subtract minute error:', error)
-      return { success: false, error: error.message }
-    }
+    return this.runTimerCommand({ action: 'adjust', seconds: -60 }, {
+      message: 'Subtracted 1 minute', event: 'time-adjusted', eventData: { adjustment: -60 }, extra: { data: { adjustment: -60 } }
+    })
   }
-  
+
   muteSound() {
     try {
       this.mainWindow.webContents.send('api-command', {
@@ -1313,10 +1146,17 @@ class UnifiedTimerAPIServer extends EventEmitter {
     }
   }
   
+  /**
+   * Non-timer state from the renderer (message, cover image, layout, sound).
+   * Timer values come from the timer engine.
+   */
   updateTimerState(newState) {
     // Update internal state from renderer (mutate in place to avoid spread allocation)
     Object.assign(this.timerState, newState)
-    
+    this.broadcastTimerState()
+  }
+
+  broadcastTimerState() {
     // Only format and broadcast if someone is listening
     const hasWSClients = this.clients.websocket.size > 0
     const hasOSC = this.servers.osc && this.servers.osc.socket
@@ -1348,25 +1188,25 @@ class UnifiedTimerAPIServer extends EventEmitter {
   }
 
   getFormattedTimerState() {
-    const timer = this.timerState.timer || {}
+    const engine = this.timerEngine.getState()
     const message = this.timerState.message || {}
     const coverImage = this.timerState.coverImage || {}
-    // appState sends values in milliseconds - convert to seconds
-    const rawTotal = timer.totalTime || 0
-    const rawRemaining = timer.remainingTime || 0
-    const totalTime = rawTotal > 86400 ? Math.floor(rawTotal / 1000) : rawTotal
-    const remainingTime = rawRemaining > 86400 ? Math.floor(rawRemaining / 1000) : rawRemaining
-    // Use real elapsed time from renderer when available (unaffected by time adjustments)
-    const elapsedTime = typeof timer.elapsedTime === 'number' && timer.elapsedTime >= 0
-      ? timer.elapsedTime
-      : Math.max(0, totalTime - remainingTime)
+    const totalTime = Math.floor(engine.totalMs / 1000)
+    const remainingTime = Math.floor(engine.remainingMs / 1000)
+    // Real elapsed running time (unaffected by time adjustments)
+    const elapsedTime = Math.max(0, Math.floor(engine.elapsedMs / 1000))
     // Progress bar: use remainingTime/totalTime (matches canvas calculation)
     // This correctly updates when time is adjusted via add/subtract buttons
     const remainingPercentage = totalTime > 0 ? Math.max(0, Math.min(100, (remainingTime / totalTime) * 100)) : 100
     const elapsedPercentage = Math.max(0, 100 - remainingPercentage)
-    
-    // Use warning level from renderer (single source of truth)
-    const warningLevel = timer.warningLevel || 'normal'
+
+    const warningLevel = engine.warningLevel
+    const clockFormat = this.timerEngine.getSettings().clockFormat || '24h'
+    const endTimeFormatted = engine.endAt
+      ? new Date(engine.endAt).toLocaleTimeString('en-US', {
+        hour12: clockFormat === '12h', hour: '2-digit', minute: '2-digit', second: '2-digit'
+      })
+      : '--:--:--'
     const customColors = this.timerState.settings?.colors || this.config.colors || {}
     const warningColor = this.getWarningColor(warningLevel, customColors)
     
@@ -1376,14 +1216,14 @@ class UnifiedTimerAPIServer extends EventEmitter {
       totalTime: totalTime,
       remainingTime: remainingTime,
       elapsedTime: elapsedTime,
-      isRunning: timer.running || false,
-      isPaused: timer.paused || false,
-      startTime: timer.startTime || null,
-      endTime: timer.endTime || null,
-      endTimeFormatted: timer.endTimeFormatted || '--:--:--',
+      isRunning: engine.running,
+      isPaused: engine.paused,
+      startTime: null,
+      endTime: engine.endAt ? new Date(engine.endAt).toISOString() : null,
+      endTimeFormatted,
       warningLevel: warningLevel,
       warningColor: warningColor,
-      formattedTime: timer.formattedTime || '00:00:00',
+      formattedTime: this.formatTime(remainingTime),
       formattedElapsed: this.formatTime(elapsedTime),
       percentage: Math.max(0, Math.min(100, elapsedPercentage)),
       remainingPercentage: Math.max(0, Math.min(100, remainingPercentage)),

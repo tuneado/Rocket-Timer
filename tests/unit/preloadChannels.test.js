@@ -44,7 +44,8 @@ describe('preload IPC allowlists', () => {
   });
 
   it('receive allowlist matches what the main process sends', () => {
-    const sent = channels(/(?:safeSend\([^,]+,|\.send\()\s*'([^']+)'/g);
+    // Direct sends, plus the broadcast('<channel>', …) helpers in ipcHandlers.js
+    const sent = channels(/(?:safeSend\([^,]+,|\.send\(|broadcast\()\s*'([^']+)'/g);
     expect(allowlist('RECEIVE_CHANNELS')).toEqual(generic(sent));
   });
 });

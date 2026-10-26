@@ -98,43 +98,33 @@ export function invalidateThresholdCache() {
 }
 
 /**
- * Update display with current timer state
+ * End time as shown on screen, in the user's clock format
+ */
+function formatEndTime(endAt) {
+  if (!endAt) return '--:--:--';
+  return new Date(endAt).toLocaleTimeString('en-US', {
+    hour12: (localStorage.getItem('clockFormat') || '24h') === '12h',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+/**
+ * Update display with current timer state (from the timer engine)
  * @returns {Object} Calculated values (progressPercent, warningLevel) for reuse
  */
-export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
-  // Use millisecond values for precise progress calculation
+export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
   const remainingTimeMs = timerState.remainingTimeMs;
   const totalTimeMs = timerState.totalTimeMs;
-  const remainingTime = timerState.remainingTime; // Seconds for formatting
-  const totalTime = timerState.totalTime; // Seconds for warnings
-  const formattedTime = formatTime(remainingTime);
-  
-  // Calculate progress using unified function with millisecond precision
+  const formattedTime = formatTime(timerState.remainingTime);
   const progressPercent = calculateProgress(remainingTimeMs, totalTimeMs);
-  
-  // Calculate elapsed time based on actual wall clock time (unaffected by +/- adjustments)
-  let elapsedSeconds = 0;
-  let elapsedDisplay;
-  
-  if (totalTime === 0 || (!timerState.running && remainingTime === totalTime)) {
-    // No timer set or timer not started
-    elapsedDisplay = '--:--:--';
-  } else if (timerState.running && timerState.actualStartTimestamp > 0) {
-    // Timer is running: calculate from actual start time
-    const currentElapsed = (Date.now() - timerState.actualStartTimestamp) + timerState.pausedElapsedTime;
-    elapsedSeconds = currentElapsed / 1000;
-    const formattedElapsed = formatElapsedTime(Math.abs(elapsedSeconds));
-    elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
-  } else {
-    // Timer paused: use saved elapsed time
-    elapsedSeconds = timerState.pausedElapsedTime / 1000;
-    const formattedElapsed = formatElapsedTime(Math.abs(elapsedSeconds));
-    elapsedDisplay = elapsedSeconds >= 0 ? formattedElapsed : `-${formattedElapsed}`;
-  }
-  
-  // Get end time from appState 
-  const endTimeDisplay = appState.get('timer.endTimeFormatted') || '--:--:--';
-  
+
+  // Real running time (unaffected by +/- adjustments); hidden until the timer has run
+  const elapsedDisplay = timerState.started ? formatElapsedTime(timerState.elapsedMs / 1000) : '--:--:--';
+  const endTimeDisplay = formatEndTime(timerState.endAt);
+  const warningLevel = timerState.warningLevel;
+
   // Update timer information display elements (exclude clock - handled by clockManager)
   const timerValueEl = document.getElementById('timerValue');
   const elapsedTimeEl = document.getElementById('elapsedTime');
@@ -143,7 +133,7 @@ export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer })
   if (timerValueEl) timerValueEl.textContent = formattedTime;
   if (elapsedTimeEl) elapsedTimeEl.textContent = elapsedDisplay;
   if (endsAtTimeEl) endsAtTimeEl.textContent = endTimeDisplay;
-  
+
   // Update canvas renderer
   if (canvasRenderer) {
     canvasRenderer.setState({
@@ -151,13 +141,10 @@ export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer })
       progress: progressPercent,
       elapsed: elapsedDisplay,
       endTime: endTimeDisplay,
-      remainingTime: remainingTimeMs, // Already in milliseconds
-      totalTime: totalTimeMs // Already in milliseconds
+      remainingTime: remainingTimeMs,
+      totalTime: totalTimeMs
     });
   }
-
-  // Calculate warning level using dynamic thresholds
-  const warningLevel = await calculateWarningLevel(remainingTime, totalTime);
 
   // Send updates to display window
   if (window.electron && ipcRenderer) {
@@ -165,63 +152,40 @@ export async function updateDisplay(timerState, { canvasRenderer, ipcRenderer })
       formattedTime,
       progressPercent,
       warningLevel,
-      remainingPercent: progressPercent, // Use same value for consistency
+      remainingPercent: progressPercent,
       elapsed: elapsedDisplay,
       endTime: endTimeDisplay,
-      remainingTime: remainingTimeMs, // Already in milliseconds
-      totalTime: totalTimeMs // Already in milliseconds
+      remainingTime: remainingTimeMs,
+      totalTime: totalTimeMs
     });
   }
-  
-  // Return calculated values for potential reuse
-  return { progressPercent, warningLevel };
+
+  return { progressPercent, warningLevel, endTimeDisplay };
 }
 
 /**
- * Sends state update to companion server
- * @param {Object} timerState - Timer state wrapper
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
- * @param {Object} cachedValues - Optional pre-calculated values from updateDisplay to avoid recalculation
+ * Mirror the timer into appState (UI components, status bar, and the
+ * non-timer state the API server receives)
  */
-export async function sendStateUpdate(timerState, { canvasRenderer, ipcRenderer }, cachedValues = null) {
-  if (!window.electron || !ipcRenderer) return;
-  
+export function sendStateUpdate(timerState, { canvasRenderer }) {
   const remainingTime = timerState.remainingTime;
-  const totalTime = timerState.totalTime;
-  const running = timerState.running;
-  
-  const hours = Math.floor(remainingTime / 3600);
-  const minutes = Math.floor((remainingTime % 3600) / 60);
-  const seconds = remainingTime % 60;
-  const formattedTime = formatTime(remainingTime);
-  
-  // Use cached values if available, otherwise calculate
-  const progressPercent = cachedValues?.progressPercent ?? calculateProgress(remainingTime, totalTime);
-  const warningLevel = cachedValues?.warningLevel ?? await calculateWarningLevel(remainingTime, totalTime);
+  const absTime = Math.abs(remainingTime);
 
-  // Compute real elapsed time from wall clock (unaffected by time adjustments)
-  let elapsedSeconds = 0
-  if (running && timerState.actualStartTimestamp > 0) {
-    elapsedSeconds = Math.floor((timerState.pausedElapsedTime + (Date.now() - timerState.actualStartTimestamp)) / 1000)
-  } else if (timerState.pausedElapsedTime > 0) {
-    elapsedSeconds = Math.floor(timerState.pausedElapsedTime / 1000)
-  }
-
-  // Update appState instead of sending direct IPC - let appState subscription handle API updates
   appState.update({
-    'timer.running': running,
-    'timer.paused': !running && remainingTime < totalTime && remainingTime > 0,
-    'timer.remainingTime': remainingTime * 1000, // Convert to milliseconds for appState
-    'timer.totalTime': totalTime * 1000,
-    'timer.elapsedTime': elapsedSeconds,
-    'timer.hours': hours,
-    'timer.minutes': minutes,
-    'timer.seconds': seconds,
-    'timer.percentage': progressPercent,
-    'timer.formattedTime': formattedTime,
-    'timer.warningLevel': warningLevel,
+    'timer.running': timerState.running,
+    'timer.paused': timerState.paused,
+    'timer.remainingTime': timerState.remainingTimeMs,
+    'timer.totalTime': timerState.totalTimeMs,
+    'timer.lastSetTime': timerState.lastSetTime * 1000,
+    'timer.elapsedTime': Math.max(0, Math.floor(timerState.elapsedMs / 1000)),
+    'timer.hours': Math.floor(absTime / 3600),
+    'timer.minutes': Math.floor((absTime % 3600) / 60),
+    'timer.seconds': absTime % 60,
+    'timer.percentage': calculateProgress(timerState.remainingTimeMs, timerState.totalTimeMs),
+    'timer.formattedTime': formatTime(remainingTime),
+    'timer.warningLevel': timerState.warningLevel,
+    'timer.endTimeFormatted': formatEndTime(timerState.endAt),
+    'timer.preset': timerState.preset,
     'layout.current': canvasRenderer ? canvasRenderer.layout.name : 'detailed'
   });
 }

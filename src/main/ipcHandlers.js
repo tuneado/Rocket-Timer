@@ -840,4 +840,21 @@ function setupLayoutStoreHandlers(layoutStore) {
   ipcMain.on('layouts:import-legacy', (event, legacyLayouts) => reply(event, layoutStore.importLegacy(legacyLayouts)));
 }
 
-module.exports = { setupIpcHandlers, setupLayoutStoreHandlers };
+/**
+ * Timer engine bridge: windows send commands and receive every state change.
+ * Registered once at startup.
+ */
+function setupTimerHandlers(timerEngine) {
+  const broadcast = (channel, state) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      safeSend(win, channel, state);
+    }
+  };
+  timerEngine.on('change', (state) => broadcast('timer:state', state));
+  timerEngine.on('complete', (state) => broadcast('timer:complete', state));
+
+  ipcMain.handle('timer:get-state', () => timerEngine.getState());
+  ipcMain.handle('timer:command', (event, command) => timerEngine.command(command));
+}
+
+module.exports = { setupIpcHandlers, setupLayoutStoreHandlers, setupTimerHandlers };

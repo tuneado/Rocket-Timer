@@ -18,7 +18,6 @@
  * - Settings application
  * /
  */
-import { shiftTimerDeadline } from './timerControls.js';
 
 /**
  * Initialize all IPC event handlers
@@ -54,25 +53,7 @@ export function initializeIPCHandlers(deps) {
       
       // Only reset if stoppedAtZero or if the default time actually changed
       if (timerState.stoppedAtZero || timerState.lastSetTime !== timeInSeconds) {
-        timerState.setStoppedAtZero(false);
-        timerState.setLastSetTime(timeInSeconds);
-        timerState.setRemainingTime(timeInSeconds);
-        timerState.setTotalTime(timeInSeconds);
-        
-        // Reset button to start state
-        const { startStopBtn, updateButtonIcon, setInputsDisabled } = getElements();
-        if (startStopBtn && updateButtonIcon) {
-          updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-          startStopBtn.classList.remove("stop");
-          startStopBtn.classList.add("start");
-        }
-        
-        // Enable all inputs
-        if (setInputsDisabled) {
-          setInputsDisabled(false);
-        }
-        
-        actions.updateDisplay();
+        actions.timerCommand({ action: 'set-time', seconds: timeInSeconds });
       }
     }
     
@@ -179,117 +160,6 @@ export function initializeIPCHandlers(deps) {
     };
     
     switch (action) {
-      case 'start-timer':
-        if (!timerState.running && timerState.remainingTime > 0) {
-          console.log('⏰ API: Starting timer');
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'stop-timer':
-        if (timerState.running) {
-          console.log('⏹️ API: Stopping timer');
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'pause-timer':
-        if (timerState.running && !timerState.paused) {
-          console.log('⏸️ API: Pausing timer');
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'resume-timer':
-        if (timerState.paused) {
-          console.log('▶️ API: Resuming timer');
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'reset-timer':
-        console.log('🔄 API: Resetting timer');
-        resetBtn.click();
-        break;
-        
-      case 'adjust-time':
-        if (data && typeof data.seconds === 'number') {
-          console.log(`⏱️ API: Adjusting time by ${data.seconds} seconds`);
-          const adjustment = Math.trunc(data.seconds);
-          const currentRemainingTime = timerState.remainingTime;
-          let newRemainingTime = currentRemainingTime + adjustment;
-
-          // Mirror GUI behavior: when stopped, adjust total time and input fields too.
-          if (!timerState.running) {
-            const newTotalTime = Math.max(0, timerState.totalTime + adjustment);
-            timerState.setTotalTime(newTotalTime);
-            timerState.setLastSetTime(newTotalTime);
-
-            // Prevent negative idle values when timer is not running.
-            newRemainingTime = Math.max(0, newRemainingTime);
-
-            const hours = Math.floor(newRemainingTime / 3600);
-            const minutes = Math.floor((newRemainingTime % 3600) / 60);
-            const seconds = newRemainingTime % 60;
-            document.getElementById('hours').value = hours;
-            document.getElementById('minutes').value = minutes;
-            document.getElementById('seconds').value = seconds;
-          }
-
-          timerState.setRemainingTime(newRemainingTime);
-          // Shift deadline when adjusting time while running
-          if (timerState.running) {
-            shiftTimerDeadline(adjustment * 1000);
-            // Expand totalTime if remainingTime now exceeds it
-            if (newRemainingTime > timerState.totalTime) {
-              timerState.setTotalTime(newRemainingTime);
-            }
-          }
-          actions.updateDisplay();
-
-          console.log(`⏱️ Adjusted from ${currentRemainingTime}s to ${newRemainingTime}s (${adjustment >= 0 ? '+' : ''}${adjustment}s)`);
-        }
-        break;
-        
-      case 'set-time':
-        if (data && typeof data.totalSeconds === 'number') {
-          console.log(`⏱️ API: Setting time to ${data.totalSeconds} seconds`);
-          
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Convert to hours, minutes, seconds
-          const hours = Math.floor(data.totalSeconds / 3600);
-          const minutes = Math.floor((data.totalSeconds % 3600) / 60);
-          const seconds = Math.floor(data.totalSeconds % 60);
-          
-          // Update input fields
-          document.getElementById('hours').value = hours;
-          document.getElementById('minutes').value = minutes;
-          document.getElementById('seconds').value = seconds;
-          
-          // Update time
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'load-preset':
-        if (data && data.presetId !== undefined) {
-          console.log(`📋 API: Loading preset ${data.presetId}`);
-          const presetIndex = Number(data.presetId);
-          const presetButtons = Array.from(document.querySelectorAll('.preset'));
-
-          if (Number.isInteger(presetIndex) && presetButtons[presetIndex]) {
-            presetButtons[presetIndex].click();
-          } else {
-            console.warn(`Preset index ${data.presetId} is invalid or not available`);
-          }
-        }
-        break;
-        
       case 'create-preset':
         if (data) {
           console.log('API: Creating preset:', data.name);
@@ -308,67 +178,6 @@ export function initializeIPCHandlers(deps) {
           const triggerFlashBtn = document.getElementById('flashButton');
           if (triggerFlashBtn) triggerFlashBtn.click();
         }
-        break;
-        
-      case 'set-hours':
-        if (data && typeof data.hours === 'number') {
-          console.log(`🕐 API: Setting hours to ${data.hours}`);
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only hours field
-          document.getElementById('hours').value = data.hours;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'set-minutes':
-        if (data && typeof data.minutes === 'number') {
-          console.log(`🕐 API: Setting minutes to ${data.minutes}`);
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only minutes field
-          document.getElementById('minutes').value = data.minutes;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'set-seconds':
-        if (data && typeof data.seconds === 'number') {
-          console.log(`🕐 API: Setting seconds to ${data.seconds}`);
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only seconds field
-          document.getElementById('seconds').value = data.seconds;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'add-minute':
-        console.log('⏱️ API: Adding 1 minute');
-        actions.addMinute();
-        break;
-        
-      case 'subtract-minute':
-        console.log('⏱️ API: Subtracting 1 minute');
-        actions.subtractMinute();
         break;
         
       case 'mute-sound':
@@ -479,47 +288,17 @@ export function initializeIPCHandlers(deps) {
         console.warn('Unknown API command:', action);
     }
     
-    // Send immediate state update after command
-    setTimeout(async () => {
-      actions.sendStateUpdate();
-      
-      // Import calculateWarningLevel for consistent state updates
-      const { calculateWarningLevel } = await import('./displayManager.js');
-      const warningLevel = await calculateWarningLevel(timerState.remainingTime, timerState.totalTime);
-      
-      // Get current settings colors
-      const currentColors = {
-        progressSuccess: '#4ade80',
-        progressWarning: '#f59e0b', 
-        progressDanger: '#ef4444'
-      };
-
+    // Push message / cover image state to the API server right away
+    // (timer state comes from the timer engine in the main process)
+    setTimeout(() => {
       const messageInput = document.getElementById('messageInput');
-      const messageVisible = isMessageVisible();
-      const featureImageEnabled = Boolean(coverImageBtn && coverImageBtn.classList.contains('btn-success'));
-      
       ipcRenderer.send('companion-state-update', {
-        timer: {
-          totalTime: timerState.totalTime,
-          remainingTime: timerState.remainingTime,
-          running: timerState.running,
-          paused: timerState.paused,
-          startTime: timerState.startTime,
-          endTime: timerState.endTime,
-          endTimeFormatted: timerState.endTimeFormatted,
-          formattedTime: actions.formatTime(timerState.remainingTime),
-          percentage: timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0,
-          warningLevel: warningLevel
-        },
-        settings: {
-          colors: currentColors
-        },
         message: {
-          visible: messageVisible,
+          visible: isMessageVisible(),
           text: messageInput ? messageInput.value : ''
         },
         coverImage: {
-          enabled: featureImageEnabled
+          enabled: Boolean(coverImageBtn && coverImageBtn.classList.contains('btn-success'))
         }
       });
     }, 10);

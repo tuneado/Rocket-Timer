@@ -80,7 +80,9 @@ const INVOKE_CHANNELS = new Set([
   'save-setting',
   'save-settings',
   'select-background-image',
-  'select-cover-image'
+  'select-cover-image',
+  'timer:command',
+  'timer:get-state'
 ]);
 
 const RECEIVE_CHANNELS = new Set([
@@ -106,6 +108,8 @@ const RECEIVE_CHANNELS = new Set([
   'sync-background-image',
   'sync-cover-image',
   'theme-updated',
+  'timer:complete',
+  'timer:state',
   'toggle-clock-display',
   'toggle-cover-image',
   'update-clock',

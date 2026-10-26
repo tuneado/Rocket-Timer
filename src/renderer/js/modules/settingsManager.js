@@ -18,28 +18,12 @@
  * @param {Object} dependencies - Required dependencies
  * @param {Function} dependencies.getElementById - Function to get DOM elements
  */
-export async function loadAndApplySettings(timerState, { getElementById }) {
+export async function loadAndApplySettings({ getElementById }) {
   try {
     const settings = await window.electron.settings.getAll();
     
-    // Apply default time
-    if (settings.defaultTime) {
-      const { hours, minutes, seconds } = settings.defaultTime;
-      const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
-      timerState.setLastSetTime(timeInSeconds);
-      timerState.setRemainingTime(timeInSeconds);
-      timerState.setTotalTime(timeInSeconds);
-      
-      // Update input fields
-      const hoursInput = getElementById('hours');
-      const minutesInput = getElementById('minutes');
-      const secondsInput = getElementById('seconds');
-      if (hoursInput) hoursInput.value = hours;
-      if (minutesInput) minutesInput.value = minutes;
-      if (secondsInput) secondsInput.value = seconds;
-      
-    }
-    
+    // (The default time is applied by the timer engine in the main process)
+
     // Apply default layout
     if (settings.defaultLayout) {
       localStorage.setItem('canvasLayout', settings.defaultLayout);

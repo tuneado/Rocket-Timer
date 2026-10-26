@@ -24,23 +24,61 @@ import * as TimerControls from './modules/timerControls.js';
 import * as VideoManager from './modules/videoManager.js';
 import { initializeIPCHandlers } from './modules/ipcHandlers.js';
 
-let countdown;
-let lastSetTime = 300000; // 5 minute fallback (300 seconds * 1000ms) - will be overridden by settings
-let remainingTime = 300000; // 5 minute fallback - will be overridden by settings
-let totalTime = 300000; // 5 minute fallback - will be overridden by settings
+// The countdown runs in the main process (src/main/timerEngine.js). These mirror its
+// latest state ('timer:state'); change the time only through timerCommand().
+let remainingTime = 0; // ms
+let totalTime = 0; // ms
+let lastSetTime = 0; // ms
 let running = false;
-let stoppedAtZero = false; // Track when timer auto-stopped at zero
+let stoppedAtZero = false;
+let engineState = null;
 let clockInterval;
 
-// High-resolution timer variables
-let timerStartTime = 0;
-let timerExpectedTime = 0;
-let timerDrift = 0;
-const TIMER_INTERVAL = 100; // 100ms for smooth updates
+function timerCommand(command) {
+  return window.electron.ipcRenderer.invoke('timer:command', command)
+    .catch((error) => console.error('Timer command failed:', command, error));
+}
 
-// Elapsed time tracking (independent of remaining/total time adjustments)
-let actualStartTimestamp = 0; // Wall clock time when timer started (Date.now())
-let pausedElapsedTime = 0; // Accumulated elapsed time before pause
+/**
+ * Apply a timer engine state to the page: buttons, inputs, canvas, and app state
+ * @param {boolean} [refreshControls] - update buttons even if running state is unchanged
+ */
+function applyTimerState(state, refreshControls = false) {
+  const runningChanged = refreshControls || !engineState || state.running !== running || state.stoppedAtZero !== stoppedAtZero;
+  engineState = state;
+  remainingTime = state.remainingMs;
+  totalTime = state.totalMs;
+  lastSetTime = state.lastSetMs;
+  running = state.running;
+  stoppedAtZero = state.stoppedAtZero;
+
+  if (startStopBtn && runningChanged) {
+    if (running) {
+      updateButtonIcon(startStopBtn, 'pause-fill', 'Stop');
+      startStopBtn.classList.replace('start', 'stop');
+    } else {
+      updateButtonIcon(startStopBtn, 'play-fill', 'Start');
+      startStopBtn.classList.replace('stop', 'start');
+    }
+    setInputsDisabled(running);
+  }
+
+  // Inputs show the set time, except while being typed in
+  const setSeconds = Math.max(0, Math.floor(lastSetTime / 1000));
+  const parts = { hours: Math.floor(setSeconds / 3600), minutes: Math.floor((setSeconds % 3600) / 60), seconds: setSeconds % 60 };
+  for (const [id, value] of Object.entries(parts)) {
+    const input = document.getElementById(id);
+    if (input && document.activeElement !== input && parseInt(input.value, 10) !== value) {
+      input.value = String(value).padStart(2, '0');
+    }
+  }
+
+  updateDisplay();
+  sendStateUpdate();
+}
+
+window.electron.ipcRenderer.on('timer:state', (state) => applyTimerState(state));
+window.electron.ipcRenderer.on('timer:complete', () => handleTimerComplete());
 
 // Initialize Canvas Renderer
 let canvasRenderer = null;
@@ -63,50 +101,22 @@ if (!window.electron || !window.electron.ipcRenderer) {
 
 const { ipcRenderer } = window.electron;
 
-// State wrapper for passing to modules
+// Read-only timer state for the modules (seconds unless noted)
 const timerState = {
-  get remainingTime() { return Math.floor(remainingTime / 1000); }, // Convert ms to seconds for compatibility
-  get totalTime() { return Math.floor(totalTime / 1000); }, // Convert ms to seconds for compatibility
-  get remainingTimeMs() { return remainingTime; }, // Direct ms access
-  get totalTimeMs() { return totalTime; }, // Direct ms access
+  get remainingTime() { return Math.floor(remainingTime / 1000); },
+  get totalTime() { return Math.floor(totalTime / 1000); },
+  get remainingTimeMs() { return remainingTime; },
+  get totalTimeMs() { return totalTime; },
   get running() { return running; },
+  get paused() { return engineState?.paused || false; },
   get stoppedAtZero() { return stoppedAtZero; },
   get lastSetTime() { return Math.floor(lastSetTime / 1000); },
-  get actualStartTimestamp() { return actualStartTimestamp; }, // Wall clock start time
-  get pausedElapsedTime() { return pausedElapsedTime; }, // Elapsed time before pause
-  setRemainingTime(value) { 
-    const previousTime = remainingTime;
-    remainingTime = value * 1000; // Convert seconds to ms
-    // Check for zero crossing - ONLY when timer is running
-    if (running && previousTime > 0 && remainingTime <= 0) {
-      console.log('⏰ Time crossed zero via setRemainingTime - triggering completion events');
-      // Use setTimeout to avoid blocking the setter
-      setTimeout(() => {
-        if (window.handleTimerComplete) {
-          window.handleTimerComplete();
-        }
-      }, 0);
-    }
-  },
-  setTotalTime(value) { totalTime = value * 1000; }, // Convert seconds to ms
-  setRemainingTimeMs(value) { 
-    const previousTime = remainingTime;
-    remainingTime = value; // Direct ms setter
-    // Check for zero crossing - ONLY when timer is running
-    if (running && previousTime > 0 && remainingTime <= 0) {
-      console.log('⏰ Time crossed zero via setRemainingTimeMs - triggering completion events');
-      // Use setTimeout to avoid blocking the setter
-      setTimeout(() => {
-        if (window.handleTimerComplete) {
-          window.handleTimerComplete();
-        }
-      }, 0);
-    }
-  },
-  setTotalTimeMs(value) { totalTime = value; }, // Direct ms setter
-  setRunning(value) { running = value; },
-  setStoppedAtZero(value) { stoppedAtZero = value; },
-  setLastSetTime(value) { lastSetTime = value * 1000; }
+  get elapsedMs() { return engineState?.elapsedMs || 0; },
+  // False until the timer has run since the time was last set
+  get started() { return engineState?.started || false; },
+  get endAt() { return engineState?.endAt || null; },
+  get warningLevel() { return engineState?.warningLevel || 'normal'; },
+  get preset() { return engineState?.preset ?? null; }
 };
 
 // Clock state wrapper for passing to modules
@@ -126,7 +136,7 @@ const messageState = {
  * Load settings and apply them to the application
  */
 async function loadAndApplySettings() {
-  await SettingsManager.loadAndApplySettings(timerState, { getElementById: document.getElementById.bind(document) });
+  await SettingsManager.loadAndApplySettings({ getElementById: document.getElementById.bind(document) });
 }
 
 /**
@@ -221,116 +231,24 @@ function normalizeTimeInputs() {
   return TimeInputs.normalizeTimeInputs();
 }
 
+// Set the timer from the hours/minutes/seconds inputs (stops it if running)
 function updateTimeFromInputs() {
-  TimeInputs.updateTimeFromInputs(timerState, updateDisplay, sendStateUpdate);
+  const { hours, minutes, seconds } = normalizeTimeInputs();
+  timerCommand({ action: 'set-time', seconds: hours * 3600 + minutes * 60 + seconds });
 }
 
 /**
- * Add specified number of minutes to the timer
- * @param {number} minutes - Number of minutes to add
+ * Add minutes to the timer (ignored once stopped at zero)
  */
 function addMinutes(minutes) {
-  if (minutes === 1) {
-    // Use TimeInputs module for 1-minute adjustments (maintains compatibility)
-    TimeInputs.addMinute(timerState, updateDisplay);
-    // Shift deadline if timer is running
-    if (running) TimerControls.shiftTimerDeadline(60 * 1000);
-    return;
-  }
-  
-  const minutesMs = minutes * 60 * 1000;
-  // Use setter to trigger zero-crossing detection
-  timerState.setRemainingTimeMs(remainingTime + minutesMs);
-  
-  // Shift deadline if timer is running
-  if (running) TimerControls.shiftTimerDeadline(minutesMs);
-  
-  // Adjust totalTime: when not running, add the full amount;
-  // when running, expand totalTime if remainingTime now exceeds it
-  if (!running) {
-    timerState.setTotalTimeMs(Math.max(totalTime + minutesMs, remainingTime));
-    
-    // Update input fields to reflect the new time
-    const totalSeconds = Math.floor(remainingTime / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    
-    document.getElementById("hours").value = hours;
-    document.getElementById("minutes").value = mins;
-    document.getElementById("seconds").value = secs;
-  } else if (remainingTime > totalTime) {
-    // When running and added time pushes remaining past total,
-    // expand totalTime so progress bar calculates correctly
-    timerState.setTotalTimeMs(remainingTime);
-  }
-  
-  // Update appState with new values
-  appState.update({
-    'timer.remainingTime': remainingTime,
-    'timer.totalTime': totalTime,
-    'timer.hours': Math.floor(remainingTime / 1000 / 3600),
-    'timer.minutes': Math.floor((remainingTime / 1000 % 3600) / 60),
-    'timer.seconds': Math.floor(remainingTime / 1000) % 60,
-    'timer.percentage': totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 100))) : 100,
-    'timer.formattedTime': formatTime(Math.floor(remainingTime / 1000)),
-    'timer.preset': running ? appState.getState().timer.preset : null // Set to custom when not running
-  });
-  
-  updateTimerState(true);
-
+  timerCommand({ action: 'adjust', seconds: minutes * 60 });
 }
 
 /**
- * Subtract specified number of minutes from the timer
- * @param {number} minutes - Number of minutes to subtract
+ * Subtract minutes from the timer (may go into overtime while running)
  */
 function subtractMinutes(minutes) {
-  if (minutes === 1) {
-    // Use TimeInputs module for 1-minute adjustments (maintains compatibility)
-    TimeInputs.subtractMinute(timerState, updateDisplay);
-    // Shift deadline if timer is running
-    if (running) TimerControls.shiftTimerDeadline(-60 * 1000);
-    return;
-  }
-  
-  const minutesMs = minutes * 60 * 1000;
-  // Use setter to trigger zero-crossing detection
-  timerState.setRemainingTimeMs(remainingTime - minutesMs);
-  
-  // Shift deadline if timer is running
-  if (running) TimerControls.shiftTimerDeadline(-minutesMs);
-  
-  // Only adjust totalTime if timer is NOT running
-  // When running, totalTime should stay fixed so elapsed time tracks correctly
-  if (!running) {
-    timerState.setTotalTimeMs(Math.max(0, totalTime - minutesMs));
-    
-    // Update input fields to reflect the new time
-    const totalSeconds = Math.max(0, Math.floor(remainingTime / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    
-    document.getElementById("hours").value = hours;
-    document.getElementById("minutes").value = mins;
-    document.getElementById("seconds").value = secs;
-  }
-  
-  // Update appState with new values
-  appState.update({
-    'timer.remainingTime': remainingTime,
-    'timer.totalTime': totalTime,
-    'timer.hours': Math.floor(remainingTime / 1000 / 3600),
-    'timer.minutes': Math.floor((remainingTime / 1000 % 3600) / 60),
-    'timer.seconds': Math.floor(remainingTime / 1000) % 60,
-    'timer.percentage': totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 100))) : 100,
-    'timer.formattedTime': formatTime(Math.floor(remainingTime / 1000)),
-    'timer.preset': running ? appState.getState().timer.preset : null // Set to custom when not running
-  });
-  
-  updateTimerState(true);
-
+  timerCommand({ action: 'adjust', seconds: -minutes * 60 });
 }
 
 // Wrapper functions for backward compatibility and convenience
@@ -517,8 +435,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTheme(true); // Default to dark mode
   }
   
-  // 7. Update display to show initial time with correct progress (100%)
-  updateDisplay();
+  // 7. Current timer state from the engine (updates the display)
+  applyTimerState(await ipcRenderer.invoke('timer:get-state'));
   
   // 8. Send initial state to REST API server
   sendStateUpdate();
@@ -771,6 +689,9 @@ function initializeControls() {
   // Attach event listeners
   attachEventListeners();
   
+  // Sync buttons and inputs with the timer now that they exist
+  if (engineState) applyTimerState(engineState, true);
+
   // Initialize character counter
   if (messageInput && charCounter) {
     updateCharCounter();
@@ -789,66 +710,16 @@ function initializeControls() {
 
 // Attach all event listeners to UI controls
 function attachEventListeners() {
-  // Start/Stop toggle
-  startStopBtn.addEventListener("click", async () => {
+  // Start/Stop toggle (finished timers restart from the set time)
+  startStopBtn.addEventListener("click", () => {
     startStopBtn.blur();
-    if (!running) {
-      if (remainingTime <= 0) {
-        const h = parseInt(document.getElementById("hours").value) || 0;
-        const m = parseInt(document.getElementById("minutes").value) || 0;
-        const s = parseInt(document.getElementById("seconds").value) || 0;
-        const totalTimeSeconds = h * 3600 + m * 60 + s;
-        
-        // Convert to milliseconds for precision timer system
-        totalTime = totalTimeSeconds * 1000;
-        remainingTime = totalTime;
-        updateDisplay();
-      }
-
-      if (remainingTime > 0) {
-        // Record actual start time for elapsed time tracking
-        actualStartTimestamp = Date.now();
-        pausedElapsedTime = 0; // Reset on fresh start
-        
-        countdown = await TimerControls.startTimer(timerState, {
-          startStopBtn,
-          updateButtonIcon,
-          setInputsDisabled,
-          updateDisplay,
-          sendStateUpdate,
-          handleTimerComplete
-        });
-      }
-    } else {
-      // Stop/Pause: save elapsed time
-      if (running && actualStartTimestamp > 0) {
-        pausedElapsedTime += (Date.now() - actualStartTimestamp);
-      }
-      
-      TimerControls.stopTimer(countdown, timerState, {
-        startStopBtn,
-        updateButtonIcon,
-        setInputsDisabled,
-        sendStateUpdate
-      });
-    }
+    timerCommand({ action: 'toggle' });
   });
 
   // Reset
   resetBtn.addEventListener("click", () => {
     resetBtn.blur();
-    // Reset elapsed time tracking
-    actualStartTimestamp = 0;
-    pausedElapsedTime = 0;
-    
-    countdown = TimerControls.resetTimer(countdown, timerState, {
-      startStopBtn,
-      getElementById: document.getElementById.bind(document),
-      updateButtonIcon,
-      setInputsDisabled,
-      updateDisplay,
-      sendStateUpdate
-    });
+    timerCommand({ action: 'reset' });
   });
 
   // Flash Button
@@ -916,31 +787,8 @@ function attachEventListeners() {
       if (event.metaKey || event.ctrlKey) {
         updatePresetFromInputs(btn);
       } else {
-        const minutes = parseInt(btn.dataset.minutes);
-        const totalTimeSeconds = minutes * 60;
-        
-        totalTime = totalTimeSeconds * 1000;
-        remainingTime = totalTime;
-        lastSetTime = totalTime;
-        
-        updateDisplay();
-        
-        const presetButtons = Array.from(document.querySelectorAll(".preset"));
-        const presetIndex = presetButtons.indexOf(btn);
-        
-        appState.update({
-          'timer.preset': presetIndex,
-          'timer.totalTime': totalTime,
-          'timer.remainingTime': remainingTime,
-          'timer.lastSetTime': lastSetTime,
-          'timer.hours': Math.floor(totalTimeSeconds / 3600),
-          'timer.minutes': Math.floor((totalTimeSeconds % 3600) / 60),
-          'timer.seconds': totalTimeSeconds % 60,
-          'timer.percentage': 100,
-          'timer.formattedTime': formatTime(totalTimeSeconds)
-        });
-        
-        console.log(`⏰ Preset loaded: ${minutes} minutes (${totalTime}ms)`);
+        const presetIndex = Array.from(document.querySelectorAll(".preset")).indexOf(btn);
+        timerCommand({ action: 'load-preset', index: presetIndex });
         VisualFeedback.flashSuccess(btn);
       }
     });
@@ -949,23 +797,7 @@ function attachEventListeners() {
   // Time inputs
   const timeInputs = ["hours", "minutes", "seconds"].map(id => document.getElementById(id));
   timeInputs.forEach(input => {
-    input.addEventListener("input", () => {
-      if (running) {
-        if (countdown && countdown.stop) {
-          countdown.stop();
-        } else {
-          clearInterval(countdown);
-        }
-        running = false;
-        updateButtonIcon(startStopBtn, 'play-fill', 'Start');
-        startStopBtn.classList.remove("stop");
-        startStopBtn.classList.add("start");
-        setInputsDisabled(false);
-      }
-
-      updateTimeFromInputs();
-      lastSetTime = totalTime;
-    });
+    input.addEventListener("input", updateTimeFromInputs);
   });
 
   // Minute adjustment buttons
@@ -1078,14 +910,11 @@ function flashAtZero() {
 }
 
 /**
- * Handle timer completion (when countdown reaches 0:00:00)
+ * Timer reached zero: flash and sound, per settings (auto-reset runs in the engine)
  */
-async function handleTimerComplete() {
-  await TimerControls.handleTimerComplete(resetBtn, { flashAtZero });
+function handleTimerComplete() {
+  TimerControls.handleTimerComplete({ flashAtZero });
 }
-
-// Export to window for access from timeInputs module
-window.handleTimerComplete = handleTimerComplete;
 
 async function updateDisplay() {
   return await DisplayManager.updateDisplay(timerState, { canvasRenderer, ipcRenderer });
@@ -1378,19 +1207,7 @@ function initializeIPCHandlersWithElements() {
       updateMenuState,
       addMinute,
       subtractMinute,
-      stopTimer: () => {
-        // Stop the timer using the same logic as the stop button
-        if (running || stoppedAtZero) {
-          TimerControls.stopTimer(countdown, timerState, {
-            startStopBtn,
-            updateButtonIcon,
-            setInputsDisabled,
-            sendStateUpdate
-          });
-          running = false;
-          stoppedAtZero = false;
-        }
-      },
+      timerCommand,
       setMuteState: async (muted) => {
         soundsMuted = muted;
         try {

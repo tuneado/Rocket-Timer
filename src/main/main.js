@@ -9,10 +9,11 @@ const { app, screen } = require('electron');
 const path = require('path');
 const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
 const { setupMenu, updateProjectsMenu } = require('./menu');
-const { setupIpcHandlers, setupLayoutStoreHandlers } = require('./ipcHandlers');
+const { setupIpcHandlers, setupLayoutStoreHandlers, setupTimerHandlers } = require('./ipcHandlers');
 const SettingsManager = require('./settingsManager');
 const ProjectManager = require('./projectManager');
 const LayoutStore = require('./layoutStore');
+const { TimerEngine } = require('./timerEngine');
 const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
 const UpdateManager = require('./updateManager');
 const log = require('electron-log');
@@ -45,6 +46,7 @@ let mainWindow;
 let apiServer;
 let updateManager;
 let projectManager;
+let timerEngine;
 
 // Load settings before app is ready to apply hardware acceleration
 const settingsManager = new SettingsManager();
@@ -84,6 +86,12 @@ app.on('ready', async () => {
 
   // Custom layouts: registered before any window loads (renderers read them synchronously)
   setupLayoutStoreHandlers(new LayoutStore(path.join(app.getPath('userData'), 'layouts.json')));
+
+  // The countdown itself runs here, so the API and every window share one clock
+  timerEngine = new TimerEngine({ getSettings });
+  const { hours = 0, minutes = 45, seconds = 0 } = getSettings().defaultTime || {};
+  timerEngine.setTime((hours * 3600 + minutes * 60 + seconds) * 1000);
+  setupTimerHandlers(timerEngine);
 
   mainWindow = createMainWindow();
 
@@ -126,6 +134,7 @@ app.on('ready', async () => {
     wsPort: settings.websocketPort || 8080,
     oscPort: settings.oscPort || 7000,
     oscRemotePort: settings.oscRemotePort || 7001,
+    timerEngine,
     enableRateLimit: settings.apiRateLimit !== false,
     allowExternal: settings.companionAllowExternal === true,
     colors: settings.colors || {},
@@ -228,5 +237,6 @@ app.on('activate', () => {
 // Export for access from other modules
 module.exports = { 
   getApiServer: () => apiServer,
+  getTimerEngine: () => timerEngine,
   getUpdateManager: () => updateManager
 };
