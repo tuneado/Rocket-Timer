@@ -11,6 +11,7 @@ esbuild.build({
   entryPoints: {
     'renderer.bundle': 'src/renderer/index.jsx',
     'settings': 'src/renderer/settings.jsx',
+    'layoutCreator': 'src/renderer/layoutCreator.jsx',
   },
   bundle: true,
   outdir: 'src/renderer/dist',
