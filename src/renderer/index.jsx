@@ -7,6 +7,8 @@
  */
 import { h, render } from 'preact';
 import { App } from './components/App.jsx';
+// Main window controller: canvas, timer view, IPC, keyboard (same module graph as the UI)
+import './js/countdown.js';
 
 // Wait for DOM to be ready
 if (document.readyState === 'loading') {

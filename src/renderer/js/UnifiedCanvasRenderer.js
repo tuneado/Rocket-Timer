@@ -2242,8 +2242,3 @@ export default UnifiedCanvasRenderer;
 
 // Make available globally (for backward compatibility)
 window.UnifiedCanvasRenderer = UnifiedCanvasRenderer;
-
-// CommonJS export (for Node.js compatibility)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = UnifiedCanvasRenderer;
-}

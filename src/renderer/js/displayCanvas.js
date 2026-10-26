@@ -12,6 +12,7 @@
  */
 // Import canvas effects module
 import { createFlashAnimation } from './canvas/canvasEffects.js';
+import UnifiedCanvasRenderer from './UnifiedCanvasRenderer.js';
 
 // Detect if running in Electron or browser
 const isElectron = typeof window.electron !== 'undefined';
