@@ -130,12 +130,16 @@ contextBridge.exposeInMainWorld('electron', {
       if (!SEND_CHANNELS.has(channel)) return blocked('send', channel);
       ipcRenderer.send(channel, data);
     },
+    // Returns a function that removes the listener
     on: (channel, func) => {
-      if (!RECEIVE_CHANNELS.has(channel)) return blocked('listener', channel);
-      ipcRenderer.on(channel, (event, ...args) => {
-        // Pass only the data, not the event object
-        func(args[0]);
-      });
+      if (!RECEIVE_CHANNELS.has(channel)) {
+        blocked('listener', channel);
+        return () => {};
+      }
+      // Pass only the data, not the event object
+      const listener = (event, ...args) => func(args[0]);
+      ipcRenderer.on(channel, listener);
+      return () => ipcRenderer.removeListener(channel, listener);
     },
     invoke: (channel, ...args) => {
       if (!INVOKE_CHANNELS.has(channel)) {
@@ -158,8 +162,11 @@ contextBridge.exposeInMainWorld('electron', {
     saveAll: (settings) => ipcRenderer.invoke('save-settings', settings),
     save: (key, value) => ipcRenderer.invoke('save-setting', key, value),
     reset: () => ipcRenderer.invoke('reset-settings'),
+    // Returns a function that removes the listener
     onUpdate: (callback) => {
-      ipcRenderer.on('settings-updated', (event, settings) => callback(settings));
+      const listener = (event, settings) => callback(settings);
+      ipcRenderer.on('settings-updated', listener);
+      return () => ipcRenderer.removeListener('settings-updated', listener);
     }
   },
   // Custom layouts (stored by the main process). Synchronous so LayoutRegistry stays synchronous.

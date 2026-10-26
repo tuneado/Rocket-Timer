@@ -23,17 +23,10 @@
   <!-- Preact will render into this container -->
   <div id="settings-root"></div>
 
-  <!-- Load layout registry for dynamic options -->
+  <!-- Layout registry (global) for the layout lists -->
   <script src="../layouts/layoutRegistry.js"></script>
-  
-  <!-- Preact bundle renders the UI -->
+
+  <!-- Preact settings app (components/settings/SettingsApp.jsx), built by esbuild -->
   <script type="module" src="../dist/settings.js"></script>
-  
-  <!-- Settings business logic (attaches to DOM elements rendered by Preact) -->
-  <script type="module">
-    import { applyCanvasColors } from '../js/modules/settingsManager.js';
-    window.applyCanvasColors = applyCanvasColors;
-  </script>
-  <script src="../js/settings.js"></script>
 </body>
 </html>

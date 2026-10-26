@@ -6,18 +6,60 @@
  * @see https://github.com/tuneado/Rocket-Timer
  */
 import { h } from 'preact';
+import { useState, useEffect } from 'preact/hooks';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
 import { SettingsItem } from '../../ui/SettingsItem.jsx';
 import { Input } from '../../ui/Input.jsx';
 import { Switch } from '../../ui/Switch.jsx';
 import { Button } from '../../ui/Button.jsx';
+import { useSettings, useIpc } from '../settingsContext.jsx';
+
+const requestStatus = () => window.electron.ipcRenderer.send('request-server-status');
 
 /**
  * ApiSection - API & Integration settings
  */
 export function ApiSection() {
+  const { settings, save, notify } = useSettings();
+  const enabled = settings.companionServerEnabled !== false;
+  const port = settings.companionServerPort || 9999;
+  const allowExternal = !!settings.companionAllowExternal;
+
+  // Server status from the main process
+  const [status, setStatus] = useState(null);
+  const [testing, setTesting] = useState(false);
+  useIpc('companion-server-status', setStatus);
+  useEffect(requestStatus, []);
+
+  const copy = (text, message = 'Copied to clipboard!') => {
+    navigator.clipboard.writeText(text);
+    notify(message, 'success');
+  };
+
+  const testConnection = async () => {
+    setTesting(true);
+    const reply = new Promise((resolve) => {
+      const stop = window.electron.ipcRenderer.on('companion-server-status', (s) => { stop(); resolve(s); });
+      setTimeout(() => { stop(); resolve(null); }, 1500);
+    });
+    requestStatus();
+    const result = await reply;
+    setTesting(false);
+    if (result?.running) {
+      notify('✅ Connection successful! Unified API Server is responding on all protocols.', 'success');
+    } else {
+      notify('❌ Cannot connect to Unified API Server. Make sure it\'s running.', 'error');
+    }
+  };
+
+  const endpoints = [
+    ['REST API', `http://localhost:${status?.port || port}/api`],
+    ['WebSocket', `ws://localhost:${settings.websocketPort || 8080}`],
+    ['OSC Control', `osc://localhost:${settings.oscPort || 7000}`]
+  ];
+
   return (
-    <div className="settings-section" id="section-api">
+    <div className="settings-section">
       <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
         API & Integration
       </h1>
@@ -30,20 +72,36 @@ export function ApiSection() {
           title="Enable Unified API Server"
           description="Multi-protocol API server with REST HTTP, WebSocket, and OSC support for external control"
         >
-          <Switch id="companionServerEnabled" />
+          <Switch
+            checked={enabled}
+            onChange={async (e) => {
+              await save('companionServerEnabled', e.target.checked);
+              notify(`Unified API Server (REST, WebSocket, OSC) will ${e.target.checked ? 'start' : 'stop'} on next launch. Restart required.`, 'info');
+              requestStatus();
+            }}
+          />
         </SettingsItem>
 
         <SettingsItem
           title="Server Port"
           description="Port number for API server (requires restart)"
         >
-          <Input 
-            type="number" 
-            id="companionServerPort" 
-            min="1024" 
-            max="65535" 
-            defaultValue="9999"
+          <Input
+            type="number"
+            min="1024"
+            max="65535"
             className="w-24"
+            value={port}
+            onChange={(e) => {
+              const portNum = parseInt(e.target.value, 10);
+              if (!(portNum >= 1024 && portNum <= 65535)) {
+                notify('Port must be between 1024 and 65535', 'error');
+                e.target.value = port;
+                return;
+              }
+              save('companionServerPort', portNum);
+              notify('Port setting saved. Restart required.', 'info');
+            }}
           />
         </SettingsItem>
 
@@ -53,58 +111,29 @@ export function ApiSection() {
           description="Current status and endpoint information"
         >
           <div className="server-status-container space-y-3">
-            <div className="flex items-center gap-2">
-              <span id="apiStatusDot" className="w-2.5 h-2.5 rounded-full bg-[var(--text-muted)]" />
-              <span id="apiStatusText" className="text-sm text-[var(--text-secondary)]">Checking...</span>
-            </div>
-            
-            <div id="apiEndpoints" className="hidden space-y-2">
-              <div className="endpoint-item flex items-center gap-2 text-sm">
-                <strong className="text-[var(--text-primary)]">REST API:</strong>
-                <code id="apiHttpEndpoint" className="px-2 py-0.5 rounded bg-[var(--bg-inset)] text-[var(--text-secondary)] font-mono text-xs">
-                  http://localhost:9999/api
-                </code>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="copy-btn p-1" 
-                  data-copy-target="apiHttpEndpoint"
-                  icon="bi-clipboard"
-                />
+            <ServerStatus enabled={enabled} status={status} />
+
+            {enabled && status?.running && (
+              <div className="space-y-2">
+                {endpoints.map(([label, url]) => (
+                  <div key={label} className="endpoint-item flex items-center gap-2 text-sm">
+                    <strong className="text-[var(--text-primary)]">{label}:</strong>
+                    <code className="px-2 py-0.5 rounded bg-[var(--bg-inset)] text-[var(--text-secondary)] font-mono text-xs">
+                      {url}
+                    </code>
+                    <Button variant="ghost" size="sm" className="p-1" icon="bi-clipboard" title="Copy" onClick={() => copy(url)} />
+                  </div>
+                ))}
               </div>
-              <div className="endpoint-item flex items-center gap-2 text-sm">
-                <strong className="text-[var(--text-primary)]">WebSocket:</strong>
-                <code id="apiWsEndpoint" className="px-2 py-0.5 rounded bg-[var(--bg-inset)] text-[var(--text-secondary)] font-mono text-xs">
-                  ws://localhost:8080
-                </code>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="copy-btn p-1" 
-                  data-copy-target="apiWsEndpoint"
-                  icon="bi-clipboard"
-                />
-              </div>
-              <div className="endpoint-item flex items-center gap-2 text-sm">
-                <strong className="text-[var(--text-primary)]">OSC Control:</strong>
-                <code id="apiOscEndpoint" className="px-2 py-0.5 rounded bg-[var(--bg-inset)] text-[var(--text-secondary)] font-mono text-xs">
-                  osc://localhost:7000
-                </code>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="copy-btn p-1" 
-                  data-copy-target="apiOscEndpoint"
-                  icon="bi-clipboard"
-                />
-              </div>
-            </div>
-            
+            )}
+
             <Button
-              id="testApiConnection"
               variant="ghost"
               size="sm"
               icon="bi-arrow-repeat"
+              disabled={testing}
+              className={testing ? 'opacity-50 cursor-wait' : ''}
+              onClick={testConnection}
             >
               Test Connection
             </Button>
@@ -126,14 +155,14 @@ export function ApiSection() {
             <ApiEndpoint method="POST" path="/api/timer/set-time" desc="Set time (hours, minutes, seconds or total seconds)" />
             <ApiEndpoint method="POST" path="/api/timer/adjust" desc="Adjust time by ±seconds" />
             <ApiEndpoint method="POST" path="/api/message/show" desc="Display custom message" />
-            <ApiEndpoint method="POST" path="/api/layout/change" desc="Change timer layout" />
+            <ApiEndpoint method="POST" path="/api/layout" desc="Change timer layout" />
           </div>
-          
+
           <Button
-            id="openApiDocs"
             variant="ghost"
             icon="bi-book"
             className="mt-4"
+            onClick={() => window.electron.ipcRenderer.send('open-api-docs')}
           >
             View Full Documentation
           </Button>
@@ -145,7 +174,13 @@ export function ApiSection() {
           title="Allow External Access"
           description="Allow connections from other devices on the network (not just localhost)"
         >
-          <Switch id="companionAllowExternal" />
+          <Switch
+            checked={allowExternal}
+            onChange={async (e) => {
+              await save('companionAllowExternal', e.target.checked);
+              notify('External access setting saved. Restart required.', 'info');
+            }}
+          />
         </SettingsItem>
 
         <SettingsItem
@@ -153,14 +188,86 @@ export function ApiSection() {
           title="Network Access"
           description="Local IP addresses for external access"
         >
-          <div id="networkAddresses" className="network-addresses">
-            <div className="p-4 rounded-lg bg-[var(--bg-surface-raised)] text-sm text-[var(--text-secondary)] flex items-center gap-2">
-              <i className="bi bi-info-circle" />
-              Enable external access to see available network addresses
-            </div>
-          </div>
+          <NetworkAddresses enabled={allowExternal} port={port} onCopy={(url) => copy(url, 'Address copied to clipboard!')} />
         </SettingsItem>
       </SettingsGroup>
+    </div>
+  );
+}
+
+function ServerStatus({ enabled, status }) {
+  let dot = 'inactive';
+  let text = 'Checking...';
+  if (!enabled) {
+    text = 'Disabled';
+  } else if (status?.running) {
+    dot = 'active';
+    text = 'Running (REST, WebSocket, OSC)';
+  } else if (status?.error) {
+    dot = 'error';
+    text = `Error: ${status.error}`;
+  } else if (status) {
+    text = 'Offline (Restart required)';
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`status-dot ${dot}`} />
+      <span className="text-sm text-[var(--text-secondary)]">{text}</span>
+    </div>
+  );
+}
+
+const InfoNote = ({ tone = 'neutral', icon, children }) => (
+  <div className={`p-4 rounded-lg text-sm flex items-center gap-2 ${tone === 'warning'
+    ? 'bg-amber-500/10 text-amber-500'
+    : 'bg-[var(--bg-surface-raised)] text-[var(--text-secondary)]'}`}>
+    <i className={`bi ${icon}`} />
+    {children}
+  </div>
+);
+
+function NetworkAddresses({ enabled, port, onCopy }) {
+  const [addresses, setAddresses] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    window.electron.ipcRenderer.invoke('get-network-addresses')
+      .then(setAddresses)
+      .catch((err) => setError(err.message));
+  }, [enabled]);
+
+  if (!enabled) {
+    return <InfoNote icon="bi-info-circle">Enable external access to see available network addresses</InfoNote>;
+  }
+  if (error) {
+    return <InfoNote tone="warning" icon="bi-exclamation-triangle">Could not load network addresses: {error}</InfoNote>;
+  }
+  if (!addresses) return null;
+  if (addresses.length === 0) {
+    return <InfoNote tone="warning" icon="bi-exclamation-triangle">No external network interfaces found</InfoNote>;
+  }
+
+  return (
+    <div className="network-addresses">
+      {addresses.map(({ name, address }) => {
+        const url = `http://${address}:${port}/api`;
+        return (
+          <div key={`${name}-${address}`} className="network-address-item">
+            <div>
+              <strong>{name}</strong>
+              <code>{url}</code>
+            </div>
+            <button
+              className="px-2 py-1 text-xs rounded bg-[var(--bg-surface-raised)] hover:bg-[var(--bg-hover)] copy-btn"
+              title="Copy"
+              onClick={() => onCopy(url)}
+            >
+              <i className="bi bi-clipboard" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

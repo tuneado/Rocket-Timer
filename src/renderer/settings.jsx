@@ -21,13 +21,5 @@ if (document.readyState === 'loading') {
 
 function init() {
   const root = document.getElementById('settings-root');
-  if (root) {
-    render(<SettingsApp />, root);
-    
-    // Dispatch event to notify settings.js that Preact has rendered
-    // Use setTimeout to ensure render is complete
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('preact-settings-ready'));
-    }, 0);
-  }
+  if (root) render(<SettingsApp />, root);
 }

@@ -20,6 +20,7 @@ const classicLayout = {
     "width": 1920,
     "height": 1080
   },
+  "video": { "enabled": false },
   "progressBar": {
     "enabled": true,
     "zIndex": 20,

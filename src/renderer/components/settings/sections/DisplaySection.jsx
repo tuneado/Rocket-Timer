@@ -6,17 +6,29 @@
  * @see https://github.com/tuneado/Rocket-Timer
  */
 import { h } from 'preact';
+import { useReducer } from 'preact/hooks';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
 import { SettingsItem } from '../../ui/SettingsItem.jsx';
 import { Select } from '../../ui/Select.jsx';
 import { Switch } from '../../ui/Switch.jsx';
+import { useSettings, useIpc } from '../settingsContext.jsx';
 
 /**
  * DisplaySection - Display settings configuration
  */
 export function DisplaySection() {
+  const { settings, save } = useSettings();
+  // Layouts can be added or removed from other windows
+  const [, refresh] = useReducer(n => n + 1, 0);
+  useIpc('layout-list-updated', refresh);
+
+  const layouts = window.LayoutRegistry.getAllLayouts();
+  const defaultLayout = window.LayoutRegistry.hasLayout(settings.defaultLayout)
+    ? settings.defaultLayout
+    : window.LayoutRegistry.getDefaultLayout();
+
   return (
-    <div className="settings-section" id="section-display">
+    <div className="settings-section">
       <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
         Display
       </h1>
@@ -30,8 +42,10 @@ export function DisplaySection() {
           title="Default Layout"
           description="Layout shown when app starts"
         >
-          <Select id="defaultLayout" fullWidth>
-            {/* Options populated dynamically from LayoutRegistry */}
+          <Select fullWidth value={defaultLayout} onChange={(e) => save('defaultLayout', e.target.value)}>
+            {layouts.map(layout => (
+              <option key={layout.id} value={layout.id}>{`${layout.name} - ${layout.description}`}</option>
+            ))}
           </Select>
         </SettingsItem>
 
@@ -39,7 +53,7 @@ export function DisplaySection() {
           title="Default Theme"
           description="Color scheme preference"
         >
-          <Select id="defaultTheme" className="w-48">
+          <Select className="w-48" value={settings.defaultTheme} onChange={(e) => save('defaultTheme', e.target.value)}>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="auto">Auto (System)</option>
@@ -52,7 +66,7 @@ export function DisplaySection() {
           title="Output Resolution"
           description="Canvas rendering resolution (affects output quality and performance)"
         >
-          <Select id="canvasResolution" className="w-56">
+          <Select className="w-56" value={settings.canvasResolution} onChange={(e) => save('canvasResolution', e.target.value)}>
             <option value="1920x1080">1920×1080 (Full HD)</option>
             <option value="1280x720">1280×720 (HD)</option>
             <option value="2560x1440">2560×1440 (2K)</option>
@@ -67,7 +81,7 @@ export function DisplaySection() {
           title="Show Watermark"
           description="we still love you anyway"
         >
-          <Switch id="showWatermark" />
+          <Switch checked={settings.showWatermark !== false} onChange={(e) => save('showWatermark', e.target.checked)} />
         </SettingsItem>
       </SettingsGroup>
 
@@ -76,7 +90,7 @@ export function DisplaySection() {
           title="Auto-Open at Startup"
           description="Automatically open fullscreen timer on external display if available"
         >
-          <Switch id="autoOpenDisplay" />
+          <Switch checked={!!settings.autoOpenDisplay} onChange={(e) => save('autoOpenDisplay', e.target.checked)} />
         </SettingsItem>
       </SettingsGroup>
     </div>

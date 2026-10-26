@@ -5,9 +5,10 @@
  * @license GPL-3.0 — see LICENSE file for details
  * @see https://github.com/tuneado/Rocket-Timer
  */
-import { h, Fragment } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { h } from 'preact';
+import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { Sidebar } from '../ui/Sidebar.jsx';
+import { SettingsProvider, useSettings } from './settingsContext.jsx';
 import DisplaySection from './sections/DisplaySection.jsx';
 import TimerSection from './sections/TimerSection.jsx';
 import LayoutsSection from './sections/LayoutsSection.jsx';
@@ -19,13 +20,8 @@ import ShortcutsSection from './sections/ShortcutsSection.jsx';
 import AboutSection from './sections/AboutSection.jsx';
 
 /**
- * SettingsApp - Main Preact component for Settings window
- * 
- * Handles navigation and renders section components using the UI library.
- * Business logic remains in settings.js which connects via DOM element IDs.
- * 
- * NOTE: All sections are rendered but hidden via CSS so that settings.js
- * can access all DOM elements on page load.
+ * SettingsApp - Main Preact component for the Settings window.
+ * Sections read and save settings through useSettings() (settingsContext.jsx).
  */
 
 const SECTIONS = [
@@ -52,54 +48,102 @@ const SECTION_COMPONENTS = {
   'about': AboutSection,
 };
 
+const TOAST_COLORS = {
+  info: '#3273dc',
+  warning: '#ffdd57',
+  error: '#f14668',
+  success: '#48c774'
+};
+
 export function SettingsApp() {
   const [activeSection, setActiveSection] = useState('display');
+  const [toast, setToast] = useState(null);
+  const toastTimer = useRef(null);
 
-  // Handle navigation
-  const handleSectionChange = (sectionId) => {
-    setActiveSection(sectionId);
-  };
+  const notify = useCallback((message, type = 'info') => {
+    clearTimeout(toastTimer.current);
+    setToast({ message, type, visible: true });
+    toastTimer.current = setTimeout(() => setToast(t => t && { ...t, visible: false }), 5000);
+  }, []);
 
-  // Render ALL sections, hiding inactive ones
-  // This ensures all DOM elements exist for settings.js to access
-  const renderAllSections = () => {
-    return Object.entries(SECTION_COMPONENTS).map(([id, SectionComponent]) => (
-      <div 
-        key={id} 
-        style={{ display: activeSection === id ? 'block' : 'none' }}
-      >
-        <SectionComponent />
-      </div>
-    ));
-  };
+  const ActiveSection = SECTION_COMPONENTS[activeSection];
 
   return (
-    <div className="settings-container flex h-screen">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        items={SECTIONS}
-        activeId={activeSection}
-        onSelect={handleSectionChange}
-        header={
-          <div className="flex items-center gap-2">
-            <img
-              src="../assets/rocket-icon_transparent.png"
-              alt=""
-              className="w-7 h-7 object-contain"
-            />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">Preferences</span>
-          </div>
-        }
-      />
+    <SettingsProvider notify={notify}>
+      <ThemeFollower />
+      <div className="settings-container flex h-screen">
+        {/* Sidebar Navigation */}
+        <Sidebar
+          items={SECTIONS}
+          activeId={activeSection}
+          onSelect={setActiveSection}
+          header={
+            <div className="flex items-center gap-2">
+              <img
+                src="../assets/rocket-icon_transparent.png"
+                alt=""
+                className="w-7 h-7 object-contain"
+              />
+              <span className="text-sm font-semibold text-[var(--text-primary)]">Preferences</span>
+            </div>
+          }
+        />
 
-      {/* Content Area */}
-      <main className="settings-content flex-1 overflow-y-auto">
-        <div className="settings-content-inner p-8 max-w-3xl">
-          {renderAllSections()}
+        {/* Content Area: only the open section is mounted */}
+        <main className="settings-content flex-1 overflow-y-auto">
+          <div className="settings-content-inner p-8 max-w-3xl">
+            <ActiveSection key={activeSection} />
+          </div>
+        </main>
+      </div>
+
+      {toast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '12px 20px',
+            borderRadius: '6px',
+            fontWeight: 500,
+            zIndex: 9999,
+            maxWidth: '400px',
+            transition: 'all 0.3s ease',
+            background: TOAST_COLORS[toast.type] || TOAST_COLORS.info,
+            color: toast.type === 'warning' ? '#333' : 'white',
+            opacity: toast.visible ? 1 : 0,
+            transform: toast.visible ? 'translateX(0)' : 'translateX(20px)',
+            pointerEvents: toast.visible ? 'auto' : 'none'
+          }}
+        >
+          {toast.message}
         </div>
-      </main>
-    </div>
+      )}
+    </SettingsProvider>
   );
+}
+
+/**
+ * Applies the Appearance theme (dark / light / auto) to this window
+ */
+function ThemeFollower() {
+  const { settings } = useSettings();
+  const theme = settings.appearanceTheme || 'dark';
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const resolved = theme === 'auto' ? (media.matches ? 'dark' : 'light') : theme;
+      document.documentElement.classList.toggle('dark', resolved === 'dark');
+      document.documentElement.setAttribute('data-theme', resolved);
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, [theme]);
+
+  return null;
 }
 
 export default SettingsApp;

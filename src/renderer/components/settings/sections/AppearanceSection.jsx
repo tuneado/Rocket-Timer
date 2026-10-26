@@ -11,14 +11,61 @@ import { SettingsItem } from '../../ui/SettingsItem.jsx';
 import { Select } from '../../ui/Select.jsx';
 import { Switch } from '../../ui/Switch.jsx';
 import { Button } from '../../ui/Button.jsx';
-import { ColorPicker } from '../../ui/ColorPicker.jsx';
+import { useSettings } from '../settingsContext.jsx';
+
+const DEFAULT_DISPLAY_COLORS = {
+  countdown: '#ffffff',
+  clock: '#808080',
+  elapsed: '#808080',
+  message: '#ffffff',
+  messageBackground: '#000000',
+  separator: '#333333',
+  background: '#000000'
+};
+
+const DEFAULT_PROGRESS_COLORS = {
+  progressSuccess: '#4ade80',
+  progressWarning: '#f59e0b',
+  progressDanger: '#ef4444',
+  progressOvertime: '#991b1b'
+};
+
+const OTHER_DISPLAY_COLORS = [
+  ['clock', 'Clock'],
+  ['elapsed', 'Elapsed / End At'],
+  ['message', 'Message'],
+  ['messageBackground', 'Message Background'],
+  ['separator', 'Separator'],
+  ['background', 'Background']
+];
+
+const PROGRESS_COLORS = [
+  ['progressSuccess', 'Normal (30-100% remaining)'],
+  ['progressWarning', 'Warning (5-30% remaining)'],
+  ['progressDanger', 'Critical (0-5% remaining)'],
+  ['progressOvertime', 'Overtime (negative time)']
+];
 
 /**
  * AppearanceSection - Theme and color settings
  */
 export function AppearanceSection() {
+  const { settings, save, saveColors, notify } = useSettings();
+  const colors = { ...DEFAULT_DISPLAY_COLORS, ...DEFAULT_PROGRESS_COLORS, ...(settings.colors || {}) };
+  const matchTimerColor = !!settings.matchTimerColor;
+
+  const colorPicker = ([key, label], extra = {}) => (
+    <ColorPickerItem
+      key={key}
+      label={label}
+      value={colors[key]}
+      onChange={(value) => saveColors({ [key]: value })}
+      {...extra}
+    />
+  );
+
   return (
-    <div className="settings-section" id="section-appearance">
+    <div className="settings-section">
       <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
         Appearance
       </h1>
@@ -31,7 +78,7 @@ export function AppearanceSection() {
           title="Color Theme"
           description="Choose light or dark appearance"
         >
-          <Select id="appearanceTheme" className="w-40">
+          <Select className="w-40" value={settings.appearanceTheme || 'dark'} onChange={(e) => save('appearanceTheme', e.target.value)}>
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="auto">Auto (System)</option>
@@ -46,34 +93,30 @@ export function AppearanceSection() {
           description="Customize timer display colors"
         >
           <div className="space-y-4">
-            {/* Timer color picker */}
+            {/* Timer color picker: locked while it follows the progress bar */}
             <div className="color-picker-group grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <ColorPickerItem id="countdownColor" label="Timer" defaultValue="#ffffff" />
+              {colorPicker(['countdown', 'Timer'], { locked: matchTimerColor })}
             </div>
-            
-            {/* Match timer color toggle */}
+
             <div className="flex items-center justify-between py-3 border-y border-[var(--border-muted)]">
               <div>
                 <div className="text-sm font-medium text-[var(--text-primary)]">Match Timer Color</div>
                 <div className="text-xs text-[var(--text-secondary)]">Make countdown timer color match the progress bar color</div>
               </div>
-              <Switch id="matchTimerColor" />
+              <Switch checked={matchTimerColor} onChange={(e) => save('matchTimerColor', e.target.checked)} />
             </div>
-            
-            {/* Other color pickers */}
-            <div id="otherColorPickers" className="color-picker-group grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <ColorPickerItem id="clockColor" label="Clock" defaultValue="#808080" />
-              <ColorPickerItem id="elapsedColor" label="Elapsed / End At" defaultValue="#808080" />
-              <ColorPickerItem id="messageColor" label="Message" defaultValue="#ffffff" />
-              <ColorPickerItem id="messageBackgroundColor" label="Message Background" defaultValue="#000000" />
-              <ColorPickerItem id="separatorColor" label="Separator" defaultValue="#333333" />
-              <ColorPickerItem id="backgroundColor" label="Background" defaultValue="#000000" />
+
+            <div className="color-picker-group grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {OTHER_DISPLAY_COLORS.map(entry => colorPicker(entry))}
             </div>
-            
+
             <Button
-              id="resetDisplayColors"
               variant="ghost"
               icon="bi-arrow-clockwise"
+              onClick={() => {
+                saveColors(DEFAULT_DISPLAY_COLORS);
+                notify('Display colors reset to default', 'success');
+              }}
             >
               Reset to Default
             </Button>
@@ -89,16 +132,16 @@ export function AppearanceSection() {
         >
           <div className="space-y-4">
             <div className="color-picker-group grid grid-cols-2 gap-3">
-              <ColorPickerItem id="progressSuccess" label="Normal (30-100% remaining)" defaultValue="#4ade80" />
-              <ColorPickerItem id="progressWarning" label="Warning (5-30% remaining)" defaultValue="#f59e0b" />
-              <ColorPickerItem id="progressDanger" label="Critical (0-5% remaining)" defaultValue="#ef4444" />
-              <ColorPickerItem id="progressOvertime" label="Overtime (negative time)" defaultValue="#991b1b" />
+              {PROGRESS_COLORS.map(entry => colorPicker(entry))}
             </div>
-            
+
             <Button
-              id="resetProgressColors"
               variant="ghost"
               icon="bi-arrow-clockwise"
+              onClick={() => {
+                saveColors(DEFAULT_PROGRESS_COLORS);
+                notify('Progress colors reset to default', 'success');
+              }}
             >
               Reset to Default
             </Button>
@@ -112,35 +155,16 @@ export function AppearanceSection() {
           title="Cover Image Overlay"
           description="Display a custom image that covers the entire display (highest layer, toggle via main UI button)"
         >
-          <div className="feature-image-controls space-y-3">
-            <div 
-              id="coverImagePreview"
-              className="feature-image-preview aspect-video w-full max-w-sm rounded-lg bg-[var(--bg-inset)] flex items-center justify-center overflow-hidden"
-            >
-              <div className="feature-image-placeholder text-center p-4">
-                <i className="bi bi-image text-4xl text-[var(--border)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">No image selected</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                id="selectCoverImage"
-                variant="ghost"
-                icon="bi-folder-open"
-              >
-                Select Image
-              </Button>
-              <Button
-                id="clearCoverImage"
-                variant="ghost"
-                icon="bi-trash"
-                disabled
-              >
-                Clear Image
-              </Button>
-            </div>
-          </div>
+          <ImagePicker
+            path={settings.coverImage?.path}
+            alt="Cover Image"
+            onSelect={async () => {
+              const path = await pickImage('select-cover-image');
+              // Not enabled automatically: the main window's cover button controls it
+              if (path) save('coverImage', { ...settings.coverImage, path, enabled: false });
+            }}
+            onClear={() => save('coverImage', { enabled: false, path: '' })}
+          />
         </SettingsItem>
       </SettingsGroup>
 
@@ -150,35 +174,22 @@ export function AppearanceSection() {
           title="Background Image"
           description="Display a background image that is always visible (lowest layer, behind all elements)"
         >
-          <div className="feature-image-controls space-y-3">
-            <div 
-              id="backgroundImagePreview"
-              className="feature-image-preview aspect-video w-full max-w-sm rounded-lg bg-[var(--bg-inset)] flex items-center justify-center overflow-hidden"
-            >
-              <div className="feature-image-placeholder text-center p-4">
-                <i className="bi bi-image text-4xl text-[var(--border)]" />
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">No image selected</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                id="selectBackgroundImage"
-                variant="ghost"
-                icon="bi-folder-open"
-              >
-                Select Image
-              </Button>
-              <Button
-                id="clearBackgroundImage"
-                variant="ghost"
-                icon="bi-trash"
-                disabled
-              >
-                Clear Image
-              </Button>
-            </div>
-          </div>
+          <ImagePicker
+            path={settings.backgroundImage?.path}
+            alt="Background Image"
+            onSelect={async () => {
+              const path = await pickImage('select-background-image');
+              if (!path) return;
+              const backgroundImage = { ...settings.backgroundImage, path, enabled: true, opacity: 1.0 };
+              await save('backgroundImage', backgroundImage);
+              window.electron.ipcRenderer.send('sync-background-image-update', { enabled: true, path, opacity: 1.0 });
+            }}
+            onClear={async () => {
+              const backgroundImage = { enabled: false, path: '', opacity: 1.0 };
+              await save('backgroundImage', backgroundImage);
+              window.electron.ipcRenderer.send('sync-background-image-update', backgroundImage);
+            }}
+          />
         </SettingsItem>
       </SettingsGroup>
     </div>
@@ -186,19 +197,73 @@ export function AppearanceSection() {
 }
 
 /**
- * ColorPickerItem - Helper component for color picker with label
+ * Open the main-process image picker; returns the chosen path or null
  */
-function ColorPickerItem({ id, label, defaultValue }) {
+async function pickImage(channel) {
+  try {
+    const result = await window.electron.ipcRenderer.invoke(channel);
+    return result && !result.canceled && result.filePaths.length > 0 ? result.filePaths[0] : null;
+  } catch (error) {
+    console.error(`Error selecting image (${channel}):`, error);
+    return null;
+  }
+}
+
+function ImagePicker({ path, alt, onSelect, onClear }) {
+  return (
+    <div className="feature-image-controls space-y-3">
+      <div className="feature-image-preview aspect-video w-full max-w-sm rounded-lg bg-[var(--bg-inset)] flex items-center justify-center overflow-hidden">
+        {path ? (
+          <img src={`file://${path}`} alt={alt} />
+        ) : (
+          <div className="feature-image-placeholder text-center p-4">
+            <i className="bi bi-image text-4xl text-[var(--border)]" />
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">No image selected</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="ghost" icon="bi-folder-open" onClick={onSelect}>
+          Select Image
+        </Button>
+        <Button variant="ghost" icon="bi-trash" disabled={!path} onClick={onClear}>
+          Clear Image
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Color picker with label; `locked` disables it and shows a lock badge
+ */
+function ColorPickerItem({ label, value, onChange, locked = false }) {
   return (
     <div className="color-picker-item">
       <label className="block text-xs text-[var(--text-secondary)] mb-1.5">{label}</label>
-      <div className="color-input-wrapper">
-        <input 
-          type="color" 
-          id={id} 
-          defaultValue={defaultValue}
+      <div className="color-input-wrapper" style={{ position: 'relative' }}>
+        <input
+          type="color"
+          value={value}
+          disabled={locked}
+          style={{ opacity: locked ? 0.5 : 1 }}
+          onChange={(e) => onChange(e.target.value)}
           className="w-10 h-10 rounded-lg cursor-pointer border border-[var(--border-default)] bg-transparent"
         />
+        {locked && (
+          <span
+            className="match-indicator"
+            title="Locked to progress bar color"
+            style={{
+              position: 'absolute', top: '-5px', right: '-5px', background: 'var(--progress-bg)', color: 'white',
+              borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1
+            }}
+          >
+            <i className="bi bi-lock-fill" />
+          </span>
+        )}
       </div>
     </div>
   );

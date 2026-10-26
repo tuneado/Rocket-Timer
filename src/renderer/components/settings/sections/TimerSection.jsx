@@ -6,20 +6,88 @@
  * @see https://github.com/tuneado/Rocket-Timer
  */
 import { h } from 'preact';
+import { useEffect } from 'preact/hooks';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
 import { SettingsItem } from '../../ui/SettingsItem.jsx';
 import { Select } from '../../ui/Select.jsx';
 import { Switch } from '../../ui/Switch.jsx';
 import { Input } from '../../ui/Input.jsx';
 import { FileUpload } from '../../ui/FileUpload.jsx';
-import { Button } from '../../ui/Button.jsx';
+import { useSettings } from '../settingsContext.jsx';
+
+const int = (v, fallback = 0) => {
+  const n = parseInt(v, 10);
+  return isNaN(n) ? fallback : n;
+};
+const mmss = (m, s) => `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
 /**
  * TimerSection - Timer behavior settings
  */
 export function TimerSection() {
+  const { settings, save, notify } = useSettings();
+  const time = settings.defaultTime || { hours: 0, minutes: 45, seconds: 0 };
+  const thresholdType = settings.timerThresholdType || 'percentage';
+
+  const warningPct = settings.warningPercentage ?? 30;
+  const criticalPct = settings.criticalPercentage ?? 5;
+  const warnM = settings.warningTimeMinutes ?? 2;
+  const warnS = settings.warningTimeSeconds ?? 0;
+  const critM = settings.criticalTimeMinutes ?? 0;
+  const critS = settings.criticalTimeSeconds ?? 30;
+
+  // State preview dots use the progress bar colors
+  const colors = settings.colors || {};
+  useEffect(() => {
+    const root = document.documentElement.style;
+    root.setProperty('--preview-normal-color', colors.progressSuccess || '#4ade80');
+    root.setProperty('--preview-warning-color', colors.progressWarning || '#f59e0b');
+    root.setProperty('--preview-critical-color', colors.progressDanger || '#ef4444');
+    root.setProperty('--preview-overtime-color', colors.progressOvertime || '#991b1b');
+  }, [colors.progressSuccess, colors.progressWarning, colors.progressDanger, colors.progressOvertime]);
+
+  const saveTime = (part, value) => save('defaultTime', { ...time, [part]: int(value) });
+
+  // Critical must stay below warning; keep it one step under when they cross
+  const savePercentages = (warning, critical) => {
+    save('warningPercentage', warning);
+    save('criticalPercentage', critical >= warning ? Math.max(1, warning - 1) : critical);
+  };
+  const saveTimes = (wm, ws, cm, cs) => {
+    const warningTotal = wm * 60 + ws;
+    let criticalTotal = cm * 60 + cs;
+    if (criticalTotal >= warningTotal) criticalTotal = Math.max(1, warningTotal - 1);
+    save('warningTimeMinutes', wm);
+    save('warningTimeSeconds', ws);
+    save('criticalTimeMinutes', Math.floor(criticalTotal / 60));
+    save('criticalTimeSeconds', criticalTotal % 60);
+  };
+
+  const onSoundFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      await save('customSoundFile', event.target.result);
+      await save('customSoundFileName', file.name);
+      notify('Custom sound uploaded successfully', 'success');
+    };
+    reader.onerror = () => notify('Failed to upload sound file', 'error');
+    reader.readAsDataURL(file);
+  };
+
+  const ranges = thresholdType === 'percentage'
+    ? {
+      normal: `Above ${warningPct}%`,
+      warning: `${criticalPct}% - ${warningPct}%`,
+      critical: `0% - ${criticalPct}%`
+    }
+    : {
+      normal: `Above ${mmss(warnM, warnS)}`,
+      warning: `${mmss(critM, critS)} - ${mmss(warnM, warnS)}`,
+      critical: `00:00 - ${mmss(critM, critS)}`
+    };
+
   return (
-    <div className="settings-section" id="section-timer">
+    <div className="settings-section">
       <h1 className="text-2xl font-semibold text-[var(--text-primary)] mb-2">
         Timer
       </h1>
@@ -33,32 +101,14 @@ export function TimerSection() {
           description="Starting time when app opens"
         >
           <div className="flex items-center gap-1">
-            <Input 
-              type="number" 
-              id="defaultHours" 
-              min="0" 
-              max="23" 
-              defaultValue="0"
-              className="w-16 text-center"
-            />
+            <Input type="number" min="0" max="23" className="w-16 text-center"
+              value={time.hours ?? 0} onChange={(e) => saveTime('hours', e.target.value)} />
             <span className="text-[var(--text-secondary)]">:</span>
-            <Input 
-              type="number" 
-              id="defaultMinutes" 
-              min="0" 
-              max="59" 
-              defaultValue="45"
-              className="w-16 text-center"
-            />
+            <Input type="number" min="0" max="59" className="w-16 text-center"
+              value={time.minutes ?? 45} onChange={(e) => saveTime('minutes', e.target.value)} />
             <span className="text-[var(--text-secondary)]">:</span>
-            <Input 
-              type="number" 
-              id="defaultSeconds" 
-              min="0" 
-              max="59" 
-              defaultValue="0"
-              className="w-16 text-center"
-            />
+            <Input type="number" min="0" max="59" className="w-16 text-center"
+              value={time.seconds ?? 0} onChange={(e) => saveTime('seconds', e.target.value)} />
           </div>
         </SettingsItem>
 
@@ -66,21 +116,21 @@ export function TimerSection() {
           title="Auto-Stop at Zero"
           description="Stop timer when reaching 00:00:00 (if disabled, timer continues into negative time)"
         >
-          <Switch id="autoStopAtZero" checked />
+          <Switch checked={settings.autoStopAtZero !== false} onChange={(e) => save('autoStopAtZero', e.target.checked)} />
         </SettingsItem>
 
         <SettingsItem
           title="Auto-Reset After Completion"
           description="Automatically reset to default time"
         >
-          <Switch id="autoReset" />
+          <Switch checked={!!settings.autoReset} onChange={(e) => save('autoReset', e.target.checked)} />
         </SettingsItem>
 
         <SettingsItem
           title="Sound on Timer End"
           description="Play notification sound when timer reaches 00:00"
         >
-          <Switch id="soundNotification" />
+          <Switch checked={!!settings.soundNotification} onChange={(e) => save('soundNotification', e.target.checked)} />
         </SettingsItem>
 
         <SettingsItem
@@ -88,43 +138,32 @@ export function TimerSection() {
           title="Custom Sound File"
           description="Upload a custom sound file (MP3, WAV, OGG) - Leave empty for default beep"
         >
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <FileUpload
-                id="customSoundFile"
-                accept="audio/*"
-                buttonText="Choose sound file..."
-                icon="bi-volume-up-fill"
-                className="flex-1"
-              />
-              <Button
-                id="clearCustomSound"
-                variant="ghost"
-                icon="bi-x-circle"
-                style="display: none;"
-              >
-                Clear
-              </Button>
-            </div>
-            <div id="customSoundFileName" className="text-sm text-[var(--text-secondary)] flex items-center gap-2">
-              <i className="bi bi-music-note-beamed" />
-              <span>No file selected</span>
-            </div>
-          </div>
+          <FileUpload
+            accept="audio/*"
+            buttonText="Choose sound file..."
+            icon="bi-volume-up-fill"
+            fileName={settings.customSoundFileName || ''}
+            onChange={onSoundFile}
+            onClear={async () => {
+              await save('customSoundFile', null);
+              await save('customSoundFileName', null);
+              notify('Custom sound cleared', 'info');
+            }}
+          />
         </SettingsItem>
 
         <SettingsItem
           title="Flash at Zero"
           description="Flash red background with black text when timer reaches 00:00"
         >
-          <Switch id="flashAtZero" />
+          <Switch checked={!!settings.flashAtZero} onChange={(e) => save('flashAtZero', e.target.checked)} />
         </SettingsItem>
 
         <SettingsItem
           title="Clock Format"
           description="Display clock in 12-hour or 24-hour format"
         >
-          <Select id="clockFormat" className="w-48">
+          <Select className="w-48" value={settings.clockFormat || '24h'} onChange={(e) => save('clockFormat', e.target.value)}>
             <option value="24h">24-Hour (15:30:45)</option>
             <option value="12h">12-Hour (3:30:45 PM)</option>
           </Select>
@@ -136,107 +175,55 @@ export function TimerSection() {
           title="Threshold Type"
           description="Define thresholds by percentage of total time or specific time values"
         >
-          <Select id="timerThresholdType" className="w-48">
+          <Select className="w-48" value={thresholdType} onChange={(e) => save('timerThresholdType', e.target.value)}>
             <option value="percentage">Percentage Based</option>
             <option value="time">Time Based</option>
           </Select>
         </SettingsItem>
 
-        {/* Percentage-based thresholds */}
-        <SettingsItem
-          title="Warning Threshold"
-          description="Show warning state when remaining time falls below this percentage"
-          className="threshold-percentage"
-        >
-          <div className="flex items-center gap-2">
-            <Input 
-              type="number" 
-              id="warningPercentage" 
-              defaultValue="30"
-              min="1" 
-              max="99" 
-              step="1"
-              className="w-20"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">%</span>
-          </div>
-        </SettingsItem>
+        {thresholdType === 'percentage' ? (
+          <div>
+            <SettingsItem
+              title="Warning Threshold"
+              description="Show warning state when remaining time falls below this percentage"
+            >
+              <div className="flex items-center gap-2">
+                <Input type="number" min="1" max="99" step="1" className="w-20"
+                  value={warningPct} onChange={(e) => savePercentages(int(e.target.value, 30), criticalPct)} />
+                <span className="text-sm text-[var(--text-secondary)]">%</span>
+              </div>
+            </SettingsItem>
 
-        <SettingsItem
-          title="Critical Threshold"
-          description="Show critical state when remaining time falls below this percentage"
-          className="threshold-percentage"
-        >
-          <div className="flex items-center gap-2">
-            <Input 
-              type="number" 
-              id="criticalPercentage" 
-              defaultValue="5"
-              min="1" 
-              max="99" 
-              step="1"
-              className="w-20"
-            />
-            <span className="text-sm text-[var(--text-secondary)]">%</span>
+            <SettingsItem
+              title="Critical Threshold"
+              description="Show critical state when remaining time falls below this percentage"
+            >
+              <div className="flex items-center gap-2">
+                <Input type="number" min="1" max="99" step="1" className="w-20"
+                  value={criticalPct} onChange={(e) => savePercentages(warningPct, int(e.target.value, 5))} />
+                <span className="text-sm text-[var(--text-secondary)]">%</span>
+              </div>
+            </SettingsItem>
           </div>
-        </SettingsItem>
+        ) : (
+          <div>
+            <SettingsItem
+              title="Warning Threshold"
+              description="Show warning state when remaining time falls below this time"
+            >
+              <MinSecInputs minutes={warnM} seconds={warnS}
+                onChange={(m, s) => saveTimes(m, s, critM, critS)} />
+            </SettingsItem>
 
-        {/* Time-based thresholds (hidden by default) */}
-        <SettingsItem
-          title="Warning Threshold"
-          description="Show warning state when remaining time falls below this time"
-          className="threshold-time hidden"
-        >
-          <div className="flex items-center gap-2">
-            <Input 
-              type="number" 
-              id="warningMinutes" 
-              defaultValue="2"
-              min="0" 
-              max="59" 
-              className="w-16"
-            />
-            <span className="text-xs text-[var(--text-muted)]">Mm</span>
-            <span className="text-[var(--text-secondary)]">:</span>
-            <Input 
-              type="number" 
-              id="warningSeconds" 
-              defaultValue="0"
-              min="0" 
-              max="59" 
-              className="w-16"
-            />
-            <span className="text-xs text-[var(--text-muted)]">Ss</span>
+            <SettingsItem
+              title="Critical Threshold"
+              description="Show critical state when remaining time falls below this time"
+            >
+              <MinSecInputs minutes={critM} seconds={critS}
+                onChange={(m, s) => saveTimes(warnM, warnS, m, s)} />
+            </SettingsItem>
           </div>
-        </SettingsItem>
-
-        <SettingsItem
-          title="Critical Threshold"
-          description="Show critical state when remaining time falls below this time"
-          className="threshold-time hidden"
-        >
-          <div className="flex items-center gap-2">
-            <Input 
-              type="number" 
-              id="criticalMinutes" 
-              defaultValue="0"
-              min="0" 
-              max="59" 
-              className="w-16"
-            />
-            <span className="text-xs text-[var(--text-muted)]">Mm</span>
-            <span className="text-[var(--text-secondary)]">:</span>
-            <Input 
-              type="number" 
-              id="criticalSeconds" 
-              defaultValue="30"
-              min="0" 
-              max="59" 
-              className="w-16"
-            />
-            <span className="text-xs text-[var(--text-muted)]">Ss</span>
-          </div>
-        </SettingsItem>
+        )}
 
         <SettingsItem
           block
@@ -244,37 +231,40 @@ export function TimerSection() {
           description="How timer states will appear based on your thresholds"
         >
           <div className="timer-state-preview flex gap-3 flex-wrap">
-            <div className="state-indicator normal flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-surface-raised)]">
-              <span className="state-color w-3 h-3 rounded-full bg-[var(--color-success)]" />
-              <div className="state-info text-sm">
-                <span className="block font-medium text-[var(--text-primary)]">Normal</span>
-                <span id="normalRange" className="text-xs text-[var(--text-secondary)]">Above 30%</span>
-              </div>
-            </div>
-            <div className="state-indicator warning flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-surface-raised)]">
-              <span className="state-color w-3 h-3 rounded-full bg-[var(--color-warning)]" />
-              <div className="state-info text-sm">
-                <span className="block font-medium text-[var(--text-primary)]">Warning</span>
-                <span id="warningRange" className="text-xs text-[var(--text-secondary)]">5% - 30%</span>
-              </div>
-            </div>
-            <div className="state-indicator critical flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-surface-raised)]">
-              <span className="state-color w-3 h-3 rounded-full bg-[var(--color-danger)]" />
-              <div className="state-info text-sm">
-                <span className="block font-medium text-[var(--text-primary)]">Critical</span>
-                <span id="criticalRange" className="text-xs text-[var(--text-secondary)]">0% - 5%</span>
-              </div>
-            </div>
-            <div className="state-indicator overtime flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-surface-raised)]">
-              <span className="state-color w-3 h-3 rounded-full bg-[var(--color-overtime)]" />
-              <div className="state-info text-sm">
-                <span className="block font-medium text-[var(--text-primary)]">Overtime</span>
-                <span className="text-xs text-[var(--text-secondary)]">Negative time</span>
-              </div>
-            </div>
+            <StatePreview state="normal" label="Normal" range={ranges.normal} />
+            <StatePreview state="warning" label="Warning" range={ranges.warning} />
+            <StatePreview state="critical" label="Critical" range={ranges.critical} />
+            <StatePreview state="overtime" label="Overtime" range="Negative time" />
           </div>
         </SettingsItem>
       </SettingsGroup>
+    </div>
+  );
+}
+
+function MinSecInputs({ minutes, seconds, onChange }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Input type="number" min="0" max="59" className="w-16"
+        value={minutes} onChange={(e) => onChange(int(e.target.value), seconds)} />
+      <span className="text-xs text-[var(--text-muted)]">Mm</span>
+      <span className="text-[var(--text-secondary)]">:</span>
+      <Input type="number" min="0" max="59" className="w-16"
+        value={seconds} onChange={(e) => onChange(minutes, int(e.target.value))} />
+      <span className="text-xs text-[var(--text-muted)]">Ss</span>
+    </div>
+  );
+}
+
+// Dot color comes from settings.css (.state-indicator.<state> .state-color → --preview-*-color)
+function StatePreview({ state, label, range }) {
+  return (
+    <div className={`state-indicator ${state} flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-surface-raised)]`}>
+      <span className="state-color w-3 h-3 rounded-full" />
+      <div className="state-info text-sm">
+        <span className="block font-medium text-[var(--text-primary)]">{label}</span>
+        <span className="text-xs text-[var(--text-secondary)]">{range}</span>
+      </div>
     </div>
   );
 }

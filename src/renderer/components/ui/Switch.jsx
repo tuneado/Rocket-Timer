@@ -48,7 +48,8 @@ export function Switch({
         <input
           type="checkbox"
           id={switchId}
-          defaultChecked={checked}
+          {...(/* controlled when the parent handles changes, else initial state only */
+            onChange ? { checked } : { defaultChecked: checked })}
           onChange={onChange}
           disabled={disabled}
           className="sr-only"
