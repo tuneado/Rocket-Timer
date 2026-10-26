@@ -53,7 +53,7 @@ The Countdown Timer REST API provides comprehensive control over timer functiona
 
 ## Authentication
 
-Currently, the API does not require authentication when accessed from localhost. For external access, ensure the "Allow External Connections" option is enabled in settings.
+The API does not require authentication. By default it only accepts connections from the same computer; turn on "Allow External Connections" in settings to control Rocket Timer from other devices. When that option is on, anyone on your network can reach the API, so only enable it on networks you trust.
 
 ---
 

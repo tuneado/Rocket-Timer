@@ -27,7 +27,6 @@ class UnifiedTimerAPIServer extends EventEmitter {
       wsPort: config.wsPort || 8080,
       oscPort: config.oscPort || 7000,
       oscRemotePort: config.oscRemotePort || 7001,
-      enableAuth: config.enableAuth || false,
       enableRateLimit: config.enableRateLimit || true,
       allowExternal: config.allowExternal || false,
       colors: config.colors || {},

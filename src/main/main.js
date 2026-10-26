@@ -126,7 +126,6 @@ app.on('ready', async () => {
     wsPort: settings.websocketPort || 8080,
     oscPort: settings.oscPort || 7000,
     oscRemotePort: settings.oscRemotePort || 7001,
-    enableAuth: settings.apiAuth || false,
     enableRateLimit: settings.apiRateLimit !== false,
     allowExternal: settings.companionAllowExternal === true,
     colors: settings.colors || {},

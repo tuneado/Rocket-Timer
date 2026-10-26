@@ -134,7 +134,9 @@ class UpdateManager {
     }
 
     log.info('Checking for updates...');
-    autoUpdater.checkForUpdates();
+    // Failures are logged and reported by the 'error' event above; the returned
+    // promise rejects too, so catch it to keep it from surfacing as unhandled
+    Promise.resolve(autoUpdater.checkForUpdates()).catch(() => {});
   }
 
   /**
