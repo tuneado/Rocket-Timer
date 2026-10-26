@@ -775,6 +775,8 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
 
   mainWindow.on('close', async (e) => {
     if (confirmedCloseSafe) return; // allow the close to proceed
+    // macOS only hides the window unless quitting (main.js); nothing to save yet
+    if (process.platform === 'darwin' && !app.isQuitting) return;
 
     const projectManager = global.projectManager;
     // No project manager or nothing dirty → let the window close normally.

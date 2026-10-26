@@ -15,6 +15,7 @@
     "url": "https://github.com/tuneado/Rocket-Timer.git"
   },
   "scripts": {
+    "prestart": "npm run build",
     "start": "electron .",
     "build:css": "tailwindcss -i src/renderer/css/tailwind.css -o src/renderer/dist/tailwind.css",
     "build:js": "node esbuild.config.js",

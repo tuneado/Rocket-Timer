@@ -1,5 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { spawn } from 'child_process';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import http from 'http';
 import { createRequire } from 'module';
@@ -9,13 +11,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(__dirname, '..', '..');
 
+// Throwaway profile so the test never reads or changes the developer's real settings and layouts
+const USER_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rocket-timer-e2e-'));
+
 /**
  * Helper: launch Electron and wait for it to be ready
  */
 function launchApp(timeout = 15000) {
   return new Promise((resolve, reject) => {
     const electronBin = require.resolve('electron/cli.js');
-    const args = [electronBin, '.'];
+    const args = [electronBin, '.', `--user-data-dir=${USER_DATA_DIR}`];
 
     // Linux CI requires --no-sandbox (SUID sandbox not configured)
     if (process.platform === 'linux') {
@@ -80,15 +85,20 @@ function httpGet(url, timeout = 5000) {
 describe('E2E Smoke Tests', () => {
   let appProcess = null;
 
-  afterAll(() => {
+  afterAll(async () => {
     if (appProcess) {
       appProcess.kill('SIGTERM');
       // Force kill after 3 seconds if still alive
       setTimeout(() => {
         try { appProcess.kill('SIGKILL'); } catch { /* already dead */ }
       }, 3000);
+      await new Promise((resolve) => {
+        if (appProcess.exitCode !== null) resolve();
+        else appProcess.once('exit', resolve);
+      });
     }
-  });
+    fs.rmSync(USER_DATA_DIR, { recursive: true, force: true });
+  }, 10000);
 
   it('Electron app launches without crashing', async () => {
     const { child, stderr } = await launchApp();

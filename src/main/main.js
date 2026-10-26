@@ -86,6 +86,18 @@ app.on('ready', async () => {
   setupLayoutStoreHandlers(new LayoutStore(path.join(app.getPath('userData'), 'layouts.json')));
 
   mainWindow = createMainWindow();
+
+  // macOS: closing the main window hides it and the app stays in the Dock; clicking
+  // the Dock icon shows it again (see 'activate'). The timer, the display sync and the
+  // API run in this window, so it is only destroyed when the app quits.
+  // Registered before setupIpcHandlers so it runs before the save-on-close prompt.
+  mainWindow.on('close', (e) => {
+    if (process.platform === 'darwin' && !app.isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   setupMenu(mainWindow);
   setupIpcHandlers(mainWindow, settingsManager);
   
@@ -187,6 +199,8 @@ app.on('ready', async () => {
 
 // Prompt to save before quitting
 app.on('before-quit', async (e) => {
+  // Lets the main window really close instead of hiding (macOS)
+  app.isQuitting = true;
   if (projectManager && projectManager.hasUnsaved()) {
     e.preventDefault();
     const parentWin = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
@@ -195,6 +209,8 @@ app.on('before-quit', async (e) => {
       // Clear the flag so we don't loop, then quit
       projectManager.hasUnsavedChanges = false;
       app.quit();
+    } else {
+      app.isQuitting = false;
     }
   }
 });
@@ -205,12 +221,9 @@ app.on('window-all-closed', () => {
   }
 });
 
+// macOS: Dock icon click brings back the hidden main window
 app.on('activate', () => {
-  if (mainWindow === null) {
-    mainWindow = createMainWindow();
-    setupMenu(mainWindow);
-    setupIpcHandlers(mainWindow, settingsManager);
-  }
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
 });
 
 // Export for access from other modules

@@ -1,5 +1,31 @@
 import js from '@eslint/js';
 
+// Marks names used in JSX as used, so no-unused-vars only reports real unused code:
+// components (<Toolbar />, <Foo.Bar />) and the Preact pragma (h, and Fragment for <>).
+// Same idea as eslint-plugin-react's jsx-uses-vars / jsx-uses-react, without the dependency.
+const jsxUsage = {
+  rules: {
+    'uses-vars': {
+      meta: { type: 'problem', schema: [] },
+      create(context) {
+        const mark = (name, node) => context.sourceCode.markVariableAsUsed(name, node);
+        return {
+          JSXOpeningElement(node) {
+            mark('h', node);
+            let name = node.name;
+            while (name.type === 'JSXMemberExpression') name = name.object;
+            if (name.type === 'JSXIdentifier') mark(name.name, node);
+          },
+          JSXOpeningFragment(node) {
+            mark('h', node);
+            mark('Fragment', node);
+          },
+        };
+      },
+    },
+  },
+};
+
 export default [
   js.configs.recommended,
   {
@@ -42,6 +68,7 @@ export default [
   },
   {
     files: ['src/renderer/**/*.jsx'],
+    plugins: { jsx: jsxUsage },
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
@@ -84,6 +111,7 @@ export default [
       },
     },
     rules: {
+      'jsx/uses-vars': 'error',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-undef': 'error',
       'no-constant-condition': 'warn',
@@ -137,7 +165,6 @@ export default [
         // Project runtime globals (loaded via script tags / preload)
         LayoutRegistry: 'readonly',
         LayoutEditorState: 'readonly',
-        LayoutEditorUI: 'readonly',
         CanvasPreview: 'readonly',
         UnifiedCanvasRenderer: 'readonly',
         appState: 'readonly',
