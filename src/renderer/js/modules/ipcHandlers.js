@@ -26,8 +26,6 @@ import { shiftTimerDeadline } from './timerControls.js';
  * @param {Object} deps.ipcRenderer - Electron IPC renderer
  * @param {Object} deps.statusBar - Status bar module
  * @param {Object} deps.timerState - Timer state object with getters/setters
- * @param {Object} deps.clockState - Clock state object
- * @param {Object} deps.displayState - Display state object
  * @param {Function} deps.getCanvasRenderer - Function that returns current canvas renderer
  * @param {Function} deps.getElements - Function that returns DOM elements
  * @param {Object} deps.actions - Object with action functions
@@ -37,8 +35,6 @@ export function initializeIPCHandlers(deps) {
     ipcRenderer,
     statusBar,
     timerState,
-    clockState,
-    displayState,
     getCanvasRenderer,
     getElements,
     actions
@@ -127,27 +123,6 @@ export function initializeIPCHandlers(deps) {
     }
   });
 
-  // ===============================
-  // Menu Commands
-  // ===============================
-  
-  ipcRenderer.on('menu-toggle-display', (event, value) => {
-    displayState.setVisible(value);
-    ipcRenderer.send('toggle-display', displayState.visible);
-    actions.updateMenuState();
-  });
-
-  ipcRenderer.on('menu-toggle-clock', (_, value) => {
-    clockState.setVisible(value);
-    if (clockState.visible) {
-      // Start main clock (will stop lightweight info clock internally)
-      actions.startClock();
-    } else {
-      // Stop main clock (will restart lightweight info clock internally)
-      actions.stopClock();
-    }
-    actions.updateMenuState();
-  });
 
   ipcRenderer.on('menu-theme-change', (theme) => {
     actions.setTheme(theme === 'dark');
@@ -187,182 +162,6 @@ export function initializeIPCHandlers(deps) {
     }
   });
 
-  // ===============================
-  // Companion API Commands
-  // ===============================
-  
-  ipcRenderer.on('companion-command', (command) => {
-    console.log('🎮 Received companion command:', command);
-    const { action, data } = command;
-    const { startStopBtn, resetBtn, displayMessageBtn } = getElements();
-    
-    switch (action) {
-      case 'start':
-        if (!timerState.running && timerState.remainingTime > 0) {
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'stop':
-      case 'pause':
-        if (timerState.running) {
-          startStopBtn.click();
-        }
-        break;
-        
-      case 'reset':
-        resetBtn.click();
-        break;
-        
-      case 'setTime':
-        if (data) {
-          const { hours = 0, minutes = 0, seconds = 0 } = data;
-          
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update input fields
-          document.getElementById('hours').value = hours;
-          document.getElementById('minutes').value = minutes;
-          document.getElementById('seconds').value = seconds;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime); // Save as last set time
-        }
-        break;
-        
-      case 'setHours':
-        if (data && typeof data.hours === 'number') {
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only hours field, keep current minutes and seconds
-          document.getElementById('hours').value = data.hours;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'setMinutes':
-        if (data && typeof data.minutes === 'number') {
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only minutes field, keep current hours and seconds
-          document.getElementById('minutes').value = data.minutes;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'setSeconds':
-        if (data && typeof data.seconds === 'number') {
-          // Stop timer if running
-          if (timerState.running) {
-            startStopBtn.click();
-          }
-          
-          // Update only seconds field, keep current hours and minutes
-          document.getElementById('seconds').value = data.seconds;
-          
-          // Update time and send state
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-        
-      case 'loadPreset':
-        if (data && data.preset) {
-          const presetBtn = document.querySelector(`button[data-preset="${data.preset}"]`);
-          if (presetBtn) presetBtn.click();
-        }
-        break;
-        
-      case 'changeLayout':
-        if (data && data.layout) {
-          actions.changeLayout(data.layout);
-        }
-        break;
-        
-      case 'setMessage':
-        if (data && data.message) {
-          document.getElementById('messageInput').value = data.message;
-          displayMessageBtn.click();
-        }
-        break;
-
-      case 'addMinute':
-        if (!timerState.running) {
-          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
-          const newMinutes = Math.min(59, currentMinutes + 1);
-          document.getElementById('minutes').value = newMinutes;
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-
-      case 'subtractMinute':
-        if (!timerState.running) {
-          const currentMinutes = parseInt(document.getElementById('minutes').value) || 0;
-          const newMinutes = Math.max(0, currentMinutes - 1);
-          document.getElementById('minutes').value = newMinutes;
-          actions.updateTimeFromInputs();
-          timerState.setLastSetTime(timerState.totalTime);
-        }
-        break;
-
-      case 'toggleFeatureImage':
-        // Toggle feature image using the same logic as the feature image button
-        const { featureImageBtn } = getElements();
-        if (featureImageBtn) {
-          featureImageBtn.click();
-        }
-        break;
-
-      case 'flashScreen': {
-        const flashButton = document.getElementById('flashButton');
-        if (flashButton) flashButton.click();
-        break;
-      }
-
-      case 'muteSound':
-        // Set mute state
-        if (actions.setMuteState) {
-          actions.setMuteState(true);
-        }
-        break;
-
-      case 'unmuteSound':
-        // Unmute sound
-        if (actions.setMuteState) {
-          actions.setMuteState(false);
-        }
-        break;
-
-      case 'toggleSound':
-        // Toggle mute state
-        if (actions.toggleMuteState) {
-          actions.toggleMuteState();
-        }
-        break;
-    }
-    
-    // Send immediate state update after command
-    setTimeout(() => {
-      actions.sendStateUpdate();
-    }, 10); // Small delay to ensure DOM updates are processed
-  });
 
   // ===============================
   // Unified API Commands (New)

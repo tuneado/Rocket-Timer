@@ -1606,14 +1606,6 @@ if (window.electron && window.electron.ipcRenderer) {
 
 
   
-  // Handle external display connection to unified renderer
-  window.electron.ipcRenderer.on('display-window-ready', (displayWindowId) => {
-    if (canvasRenderer && canvasRenderer.getStream) {
-      // Make the stream globally available for the display window
-      window.canvasStream = canvasRenderer.getStream();
-    }
-  });
-  
   // Handle server status updates from main process
   window.electron.ipcRenderer.on('companion-server-status', (serverStatus) => {
     logger.info('IPC', 'Received server status update:', serverStatus);

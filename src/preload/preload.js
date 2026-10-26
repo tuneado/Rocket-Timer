@@ -5,7 +5,7 @@
  * @license GPL-3.0 — see LICENSE file for details
  * @see https://github.com/tuneado/Rocket-Timer
  */
-const { contextBridge, ipcRenderer, desktopCapturer } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 // Channels a page may use through the generic ipcRenderer bridge. Kept to what the
 // main process actually handles (ipcMain.on / ipcMain.handle) or sends, so a page
@@ -147,10 +147,6 @@ contextBridge.exposeInMainWorld('electron', {
   },
   clipboard: {
     readText: () => ipcRenderer.invoke('clipboard-read-text'),
-  },
-  // Stream handling for canvas capture
-  desktopCapturer: {
-    getSources: (opts) => desktopCapturer.getSources(opts),
   },
   // App info
   getVersion: () => ipcRenderer.invoke('get-app-version'),

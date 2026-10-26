@@ -108,8 +108,8 @@ Rocket Timer was made by Andre Raimundo with love, shaped by real-world experien
 
 Download the latest release for your platform from the [Releases](https://github.com/tuneado/Rocket-Timer/releases) page:
 
-- **macOS**: `.dmg` installer (Apple Silicon / Intel)
-- **Windows**: `.exe` installer
+- **macOS**: `.dmg` installer (Apple Silicon / Intel) — macOS 13 Ventura or later
+- **Windows**: `.exe` installer (64-bit)
 - **Linux**: `.AppImage` or `.deb`
 
 ### macOS — Opening the App for the First Time
@@ -134,7 +134,7 @@ Alternatively, you can **right-click** (or Control-click) on the app and choose 
 
 #### Requirements
 - **Node.js** 18+ and npm
-- **Electron** 38.1.0
+- **Electron** 44
 
 #### Setup
 
@@ -504,7 +504,7 @@ src/
 ```
 
 ### Key Technologies
-- **Electron 38.1.0** — Desktop framework
+- **Electron 44** — Desktop framework
 - **Preact** — Lightweight React alternative (components)
 - **Canvas API** — Rendering engine
 - **Tailwind CSS 4** — Styling
