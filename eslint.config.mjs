@@ -194,8 +194,9 @@ export default [
     },
   },
   {
-    // Shared core: plain ES modules with no Electron, Node or DOM globals,
-    // so the same code runs on desktop and in other shells (e.g. iOS)
+    // Shared core: plain ES modules with no Electron, Node or DOM globals (the
+    // display folder below adds browser APIs), so the same code runs on desktop
+    // and in other shells (e.g. iOS)
     files: ['src/core/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
@@ -212,6 +213,19 @@ export default [
       'eqeqeq': ['warn', 'smart'],
       'no-eval': 'error',
       'prefer-const': 'warn',
+      // Keep the core free of Electron and of app-shell code: what it needs from
+      // the shell goes through platform.js or constructor options
+      'no-restricted-imports': ['error', {
+        paths: [{ name: 'electron', message: 'src/core must not depend on Electron; use src/core/platform.js.' }],
+        patterns: [{
+          group: ['**/main/**', '**/preload/**', '**/renderer/**'],
+          message: 'src/core must not import app-shell code; pass it in through src/core/platform.js or options.',
+        }],
+      }],
+      'no-restricted-properties': ['error',
+        { object: 'window', property: 'electron', message: 'src/core must not use the preload bridge; use src/core/platform.js.' },
+        { object: 'globalThis', property: 'electron', message: 'src/core must not use the preload bridge; use src/core/platform.js.' },
+      ],
     },
   },
   {
