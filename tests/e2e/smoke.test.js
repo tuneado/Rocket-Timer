@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -19,15 +19,17 @@ const USER_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rocket-timer-e2e-')
  */
 function launchApp(timeout = 15000) {
   return new Promise((resolve, reject) => {
-    const electronBin = require.resolve('electron/cli.js');
-    const args = [electronBin, '.', `--user-data-dir=${USER_DATA_DIR}`];
+    // Run the Electron binary itself, not the electron/cli.js wrapper: on Windows,
+    // killing the wrapper leaves Electron running with the profile folder locked
+    const electronBin = require('electron');
+    const args = ['.', `--user-data-dir=${USER_DATA_DIR}`];
 
     // Linux CI requires --no-sandbox (SUID sandbox not configured)
     if (process.platform === 'linux') {
       args.push('--no-sandbox', '--disable-gpu-sandbox');
     }
 
-    const child = spawn(process.execPath, args, {
+    const child = spawn(electronBin, args, {
       cwd: ROOT,
       env: { ...process.env, ELECTRON_IS_TEST: '1', NODE_ENV: 'test' },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -87,18 +89,26 @@ describe('E2E Smoke Tests', () => {
 
   afterAll(async () => {
     if (appProcess) {
-      appProcess.kill('SIGTERM');
-      // Force kill after 3 seconds if still alive
-      setTimeout(() => {
-        try { appProcess.kill('SIGKILL'); } catch { /* already dead */ }
-      }, 3000);
-      await new Promise((resolve) => {
-        if (appProcess.exitCode !== null) resolve();
+      const exited = new Promise((resolve) => {
+        if (appProcess.exitCode !== null || appProcess.signalCode !== null) resolve();
         else appProcess.once('exit', resolve);
       });
+      if (process.platform === 'win32') {
+        // No signals on Windows: end the whole tree (renderer and GPU processes too)
+        spawnSync('taskkill', ['/pid', String(appProcess.pid), '/T', '/F']);
+      } else {
+        appProcess.kill('SIGTERM');
+      }
+      // Force kill after 3 seconds if still alive
+      const forceKill = setTimeout(() => {
+        try { appProcess.kill('SIGKILL'); } catch { /* already dead */ }
+      }, 3000);
+      await exited;
+      clearTimeout(forceKill);
     }
-    fs.rmSync(USER_DATA_DIR, { recursive: true, force: true });
-  }, 10000);
+    // Windows can hold file handles briefly after the processes exit
+    fs.rmSync(USER_DATA_DIR, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }, 15000);
 
   it('Electron app launches without crashing', async () => {
     const { child, stderr } = await launchApp();
