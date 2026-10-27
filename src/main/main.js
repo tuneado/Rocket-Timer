@@ -106,7 +106,7 @@ app.on('ready', async () => {
     }
   });
 
-  setupMenu(mainWindow);
+  setupMenu(mainWindow, settingsManager);
   setupIpcHandlers(mainWindow, settingsManager);
   
   // Initialize update manager

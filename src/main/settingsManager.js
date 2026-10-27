@@ -19,7 +19,6 @@ class SettingsManager {
     return {
       // Display
       defaultLayout: 'classic',
-      defaultTheme: 'dark',
       showClock: false,
       timeFormat: '24h',
 
@@ -142,6 +141,11 @@ class SettingsManager {
       if (fs.existsSync(this.settingsPath)) {
         const data = fs.readFileSync(this.settingsPath, 'utf8');
         const loadedSettings = JSON.parse(data);
+        // One theme setting: 'defaultTheme' was a second copy of 'appearanceTheme'
+        if ('defaultTheme' in loadedSettings) {
+          loadedSettings.appearanceTheme ??= loadedSettings.defaultTheme;
+          delete loadedSettings.defaultTheme;
+        }
         // Merge with defaults to ensure all properties exist
         return { ...this.getDefaultSettings(), ...loadedSettings };
       }

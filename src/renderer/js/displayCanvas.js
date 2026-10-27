@@ -585,8 +585,8 @@ if (isElectron && window.electron && window.electron.settings) {
     }
     
     // Update theme if changed
-    if (settings.defaultTheme || settings.appearanceTheme) {
-      const theme = settings.appearanceTheme || settings.defaultTheme;
+    if (settings.appearanceTheme) {
+      const theme = settings.appearanceTheme;
       const resolvedTheme = theme === 'auto' 
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : theme;
@@ -616,10 +616,10 @@ if (isElectron && window.electron && window.electron.ipcRenderer) {
     }
     
     // Apply theme
-    if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto' 
+    if (settings.appearanceTheme) {
+      const theme = settings.appearanceTheme === 'auto'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.defaultTheme;
+        : settings.appearanceTheme;
       
       document.documentElement.setAttribute('data-theme', theme);
       if (theme === 'dark') {

@@ -56,7 +56,14 @@ const TOAST_COLORS = {
 };
 
 export function SettingsApp() {
-  const [activeSection, setActiveSection] = useState('display');
+  // A section can be opened directly, e.g. Help > Keyboard Shortcuts
+  const [activeSection, setActiveSection] = useState(() => {
+    const requested = window.location.hash.slice(1);
+    return SECTION_COMPONENTS[requested] ? requested : 'display';
+  });
+  useEffect(() => window.electron.ipcRenderer.on('settings-open-section', (section) => {
+    if (SECTION_COMPONENTS[section]) setActiveSection(section);
+  }), []);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
 

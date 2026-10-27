@@ -8,7 +8,7 @@
 const { ipcMain, clipboard, dialog, app, BrowserWindow } = require('electron');
 const path = require('path');
 const { toggleDisplayWindow, getDisplayWindow, isDisplayWindowVisible, getSettingsWindow, createLayoutCreatorWindow } = require('./windows');
-const { updateDisplayMenuItems, updateProjectsMenu } = require('./menu');
+const { updateDisplayMenuItems, updateProjectsMenu, setMenuState } = require('./menu');
 const SettingsManager = require('./settingsManager');
 
 let settingsManager;
@@ -29,6 +29,35 @@ function safeSend(win, channel, ...args) {
     wc.send(channel, ...args);
   } catch (_) {
     // Frame was disposed between checks — silently ignore
+  }
+}
+
+/**
+ * Save one setting and send the new settings to every window (used by the menu)
+ */
+function saveSetting(key, value) {
+  const success = settingsManager.setSetting(key, value);
+  if (success) {
+    global.projectManager?.markAsChanged();
+    const updatedSettings = settingsManager.getSettings();
+    BrowserWindow.getAllWindows().forEach(win => safeSend(win, 'settings-updated', updatedSettings));
+    updateProjectsMenu();
+  }
+  return success;
+}
+
+/**
+ * Open the API documentation: the bundled file, or the online copy
+ */
+function openApiDocs() {
+  const { shell } = require('electron');
+  const fs = require('fs');
+  const docsPath = path.join(__dirname, '../../docs/API_DOCUMENTATION.md');
+  if (fs.existsSync(docsPath)) {
+    shell.openPath(docsPath);
+  } else {
+    const homepage = require('../../package.json').homepage;
+    shell.openExternal(`${homepage}/blob/main/docs/API_DOCUMENTATION.md`);
   }
 }
 
@@ -90,6 +119,8 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       if (updatedSettings.presets) {
         ipcMain.emit('settings-presets-updated', null, updatedSettings.presets);
       }
+      // The menu shows the theme
+      updateProjectsMenu();
     }
     
     return success;
@@ -119,6 +150,8 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       if (key === 'presets') {
         ipcMain.emit('settings-presets-updated', null, value);
       }
+      // The menu shows the theme
+      if (key === 'appearanceTheme') updateProjectsMenu();
     }
     
     return success;
@@ -227,10 +260,9 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     safeSend(mainWindow, 'request-clock-state');
   });
 
-  // Handle menu state updates
-  ipcMain.on('update-menu-states', (event, themeState, clockState) => {
-    const { updateMenuStates } = require('./menu');
-    updateMenuStates(themeState, clockState);
+  // Main window state shown in the menu (checkmarks, labels, layouts, presets)
+  ipcMain.on('menu-state', (event, state) => {
+    if (state && typeof state === 'object') setMenuState(state);
   });
 
   // Add handler to respond with clock state
@@ -585,30 +617,8 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     }
   });
   
-  // Handle open API documentation request
-  ipcMain.on('open-api-docs', (event) => {
-    const { shell } = require('electron');
-    const path = require('path');
-    const fs = require('fs');
-    
-    // Try to open API_DOCUMENTATION.md
-    const docsPath = path.join(__dirname, '../../docs/API_DOCUMENTATION.md');
-    
-    if (fs.existsSync(docsPath)) {
-      shell.openPath(docsPath);
-    } else {
-      console.error('API documentation file not found:', docsPath);
-      // Fallback: show dialog
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'API Documentation',
-        message: 'API documentation not found',
-        detail: 'The API_DOCUMENTATION.md file could not be found in the docs directory.',
-        buttons: ['OK']
-      });
-    }
-  });
-  
+  ipcMain.on('open-api-docs', () => openApiDocs());
+
   // Handle request for current server status
   ipcMain.on('request-server-status', (event) => {
     const { getApiServer } = require('./main');
@@ -857,4 +867,4 @@ function setupTimerHandlers(timerEngine) {
   ipcMain.handle('timer:command', (event, command) => timerEngine.command(command));
 }
 
-module.exports = { setupIpcHandlers, setupLayoutStoreHandlers, setupTimerHandlers };
+module.exports = { setupIpcHandlers, setupLayoutStoreHandlers, setupTimerHandlers, saveSetting, openApiDocs };

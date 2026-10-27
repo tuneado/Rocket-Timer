@@ -14,7 +14,7 @@
  */
 /**
  * Load settings and apply the ones the main window keeps outside appState
- * (theme, canvas colors, and values other modules read from localStorage)
+ * (canvas colors, and values other modules read from localStorage)
  */
 export async function loadAndApplySettings() {
   try {
@@ -25,15 +25,6 @@ export async function loadAndApplySettings() {
     // The default layout wins over the last one used
     if (settings.defaultLayout) {
       localStorage.setItem('canvasLayout', settings.defaultLayout);
-    }
-
-    if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.defaultTheme;
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
     }
 
     if (settings.colors) {

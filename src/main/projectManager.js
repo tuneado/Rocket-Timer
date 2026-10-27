@@ -185,7 +185,6 @@ class ProjectManager {
       defaultLayout: config.layout?.current || 'classic',
       
       // Theme
-      defaultTheme: config.theme?.mode || 'dark',
       appearanceTheme: config.theme?.mode || 'dark',
       
       // Colors
@@ -292,7 +291,7 @@ class ProjectManager {
     config.layout.hiddenBuiltinLayouts = settings.hiddenBuiltinLayouts || [];
     
     // Theme
-    config.theme.mode = settings.appearanceTheme || settings.defaultTheme || config.theme.mode;
+    config.theme.mode = settings.appearanceTheme || config.theme.mode;
     if (settings.colors) {
       config.theme.colors = { ...config.theme.colors, ...settings.colors };
     }

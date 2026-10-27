@@ -51,28 +51,27 @@ export function startTicker(dependencies) {
   scheduleTick();
 }
 
-function sendMenuState(visible) {
-  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-  deps.ipcRenderer?.send('update-menu-states', currentTheme, visible);
+/**
+ * Canvas, display window and appState follow the visibility
+ */
+function setVisible(visible) {
+  canvasClockVisible = visible;
+  if (visible) tick();
+  deps.canvasRenderer?.setState({ showClock: visible });
+  deps.ipcRenderer?.send('toggle-clock-visibility', visible);
+  appState.set('clock.visible', visible);
 }
 
 /**
  * Show the clock on the canvas and display window
  */
 export function startClock() {
-  canvasClockVisible = true;
-  tick();
-  deps.canvasRenderer?.setState({ showClock: true });
-  localStorage.setItem('clock', 'on');
-  sendMenuState(true);
+  setVisible(true);
 }
 
 /**
- * Hide the clock on the canvas
+ * Hide the clock on the canvas and display window
  */
 export function stopClock() {
-  canvasClockVisible = false;
-  deps.canvasRenderer?.setState({ showClock: false });
-  localStorage.setItem('clock', 'off');
-  sendMenuState(false);
+  setVisible(false);
 }

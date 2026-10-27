@@ -179,8 +179,20 @@ registerActions({
   updateDisplay,
   formatTime,
   applyCanvasColors: (colors) => SettingsManager.applyCanvasColors(colors),
-  setTheme
+  applyTheme,
+  setClockVisible,
+  notify: (message, type = 'info') => statusBar.showMessage(message, type, 4000)
 });
+
+/**
+ * Show or hide the clock on the canvas and display window (View > Show Clock).
+ * Remembered for the next launch; only layouts with a clock element show it.
+ */
+function setClockVisible(visible) {
+  localStorage.setItem('showClock', String(visible));
+  if (visible) ClockManager.startClock();
+  else ClockManager.stopClock();
+}
 
 // ============================================================================
 // SETTINGS
@@ -204,15 +216,8 @@ window.electron.settings.onUpdate((settings) => {
     updateDisplay();
   }
 
-  if (settings.defaultTheme || settings.appearanceTheme) {
-    const theme = settings.appearanceTheme || settings.defaultTheme;
-    const resolved = theme === 'auto'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-      : theme;
-    document.documentElement.classList.toggle('dark', resolved === 'dark');
-    document.documentElement.setAttribute('data-theme', resolved);
-    localStorage.setItem('theme', resolved);
-    canvasRenderer?.updateTheme(resolved);
+  if (settings.appearanceTheme) {
+    applyTheme(settings.appearanceTheme);
   }
 
   if (settings.soundNotification !== undefined) {
@@ -232,16 +237,24 @@ window.electron.settings.onUpdate((settings) => {
   PresetManager.applyPresets(settings.presets);
 });
 
-function setTheme(dark) {
-  const theme = dark ? 'dark' : 'light';
-  document.documentElement.classList.toggle('dark', dark);
+// Theme setting: 'dark', 'light' or 'auto' (follows the system)
+let themeSetting = null;
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+systemDark.addEventListener('change', () => {
+  if (themeSetting === 'auto') applyTheme('auto');
+});
+
+function applyTheme(setting) {
+  themeSetting = setting;
+  const theme = setting === 'auto' ? (systemDark.matches ? 'dark' : 'light') : setting === 'light' ? 'light' : 'dark';
+
+  document.documentElement.classList.toggle('dark', theme === 'dark');
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('theme', theme);
   appState.set('theme', theme);
 
   canvasRenderer?.updateTheme(theme);
   ipcRenderer.send('update-theme', theme);
-  ipcRenderer.send('update-menu-states', theme, localStorage.getItem('clock') === 'on');
 }
 
 // ============================================================================
@@ -271,6 +284,47 @@ function refreshLayouts() {
 }
 
 ipcRenderer.on('layout-list-updated', refreshLayouts);
+
+// ============================================================================
+// APPLICATION MENU
+// ============================================================================
+
+// appState paths the menu shows (checkmarks, labels, layouts, presets)
+const MENU_STATE_PATHS = [
+  'timer.running', 'timer.stoppedAtZero', 'settings.soundEnabled', 'coverImage.enabled',
+  'message.visible', 'clock.visible', 'layout.current', 'ui.layouts', 'ui.presets', 'ui.shortcuts'
+];
+
+function sendMenuState() {
+  const layoutId = appState.get('layout.current');
+  const stored = appState.get('ui.presets');
+  ipcRenderer.send('menu-state', {
+    running: appState.get('timer.running'),
+    stoppedAtZero: appState.get('timer.stoppedAtZero'),
+    soundEnabled: appState.get('settings.soundEnabled'),
+    coverEnabled: appState.get('coverImage.enabled'),
+    messageVisible: appState.get('message.visible'),
+    clockVisible: appState.get('clock.visible'),
+    layoutHasClock: Boolean(LayoutRegistry.getLayout(layoutId)?.clock?.enabled),
+    layout: layoutId,
+    layouts: appState.get('ui.layouts'),
+    presets: PresetManager.DEFAULT_PRESETS.map((preset, i) => ({ time: (stored[i] || preset).time })),
+    shortcuts: appState.get('ui.shortcuts')
+  });
+}
+
+/**
+ * Keep the menu in step with the main window (batched: one update per burst of changes)
+ */
+function followMenuState() {
+  let timer = null;
+  const queue = () => {
+    clearTimeout(timer);
+    timer = setTimeout(sendMenuState, 50);
+  };
+  MENU_STATE_PATHS.forEach(path => appState.subscribe(path, queue));
+  sendMenuState();
+}
 
 // ============================================================================
 // STARTUP
@@ -377,14 +431,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   canvasRenderer.start();
 
-  setTheme(localStorage.getItem('theme') !== 'light');
+  applyTheme(settings.appearanceTheme || 'dark');
 
   // Current timer state from the engine
   applyTimerState(await ipcRenderer.invoke('timer:get-state'));
 
-  // Clock: always in the info bar; on the canvas if the layout or the user wants it
+  // Clock: always in the info bar; on the canvas unless turned off (View > Show Clock)
   ClockManager.startTicker({ canvasRenderer, ipcRenderer });
-  if ((layout.clock && layout.clock.enabled) || localStorage.getItem('clock') === 'on') {
+  if (localStorage.getItem('showClock') !== 'false') {
     ClockManager.startClock();
   } else {
     ClockManager.stopClock();
@@ -394,9 +448,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshLayouts();
 
   appState.update({
-    'settings.soundEnabled': Boolean(settings.soundNotification),
-    'theme': localStorage.getItem('theme') === 'light' ? 'light' : 'dark',
-    'clock.visible': localStorage.getItem('clock') === 'on'
+    'settings.soundEnabled': Boolean(settings.soundNotification)
   });
 
   await VideoManager.handleVideoInputForLayout(layout, { canvasRenderer, ipcRenderer });
@@ -411,6 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   initializeKeyboardShortcuts(settings);
   ipcRenderer.send('request-server-status');
+  followMenuState();
 
   // API server: throttled to 10 updates per second
   let stateUpdateThrottle = null;

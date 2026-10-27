@@ -9,7 +9,7 @@
  * Centralizes all IPC (Inter-Process Communication) event handlers for communication
  * between the renderer process and the main Electron process.
  * Handles:
- * - Menu commands (toggle display, toggle clock, theme changes, start/stop, reset)
+ * - Application menu actions (run through mainActions.js)
  * - Companion API commands (start, stop, reset, setTime, loadPreset, changeLayout, setMessage)
  * - Display window sync (request-current-state, display-window-closed)
  * - Clock state requests
@@ -61,20 +61,8 @@ export function initializeIPCHandlers(deps) {
     // The user may have manually selected a different layout in the current session
     // defaultLayout is only used on app startup (see DOMContentLoaded)
 
-    // Apply theme
-    if (settings.defaultTheme) {
-      const theme = settings.defaultTheme === 'auto'
-        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-        : settings.defaultTheme;
-
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
-
-      const canvasRenderer = getCanvasRenderer();
-      if (canvasRenderer) {
-        canvasRenderer.updateTheme(theme);
-        actions.updateDisplay();
-      }
+    if (settings.appearanceTheme) {
+      actions.applyTheme(settings.appearanceTheme);
     }
 
     // Apply canvas colors
@@ -100,13 +88,14 @@ export function initializeIPCHandlers(deps) {
   });
 
 
-  ipcRenderer.on('menu-theme-change', (theme) => {
-    actions.setTheme(theme === 'dark');
+  // Application menu items (src/main/menu.js)
+  ipcRenderer.on('menu-action', ({ action, args = [] } = {}) => {
+    if (typeof actions[action] === 'function') {
+      actions[action](...args);
+    } else {
+      console.warn('Unknown menu action:', action);
+    }
   });
-
-  ipcRenderer.on('menu-start-stop', () => actions.toggle());
-
-  ipcRenderer.on('menu-reset', () => actions.reset());
 
   // ===============================
   // Companion Server Status

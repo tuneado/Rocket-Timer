@@ -269,9 +269,14 @@ function getCurrentDisplayIndex() {
   return currentDisplayIndex;
 }
 
-function createSettingsWindow() {
+/**
+ * Open (or focus) the settings window
+ * @param {string} [section] - section to show, e.g. 'shortcuts'
+ */
+function createSettingsWindow(section) {
   // If settings window already exists, focus it
   if (settingsWindow && !settingsWindow.isDestroyed()) {
+    if (section) settingsWindow.webContents.send('settings-open-section', section);
     settingsWindow.focus();
     return settingsWindow;
   }
@@ -303,7 +308,7 @@ function createSettingsWindow() {
     settingsWindow.setMenu(null);
   }
 
-  settingsWindow.loadFile(path.join(__dirname, '../renderer/html/settings.html'));
+  settingsWindow.loadFile(path.join(__dirname, '../renderer/html/settings.html'), section ? { hash: section } : undefined);
 
   // Show when ready
   settingsWindow.once('ready-to-show', () => {
