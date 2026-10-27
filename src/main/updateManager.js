@@ -11,8 +11,11 @@
  * /
  */
 const { autoUpdater } = require('electron-updater');
-const { dialog } = require('electron');
+const { dialog, shell } = require('electron');
 const log = require('electron-log');
+const { hasDeveloperIdSignature } = require('./utils/codeSigning');
+// 'homepage' is kept in the packaged package.json ('build' is stripped)
+const { homepage } = require('../../package.json');
 
 class UpdateManager {
   constructor(mainWindow) {
@@ -35,9 +38,15 @@ class UpdateManager {
     autoUpdater.autoInstallOnAppQuit = true;
 
     // Event: Update is available
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('update-available', async (info) => {
       log.info('Update available:', info.version);
       this._manualCheck = false;
+
+      // Unsigned macOS builds can't install updates: send the user to the release instead
+      if (!(await this.canInstallUpdates())) {
+        this.offerReleasePage(info.version);
+        return;
+      }
       
       dialog.showMessageBox(this.mainWindow, {
         type: 'info',
@@ -137,6 +146,39 @@ class UpdateManager {
     // Failures are logged and reported by the 'error' event above; the returned
     // promise rejects too, so catch it to keep it from surfacing as unhandled
     Promise.resolve(autoUpdater.checkForUpdates()).catch(() => {});
+  }
+
+  /**
+   * Whether this build can install an update itself. On macOS that needs a
+   * Developer ID signature; checked once.
+   */
+  canInstallUpdates() {
+    if (process.platform !== 'darwin') return Promise.resolve(true);
+    if (!this._canInstall) {
+      this._canInstall = hasDeveloperIdSignature().then((signed) => {
+        if (!signed) log.info('Unsigned macOS build: updates open the release page instead of installing');
+        return signed;
+      });
+    }
+    return this._canInstall;
+  }
+
+  /**
+   * Tell the user about a new version and open its GitHub release page
+   */
+  offerReleasePage(version) {
+    const url = `${homepage}/releases/tag/v${version}`;
+    dialog.showMessageBox(this.mainWindow, {
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version (${version}) is available!`,
+      detail: 'Download it from the release page, then replace Rocket Timer in your Applications folder.',
+      buttons: ['Open Download Page', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) shell.openExternal(url);
+    });
   }
 
   /**
