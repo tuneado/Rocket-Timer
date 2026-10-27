@@ -110,7 +110,8 @@ function createInitialState() {
       status: { text: '', type: 'info' },
       performance: { level: 'good', title: 'Performance: Good' },
       cameraStatus: false,   // true (live), false (inactive) or 'error'
-      shortcuts: {}          // shortcut key → enabled, for the button tooltips
+      shortcuts: {},         // shortcut key → enabled, for the button tooltips
+      shortcutTooltips: true // show shortcut keys in the tooltips (setting)
     }
   };
 }

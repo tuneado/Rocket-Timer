@@ -8,6 +8,9 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
+import { SettingsItem } from '../../ui/SettingsItem.jsx';
+import { Switch } from '../../ui/Switch.jsx';
+import { useSettings } from '../settingsContext.jsx';
 import { formatShortcut } from '../../../js/utils/keyboardManager.js';
 
 const DEFAULT_SHORTCUTS = {
@@ -80,6 +83,7 @@ function ShortcutRow({ shortcutKey, config, onToggle }) {
 }
 
 export function ShortcutsSection() {
+  const { settings, save } = useSettings();
   const [shortcuts, setShortcuts] = useState(DEFAULT_SHORTCUTS);
 
   useEffect(() => {
@@ -156,6 +160,18 @@ export function ShortcutsSection() {
       <p className="text-sm text-[var(--text-secondary)] mb-6">
         Configure keyboard shortcuts for the timer controls. {enabledCount}/{totalCount} shortcuts enabled.
       </p>
+
+      <SettingsGroup title="Tooltips">
+        <SettingsItem
+          title="Show shortcuts in tooltips"
+          description="When hovering a button in the main window, show its keyboard shortcut next to the label"
+        >
+          <Switch
+            checked={settings.showShortcutTooltips !== false}
+            onChange={(e) => save('showShortcutTooltips', e.target.checked)}
+          />
+        </SettingsItem>
+      </SettingsGroup>
 
       <div className="flex gap-2 mb-6">
         <button

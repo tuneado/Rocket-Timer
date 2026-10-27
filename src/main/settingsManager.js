@@ -88,6 +88,7 @@ class SettingsManager {
       showWatermark: true,
 
       // Keyboard Shortcuts
+      showShortcutTooltips: true, // show the key in the main window's button tooltips
       keyboardShortcuts: {
         'space': { enabled: true, key: 'space', description: 'Start/Stop timer' },
         'r': { enabled: true, key: 'r', description: 'Reset timer' },

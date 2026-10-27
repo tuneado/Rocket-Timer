@@ -226,6 +226,7 @@ window.electron.settings.onUpdate((settings) => {
   if (settings.keyboardShortcuts) {
     applyShortcutSettings(settings.keyboardShortcuts);
   }
+  appState.set('ui.shortcutTooltips', settings.showShortcutTooltips !== false);
 
   // e.g. after a project switch
   PresetManager.applyPresets(settings.presets);
@@ -465,6 +466,7 @@ function initializeKeyboardShortcuts(settings) {
 
   keyboard.init();
   applyShortcutSettings(settings.keyboardShortcuts);
+  appState.set('ui.shortcutTooltips', settings.showShortcutTooltips !== false);
 }
 
 /**

@@ -38,11 +38,13 @@ function ariaKeys(key) {
 
 /**
  * One tooltip for the whole window, for any element with a data-tooltip label
- * (with data-shortcut, the key is shown while that shortcut is enabled).
+ * (with data-shortcut, the key is shown while that shortcut is enabled and the
+ * "Show shortcuts in tooltips" setting is on).
  * Fixed positioning keeps it clear of the cards' overflow clipping.
  */
 export function Tooltip() {
   const shortcuts = useAppState('ui.shortcuts');
+  const showShortcuts = useAppState('ui.shortcutTooltips');
   const [tip, setTip] = useState(null); // { label, shortcut, rect }
   const [pos, setPos] = useState(null);
   const ref = useRef(null);
@@ -99,7 +101,7 @@ export function Tooltip() {
     };
   }, []);
 
-  const showKey = Boolean(tip?.shortcut && shortcuts[tip.shortcut]);
+  const showKey = Boolean(showShortcuts && tip?.shortcut && shortcuts[tip.shortcut]);
 
   // Above the element, or below if there's no room; kept inside the window
   useLayoutEffect(() => {
