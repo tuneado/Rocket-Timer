@@ -13,7 +13,8 @@ import statusBar from './statusBar.js';
 import { formatTime } from './utils/timeFormatter.js';
 import { KeyboardManager, VisualFeedback } from './utils/keyboardManager.js';
 import appState from './modules/appState.js';
-import UnifiedCanvasRenderer from './UnifiedCanvasRenderer.js';
+import UnifiedCanvasRenderer from '../../core/display/UnifiedCanvasRenderer.js';
+import { createVideoInput } from './videoInputManager.js';
 import actions, { registerActions } from './mainActions.js';
 import * as ClockManager from './modules/clockManager.js';
 import * as MessageManager from './modules/messageManager.js';
@@ -409,7 +410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Canvas renderer at the configured resolution, with the saved layout
   const [width, height] = (settings.canvasResolution || '1920x1080').split('x').map(n => parseInt(n, 10));
-  canvasRenderer = new UnifiedCanvasRenderer(width, height);
+  canvasRenderer = new UnifiedCanvasRenderer(width, height, { createVideoInput });
   window.canvasRenderer = canvasRenderer;
 
   const previewCanvas = document.getElementById('timerCanvas');

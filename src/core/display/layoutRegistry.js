@@ -12,7 +12,7 @@
  * Layout JSON files should be loaded via fetch or embedded directly.
  * /
  */
-import { getPlatform } from '../../core/platform.js';
+import { getPlatform } from '../platform.js';
 
 // Embedded layout definitions (avoids fetch/require complexity)
 const classicLayout = {

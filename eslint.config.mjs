@@ -215,6 +215,33 @@ export default [
     },
   },
   {
+    // Core display code (canvas renderer, layouts, display state): runs in a web
+    // page or web view on every platform, so standard browser APIs are allowed
+    files: ['src/core/display/**/*.js'],
+    languageOptions: {
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        localStorage: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
+        getComputedStyle: 'readonly',
+        Image: 'readonly',
+      },
+    },
+    rules: {
+      'no-constant-condition': 'warn',
+      'no-case-declarations': 'warn',
+      'no-prototype-builtins': 'warn',
+      'no-empty': 'warn',
+    },
+  },
+  {
     files: ['src/preload/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,

@@ -340,7 +340,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   });
   
   // External display mirror: the main window's preview is the source ('display-state'
-  // patches, see renderer/js/modules/displaySync.js). The merged state is kept here
+  // patches, see core/display/displayState.js). The merged state is kept here
   // so a display that opens or reloads gets everything at once.
   ipcMain.on('display-state', (event, patch) => {
     if (!patch || typeof patch !== 'object') return;

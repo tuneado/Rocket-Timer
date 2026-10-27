@@ -9,7 +9,7 @@
  * Handles flash animations for timer completion
  * /
  */
-import { linear } from '../utils/easing.js';
+import { linear } from './easing.js';
 
 /**
  * Flash effect configuration

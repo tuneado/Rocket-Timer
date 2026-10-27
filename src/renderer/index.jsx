@@ -9,7 +9,7 @@
 import './js/electronPlatform.js';
 import { h, render } from 'preact';
 // Sets the LayoutRegistry global used by js/countdown.js
-import './layouts/layoutRegistry.js';
+import '../core/display/layoutRegistry.js';
 import { App } from './components/App.jsx';
 // Main window controller: canvas, timer view, IPC, keyboard (same module graph as the UI)
 import './js/countdown.js';

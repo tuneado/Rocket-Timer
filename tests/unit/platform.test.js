@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { setPlatform, getPlatform } from '../../src/core/platform.js';
 import { createElectronPlatform } from '../../src/renderer/js/electronPlatform.js';
-import LayoutRegistry from '../../src/renderer/layouts/layoutRegistry.js';
+import LayoutRegistry from '../../src/core/display/layoutRegistry.js';
 
 /** In-memory stand-in for the main-process layout store */
 function fakeLayoutStore(initial = {}) {

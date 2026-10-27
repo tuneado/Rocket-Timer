@@ -10,7 +10,7 @@
  * main process: src/core/timerEngine.js
  * /
  */
-import { createFlashAnimation } from '../canvas/canvasEffects.js';
+import { createFlashAnimation } from '../../../core/display/canvasEffects.js';
 
 /**
  * Flash red background with black text at timer completion

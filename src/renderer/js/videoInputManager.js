@@ -289,6 +289,14 @@ class VideoInputManager {
 // Export as ES6 module (for import statements)
 export default VideoInputManager;
 
+/**
+ * For UnifiedCanvasRenderer's createVideoInput option
+ */
+export function createVideoInput() {
+  // Dummy canvas: the renderer draws the video element itself
+  return new VideoInputManager(document.createElement('canvas'));
+}
+
 // Make available globally (for backward compatibility)
 if (typeof window !== 'undefined') {
   window.VideoInputManager = VideoInputManager;

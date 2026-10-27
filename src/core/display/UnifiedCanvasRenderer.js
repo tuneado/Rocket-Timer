@@ -10,11 +10,17 @@
  * Provides 50% performance improvement and perfect synchronization
  * /
  */
-import VideoInputManager from './videoInputManager.js';
-import { getPlatform } from '../../core/platform.js';
+import { getPlatform } from '../platform.js';
 
 class UnifiedCanvasRenderer {
-  constructor(width = 1920, height = 1080) {
+  /**
+   * @param {number} [width]
+   * @param {number} [height]
+   * @param {object} [options]
+   * @param {() => object} [options.createVideoInput] - creates the video input
+   *   (camera / capture card) manager; without it, video input is unavailable
+   */
+  constructor(width = 1920, height = 1080, { createVideoInput = null } = {}) {
     this.width = width;
     this.height = height;
     
@@ -52,7 +58,8 @@ class UnifiedCanvasRenderer {
     // Layout configuration
     this.layout = this.getDefaultLayout();
     
-    // Video Input Manager (for HDMI capture cards)
+    // Video Input Manager (for HDMI capture cards), created on first use
+    this.createVideoInput = createVideoInput;
     this.videoInputManager = null;
     this.videoMirror = false; // Mirror/flip video horizontally
     this.videoScaling = 'contain'; // contain, cover, stretch, none
@@ -2063,9 +2070,8 @@ class UnifiedCanvasRenderer {
    */
   initializeVideoInput() {
     if (!this.videoInputManager) {
-      // Create a dummy canvas for video manager initialization
-      const dummyCanvas = document.createElement('canvas');
-      this.videoInputManager = new VideoInputManager(dummyCanvas);
+      if (!this.createVideoInput) throw new Error('Video input is not available');
+      this.videoInputManager = this.createVideoInput();
     }
     return this.videoInputManager;
   }
@@ -2295,4 +2301,6 @@ export const CANVAS_STYLE_VARS = [
 export default UnifiedCanvasRenderer;
 
 // Make available globally (for backward compatibility)
-window.UnifiedCanvasRenderer = UnifiedCanvasRenderer;
+if (typeof window !== 'undefined') {
+  window.UnifiedCanvasRenderer = UnifiedCanvasRenderer;
+}

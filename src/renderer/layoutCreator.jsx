@@ -12,8 +12,8 @@
 import './js/electronPlatform.js';
 import { h, render } from 'preact';
 // Set the LayoutRegistry and UnifiedCanvasRenderer globals used by the editor
-import './layouts/layoutRegistry.js';
-import './js/UnifiedCanvasRenderer.js';
+import '../core/display/layoutRegistry.js';
+import '../core/display/UnifiedCanvasRenderer.js';
 import { App } from './components/layoutCreator/App.jsx';
 
 // Wait for DOM to be ready

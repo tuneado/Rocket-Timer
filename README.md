@@ -455,6 +455,16 @@ src/
 │   ├── settingsManager.js    # Settings persistence
 │   └── unifiedApiServer.js   # REST + WebSocket + OSC
 │
+├── core/                      # Shared code with no Electron (desktop now, iOS later)
+│   ├── timerEngine.js        # Countdown engine (runs in the main process on desktop)
+│   ├── emitter.js            # Minimal event emitter
+│   ├── platform.js           # Services each app shell provides
+│   └── display/              # Canvas display (browser APIs only)
+│       ├── UnifiedCanvasRenderer.js  # Main render engine
+│       ├── canvasEffects.js
+│       ├── layoutRegistry.js         # Layout management
+│       └── displayState.js           # Preview → external display state
+│
 ├── preload/
 │   └── preload.js            # Context isolation bridge
 │
@@ -482,12 +492,7 @@ src/
     │   │   ├── timeInputs.js      # Time input handling
     │   │   └── ipcHandlers.js     # API event handlers
     │   │
-    │   ├── canvas/
-    │   │   ├── UnifiedCanvasRenderer.js  # Main render engine
-    │   │   └── canvasEffects.js
-    │   │
-    │   ├── layouts/
-    │   │   └── layoutRegistry.js  # Layout management
+    │   ├── electronPlatform.js  # Desktop platform for the core
     │   │
     │   └── utils/
     │       ├── logger.js          # Logging system

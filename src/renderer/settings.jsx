@@ -13,7 +13,7 @@
 import './js/electronPlatform.js';
 import { h, render } from 'preact';
 // Sets the LayoutRegistry global used by the settings sections
-import './layouts/layoutRegistry.js';
+import '../core/display/layoutRegistry.js';
 import { SettingsApp } from './components/settings/SettingsApp.jsx';
 
 // Wait for DOM to be ready
