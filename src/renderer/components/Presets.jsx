@@ -6,18 +6,84 @@
  * @see https://github.com/tuneado/Rocket-Timer
  */
 import { h } from 'preact';
+import { useState, useRef } from 'preact/hooks';
 import { Card, Button } from './ui';
+import { useAppState } from './useAppState.js';
+import actions from '../js/mainActions.js';
+import { DEFAULT_PRESETS, formatPresetDisplay } from '../js/modules/presetManager.js';
+
+const LONG_PRESS_MS = 800;
+const FEEDBACK_MS = 300;
+
+// Detect platform for displaying correct modifier key
+const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+const modifierKey = isMac ? '⌘' : 'Ctrl';
+
+function PresetButton({ index, preset, disabled }) {
+  const [holding, setHolding] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const timer = useRef(null);
+  const longPressed = useRef(false);
+
+  const save = async () => {
+    if (await actions.savePreset(index)) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), FEEDBACK_MS);
+    }
+  };
+
+  const startPress = (e) => {
+    if (e.button !== 0) return;
+    longPressed.current = false;
+    setHolding(true);
+    timer.current = setTimeout(() => {
+      longPressed.current = true;
+      setHolding(false);
+      save();
+    }, LONG_PRESS_MS);
+  };
+
+  const endPress = () => {
+    clearTimeout(timer.current);
+    setHolding(false);
+  };
+
+  const onClick = (e) => {
+    // The long press already saved
+    if (longPressed.current) {
+      longPressed.current = false;
+      return;
+    }
+    if (e.metaKey || e.ctrlKey) save();
+    else actions.loadPreset(index);
+  };
+
+  const minutes = Math.floor(preset.time / 60);
+  return (
+    <Button
+      variant="secondary"
+      size="md"
+      className={`preset ${holding ? 'holding' : ''} ${disabled ? 'muted' : ''}`}
+      style={saved ? { backgroundColor: 'var(--countdown)', color: 'white', transform: 'scale(1.1)' } : undefined}
+      disabled={disabled}
+      data-minutes={minutes}
+      aria-label={`Set timer to ${formatPresetDisplay(preset.time)}`}
+      title="Click to set, hold to save"
+      onPointerDown={startPress}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
+      onClick={onClick}
+    >
+      {formatPresetDisplay(preset.time)}
+    </Button>
+  );
+}
 
 export function Presets() {
-  const presetTimes = [
-    [5, 10, 15, 20],
-    [25, 30, 45, 60]
-  ];
-
-  // Detect platform for displaying correct modifier key
-  const isMac = typeof navigator !== 'undefined' && 
-                navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const modifierKey = isMac ? '⌘' : 'Ctrl';
+  const stored = useAppState('ui.presets');
+  const running = useAppState('timer.running');
+  const presets = DEFAULT_PRESETS.map((preset, i) => stored[i] || preset);
 
   return (
     <Card>
@@ -25,7 +91,11 @@ export function Presets() {
         icon={<i className="bi bi-lightning-fill" />}
         title="Quick Presets"
         action={
-          <button id="resetPresets" className="text-text-secondary hover:text-text-primary flex items-center gap-1 text-sm transition-colors">
+          <button
+            id="resetPresets"
+            className="text-text-secondary hover:text-text-primary flex items-center gap-1 text-sm transition-colors"
+            onClick={() => actions.resetPresets()}
+          >
             <i className="bi bi-arrow-counterclockwise" />
             <span>Reset</span>
           </button>
@@ -35,23 +105,11 @@ export function Presets() {
         <p className="text-[clamp(0.625rem,1.1vh,0.7rem)] mb-2" style={{ color: 'var(--text-muted)' }}>
           {modifierKey} + Click to save preset
         </p>
-        {presetTimes.map((row, rowIndex) => (
-          <div key={rowIndex} className={`grid grid-cols-4 gap-[clamp(0.375rem,0.8vh,0.5rem)] ${rowIndex > 0 ? 'mt-[clamp(0.375rem,0.8vh,0.5rem)]' : ''}`}>
-            {row.map((minutes) => (
-              <Button
-                key={minutes}
-                variant="secondary"
-                size="md"
-                className="preset"
-                data-minutes={minutes}
-                aria-label={`Set timer to ${minutes} minutes`}
-                title="Click to set, hold to save"
-              >
-                {minutes < 60 ? `${String(minutes).padStart(2, '0')}:00` : '60:00'}
-              </Button>
-            ))}
-          </div>
-        ))}
+        <div className="grid grid-cols-4 gap-[clamp(0.375rem,0.8vh,0.5rem)]">
+          {presets.map((preset, index) => (
+            <PresetButton key={index} index={index} preset={preset} disabled={running} />
+          ))}
+        </div>
       </Card.Content>
     </Card>
   );

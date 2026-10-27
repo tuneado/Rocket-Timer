@@ -12,88 +12,111 @@
  */
 import logger from '../utils/logger.js';
 
+/**
+ * Initial state (also used by reset)
+ */
+function createInitialState() {
+  return {
+    // Timer state
+    timer: {
+      running: false,
+      paused: false,
+      remainingTime: 0,      // milliseconds
+      totalTime: 0,          // milliseconds
+      lastSetTime: 0,        // milliseconds
+      hours: 0,
+      minutes: 0,
+      seconds: 0,
+      percentage: 100,
+      formattedTime: '--:--:--', // formatted time string
+      endTime: null,         // Date object when timer will finish
+      endTimeFormatted: '--:--:--', // formatted end time string
+      elapsedFormatted: '--:--:--', // running time, hidden until the timer has run
+      stoppedAtZero: false,
+      warningLevel: 'normal',
+      elapsedTime: 0,        // seconds
+      preset: null           // null or preset index (0-7), null = custom
+    },
+
+    // Camera/Video Input state
+    camera: {
+      active: false,
+      deviceId: null,
+      deviceLabel: null,
+      opacity: 1.0
+    },
+
+    // Companion API Server state
+    server: {
+      running: false,
+      port: null,
+      error: null,
+      connectedClients: 0
+    },
+
+    // External Display Window state
+    display: {
+      visible: false,
+      windowId: null
+    },
+
+    // Clock state
+    clock: {
+      visible: true,
+      time: null,
+      format24h: true
+    },
+
+    // Layout state
+    layout: {
+      current: 'classic',
+      previous: null
+    },
+
+    // Message state
+    message: {
+      visible: false,
+      text: '',
+      charCount: 0,
+      maxChars: 100,
+      draft: ''              // text in the message box (not necessarily shown)
+    },
+
+    // Cover image overlay state
+    coverImage: {
+      enabled: false,
+      path: null,
+      opacity: 1.0
+    },
+
+    // Theme state
+    theme: 'dark',
+
+    // Settings state (subset of important settings)
+    settings: {
+      autoReset: false,
+      companionEnabled: true,
+      soundEnabled: true,
+      flashEnabled: true,
+      releaseCameraIdle: true
+    },
+
+    // Main window UI only (not sent to the API server)
+    ui: {
+      clockTime: '--:--:--',
+      presets: [],           // [{ id, name, time (seconds) }]
+      layouts: [],           // [{ id, name }] shown in the layout selector
+      flashing: false,
+      status: { text: '', type: 'info' },
+      performance: { level: 'good', title: 'Performance: Good' },
+      cameraStatus: false    // true (live), false (inactive) or 'error'
+    }
+  };
+}
+
 class AppState {
   constructor() {
-    this.state = {
-      // Timer state
-      timer: {
-        running: false,
-        paused: false,
-        remainingTime: 0,      // milliseconds
-        totalTime: 0,          // milliseconds
-        lastSetTime: 0,        // milliseconds
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
-        percentage: 100,
-        formattedTime: '--:--:--', // formatted time string
-        endTime: null,         // Date object when timer will finish
-        endTimeFormatted: '--:--:--', // formatted end time string
-        preset: null           // null or preset index (0-7), null = custom
-      },
-
-      // Camera/Video Input state
-      camera: {
-        active: false,
-        deviceId: null,
-        deviceLabel: null,
-        opacity: 1.0
-      },
-
-      // Companion API Server state
-      server: {
-        running: false,
-        port: null,
-        error: null,
-        connectedClients: 0
-      },
-
-      // External Display Window state
-      display: {
-        visible: false,
-        windowId: null
-      },
-
-      // Clock state
-      clock: {
-        visible: true,
-        time: null,
-        format24h: true
-      },
-
-      // Layout state
-      layout: {
-        current: 'classic',
-        previous: null
-      },
-
-      // Message state
-      message: {
-        visible: false,
-        text: '',
-        charCount: 0,
-        maxChars: 100
-      },
-
-      // Background/Feature Image state
-      featureImage: {
-        enabled: false,
-        path: null,
-        opacity: 1.0
-      },
-
-      // Theme state
-      theme: 'dark',
-
-      // Settings state (subset of important settings)
-      settings: {
-        autoReset: false,
-        companionEnabled: true,
-        soundEnabled: true,
-        flashEnabled: true,
-        releaseCameraIdle: true
-      }
-    };
+    this.state = createInitialState();
 
     // Subscribers: Map<path, Set<callback>>
     this.subscribers = new Map();
@@ -288,65 +311,7 @@ class AppState {
   reset() {
     const oldState = this.getState();
     
-    this.state = {
-      timer: {
-        running: false,
-        paused: false,
-        remainingTime: 0,
-        totalTime: 0,
-        lastSetTime: 0,
-        hours: 0,
-        minutes: 0,
-        seconds: 0,
-        percentage: 100,
-        formattedTime: '00:00:00',
-        preset: null
-      },
-      camera: {
-        active: false,
-        deviceId: null,
-        deviceLabel: null,
-        opacity: 1.0
-      },
-      server: {
-        running: false,
-        port: null,
-        error: null,
-        connectedClients: 0
-      },
-      display: {
-        visible: false,
-        windowId: null
-      },
-      clock: {
-        visible: true,
-        time: null,
-        format24h: true
-      },
-      layout: {
-        current: 'classic',
-        previous: null
-      },
-      message: {
-        visible: false,
-        text: '',
-        charCount: 0,
-        maxChars: 100
-      },
-      featureImage: {
-        enabled: false,
-        path: null,
-        opacity: 1.0
-      },
-      theme: 'dark',
-      settings: {
-        autoReset: false,
-        companionEnabled: true,
-        soundEnabled: true,
-        flashEnabled: true,
-        releaseCameraIdle: true
-      }
-    };
+    this.state = createInitialState();
     
     this.notify('*', this.state, oldState);
     this.history = [];
@@ -409,7 +374,7 @@ class AppState {
     console.log('Clock:', this.state.clock);
     console.log('Layout:', this.state.layout);
     console.log('Message:', this.state.message);
-    console.log('Feature Image:', this.state.featureImage);
+    console.log('Cover Image:', this.state.coverImage);
     console.log('Theme:', this.state.theme);
     console.log('Settings:', this.state.settings);
     console.groupEnd();

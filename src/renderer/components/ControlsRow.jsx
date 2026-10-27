@@ -7,139 +7,110 @@
  */
 import { h } from 'preact';
 import { Card, Button } from './ui';
+import { useAppState } from './useAppState.js';
+import actions from '../js/mainActions.js';
+
+const ICON_TEXT = 'text-[clamp(0.75rem,1.5vh,0.875rem)]';
+const TOOL_SIZE = 'h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]';
+const TOOL_ICON = 'text-[clamp(1rem,2.5vh,1.25rem)]';
+
+/**
+ * +N / -N pair of buttons
+ */
+function AdjustPair({ minutes, upId, downId, label, disabled }) {
+  const button = (id, sign, icon, aria) => (
+    <Button
+      id={id}
+      variant="secondary"
+      className={`flex-1 px-[clamp(0.75rem,1.2vw,1rem)] ${disabled ? 'muted' : ''}`}
+      disabled={disabled}
+      aria-label={aria}
+      onClick={() => actions.adjust(sign * minutes)}
+    >
+      <i className={`bi ${icon} ${ICON_TEXT}`} />
+      <span className={`${ICON_TEXT} font-semibold`}>{sign > 0 ? '+' : '-'}{minutes}</span>
+    </Button>
+  );
+  return (
+    <div className="flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]">
+      {button(upId, 1, 'bi-caret-up-fill', `Add ${label}`)}
+      {button(downId, -1, 'bi-caret-down-fill', `Subtract ${label}`)}
+    </div>
+  );
+}
 
 export function ControlsRow() {
+  const running = useAppState('timer.running');
+  const stoppedAtZero = useAppState('timer.stoppedAtZero');
+  const flashing = useAppState('ui.flashing');
+  const soundEnabled = useAppState('settings.soundEnabled');
+  const coverEnabled = useAppState('coverImage.enabled');
+
   return (
     <Card className="mb-[clamp(0.5rem,1.2vh,0.75rem)]">
       <Card.Content className="p-[clamp(0.5rem,1.2vh,0.75rem)]">
         {/* Responsive row: wraps naturally at smaller widths */}
         <div className="flex flex-wrap justify-center items-center gap-[clamp(0.5rem,1.2vh,0.75rem)]">
-          <div>
-            <Button 
-              id="startStop" 
-              variant="success" 
-              size="xl"
-              icon="bi-play-fill"
-              aria-label="Start timer" 
-              aria-keyshortcut="Space"
-            >
-              Start
-            </Button>
-          </div>
-          <div>
-            <Button 
-              id="reset" 
-              variant="danger" 
-              size="xl"
-              icon="bi-arrow-clockwise"
-              aria-label="Reset timer" 
-              aria-keyshortcut="r"
-            >
-              Reset
-            </Button>
-          </div>
-          <div>
-            <div className="flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]">
-              <Button 
-                id="addMinute" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Add one minute"
-              >
-                <i className="bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">+1</span>
-              </Button>
-              <Button 
-                id="subtractMinute" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Subtract one minute"
-              >
-                <i className="bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">-1</span>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <div className="flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]">
-              <Button 
-                id="addFive" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Add five minutes"
-              >
-                <i className="bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">+5</span>
-              </Button>
-              <Button 
-                id="subtractFive" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Subtract five minutes"
-              >
-                <i className="bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">-5</span>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <div className="flex flex-col gap-[clamp(0.125rem,0.4vh,0.25rem)] h-[clamp(3rem,6vh,4rem)]">
-              <Button 
-                id="addTen" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Add ten minutes"
-              >
-                <i className="bi bi-caret-up-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">+10</span>
-              </Button>
-              <Button 
-                id="subtractTen" 
-                variant="secondary"
-                className="flex-1 px-[clamp(0.75rem,1.2vw,1rem)]"
-                aria-label="Subtract ten minutes"
-              >
-                <i className="bi bi-caret-down-fill text-[clamp(0.75rem,1.5vh,0.875rem)]" />
-                <span className="text-[clamp(0.75rem,1.5vh,0.875rem)] font-semibold">-10</span>
-              </Button>
-            </div>
-          </div>
+          <Button
+            id="startStop"
+            variant="success"
+            size="xl"
+            icon={running ? 'bi-pause-fill' : 'bi-play-fill'}
+            aria-label={running ? 'Stop timer' : 'Start timer'}
+            aria-keyshortcut="Space"
+            onClick={(e) => { e.currentTarget.blur(); actions.toggle(); }}
+          >
+            {running ? 'Stop' : 'Start'}
+          </Button>
+          <Button
+            id="reset"
+            variant="danger"
+            size="xl"
+            icon="bi-arrow-clockwise"
+            aria-label="Reset timer"
+            aria-keyshortcut="r"
+            onClick={(e) => { e.currentTarget.blur(); actions.reset(); }}
+          >
+            Reset
+          </Button>
+          <AdjustPair minutes={1} upId="addMinute" downId="subtractMinute" label="one minute" disabled={stoppedAtZero} />
+          <AdjustPair minutes={5} upId="addFive" downId="subtractFive" label="five minutes" disabled={stoppedAtZero} />
+          <AdjustPair minutes={10} upId="addTen" downId="subtractTen" label="ten minutes" disabled={stoppedAtZero} />
           <div className="flex items-stretch">
             <div className="w-0.5 h-[clamp(3rem,6vh,4rem)] bg-border-strong mx-[clamp(0.375rem,0.8vw,0.5rem)]" />
           </div>
-          <div>
-            <Button 
-              id="flashButton" 
-              variant="secondary"
-              size="icon"
-              className="h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]"
-              title="Flash screen"
-            >
-              <i className="bi bi-lightning-fill text-[clamp(1rem,2.5vh,1.25rem)]" />
-            </Button>
-          </div>
-          <div>
-            <Button 
-              id="muteSounds" 
-              variant="danger"
-              size="icon"
-              className="h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]"
-              title="Unmute"
-            >
-              <i className="bi bi-volume-mute-fill text-[clamp(1rem,2.5vh,1.25rem)]" />
-            </Button>
-          </div>
-          <div>
-            <Button 
-              id="coverImage" 
-              variant="secondary"
-              size="icon"
-              className="h-[clamp(3rem,6vh,4rem)] w-[clamp(3rem,6vh,4rem)]"
-              title="Cover Image"
-            >
-              <i className="bi bi-image-fill text-[clamp(1rem,2.5vh,1.25rem)]" />
-            </Button>
-          </div>
+          <Button
+            id="flashButton"
+            variant={flashing ? 'danger' : 'secondary'}
+            size="icon"
+            className={TOOL_SIZE}
+            title="Flash screen"
+            onClick={() => actions.flash()}
+          >
+            <i className={`bi bi-lightning-fill ${TOOL_ICON}`} />
+          </Button>
+          <Button
+            id="muteSounds"
+            variant={soundEnabled ? 'secondary' : 'danger'}
+            size="icon"
+            className={TOOL_SIZE}
+            title={soundEnabled ? 'Mute' : 'Unmute'}
+            aria-pressed={!soundEnabled}
+            onClick={() => actions.toggleMute()}
+          >
+            <i className={`bi ${soundEnabled ? 'bi-volume-up-fill' : 'bi-volume-mute-fill'} ${TOOL_ICON}`} />
+          </Button>
+          <Button
+            id="coverImage"
+            variant={coverEnabled ? 'success' : 'secondary'}
+            size="icon"
+            className={TOOL_SIZE}
+            title={coverEnabled ? 'Hide Cover Image' : 'Show Cover Image'}
+            aria-pressed={coverEnabled}
+            onClick={() => actions.toggleCoverImage()}
+          >
+            <i className={`bi ${coverEnabled ? 'bi-image-fill' : 'bi-image'} ${TOOL_ICON}`} />
+          </Button>
         </div>
       </Card.Content>
     </Card>

@@ -13,72 +13,41 @@
  * /
  */
 /**
- * Loads and applies all settings
- * @param {Object} timerState - Timer state object
- * @param {Object} dependencies - Required dependencies
- * @param {Function} dependencies.getElementById - Function to get DOM elements
+ * Load settings and apply the ones the main window keeps outside appState
+ * (theme, canvas colors, and values other modules read from localStorage)
  */
-export async function loadAndApplySettings({ getElementById }) {
+export async function loadAndApplySettings() {
   try {
     const settings = await window.electron.settings.getAll();
-    
+
     // (The default time is applied by the timer engine in the main process)
 
-    // Apply default layout
+    // The default layout wins over the last one used
     if (settings.defaultLayout) {
       localStorage.setItem('canvasLayout', settings.defaultLayout);
-      const layoutSelector = getElementById('layoutSelector');
-      if (layoutSelector) {
-        layoutSelector.value = settings.defaultLayout;
-      }
     }
-    
-    // Apply default theme
+
     if (settings.defaultTheme) {
       const theme = settings.defaultTheme === 'auto'
         ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
         : settings.defaultTheme;
-
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+      document.documentElement.classList.toggle('dark', theme === 'dark');
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
-
-      const themeToggle = getElementById('themeToggle');
-      if (themeToggle) {
-        themeToggle.checked = theme === 'dark';
-      }
     }
-    
-    // Apply canvas colors if they exist
+
     if (settings.colors) {
       applyCanvasColors(settings.colors);
     }
-    
-    // Store matchTimerColor in localStorage for canvas access
+
     if (typeof settings.matchTimerColor !== 'undefined') {
       localStorage.setItem('matchTimerColor', settings.matchTimerColor.toString());
     }
-    
-    // Store clockFormat in localStorage for fast access from clock and timer managers
-    if (settings.clockFormat) {
-      localStorage.setItem('clockFormat', settings.clockFormat);
-    }
-    
-    // Store clock format in localStorage for cross-window access
-    if (settings.clockFormat) {
-      localStorage.setItem('clockFormat', settings.clockFormat);
-    } else {
-      localStorage.setItem('clockFormat', '24h'); // Default
-    }
-        // Store watermark setting in localStorage
+    localStorage.setItem('clockFormat', settings.clockFormat || '24h');
     if (settings.showWatermark !== undefined) {
       localStorage.setItem('showWatermark', settings.showWatermark.toString());
     }
-      } catch (error) {
+  } catch (error) {
     console.error('Error loading settings:', error);
   }
 }

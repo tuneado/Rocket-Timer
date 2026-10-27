@@ -6,10 +6,8 @@
  * @see https://github.com/tuneado/Rocket-Timer
  *
  * Display Manager Module
- * Manages display updates for both canvas and external display window:
- * - Updates canvas renderer with current timer state
- * - Syncs state to companion server for API/Socket.IO
- * - Handles layout changes
+ * Pushes the timer engine's state to the canvas, the display window and
+ * appState (UI components and the API server), and switches layouts.
  * /
  */
 import { formatTime, formatElapsedTime } from '../utils/timeFormatter.js';
@@ -28,73 +26,6 @@ function calculateProgress(remainingTime, totalTime) {
   const progress = totalTime > 0 ? Math.max(0, Math.min(100, Math.round((remainingTime / totalTime) * 1000) / 10)) : 0;
   
   return progress;
-}
-
-// Cached threshold settings to avoid IPC on every tick  
-let _cachedThresholdSettings = null;
-let _thresholdCacheTime = 0;
-const THRESHOLD_CACHE_TTL = 5000; // Refresh cache every 5 seconds
-
-/**
- * Calculate warning level based on settings
- * This is the SINGLE SOURCE OF TRUTH for warning level calculations
- * @param {number} remainingTime - Remaining time in seconds
- * @param {number} totalTime - Total time in seconds
- * @returns {Promise<string>} Warning level: 'normal', 'warning', 'critical', or 'overtime'
- */
-export async function calculateWarningLevel(remainingTime, totalTime) {
-  if (remainingTime < 0) return 'overtime';
-  if (totalTime === 0) return 'normal';
-  
-  // Use cached settings when available, refresh periodically
-  const now = Date.now();
-  if (!_cachedThresholdSettings || (now - _thresholdCacheTime) > THRESHOLD_CACHE_TTL) {
-    if (window.electron && window.electron.settings) {
-      try {
-        _cachedThresholdSettings = await window.electron.settings.getAll();
-        _thresholdCacheTime = now;
-      } catch (error) {
-        console.warn('Could not load threshold settings:', error);
-        if (!_cachedThresholdSettings) _cachedThresholdSettings = {};
-      }
-    } else {
-      _cachedThresholdSettings = {};
-    }
-  }
-  
-  const settings = _cachedThresholdSettings;
-  const thresholdType = settings.timerThresholdType || 'percentage';
-  
-  if (thresholdType === 'percentage') {
-    const warningPercentage = settings.warningPercentage || 30;
-    const criticalPercentage = settings.criticalPercentage || 5;
-    const remainingPercentage = (remainingTime / totalTime) * 100;
-    
-    if (remainingPercentage > warningPercentage) return 'normal';
-    if (remainingPercentage > criticalPercentage) return 'warning';
-    return 'critical';
-  } else {
-    // Time-based thresholds
-    const warningTimeMinutes = settings.warningTimeMinutes || 2;
-    const warningTimeSeconds = settings.warningTimeSeconds || 0;
-    const criticalTimeMinutes = settings.criticalTimeMinutes || 0;
-    const criticalTimeSeconds = settings.criticalTimeSeconds || 30;
-    
-    const warningTimeTotal = (warningTimeMinutes * 60) + warningTimeSeconds;
-    const criticalTimeTotal = (criticalTimeMinutes * 60) + criticalTimeSeconds;
-    
-    if (remainingTime > warningTimeTotal) return 'normal';
-    if (remainingTime > criticalTimeTotal) return 'warning';
-    return 'critical';
-  }
-}
-
-/**
- * Invalidate the cached threshold settings (call when settings change)
- */
-export function invalidateThresholdCache() {
-  _cachedThresholdSettings = null;
-  _thresholdCacheTime = 0;
 }
 
 /**
@@ -124,15 +55,6 @@ export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
   const elapsedDisplay = timerState.started ? formatElapsedTime(timerState.elapsedMs / 1000) : '--:--:--';
   const endTimeDisplay = formatEndTime(timerState.endAt);
   const warningLevel = timerState.warningLevel;
-
-  // Update timer information display elements (exclude clock - handled by clockManager)
-  const timerValueEl = document.getElementById('timerValue');
-  const elapsedTimeEl = document.getElementById('elapsedTime');
-  const endsAtTimeEl = document.getElementById('endsAtTime');
-
-  if (timerValueEl) timerValueEl.textContent = formattedTime;
-  if (elapsedTimeEl) elapsedTimeEl.textContent = elapsedDisplay;
-  if (endsAtTimeEl) endsAtTimeEl.textContent = endTimeDisplay;
 
   // Update canvas renderer
   if (canvasRenderer) {
@@ -167,13 +89,14 @@ export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
  * Mirror the timer into appState (UI components, status bar, and the
  * non-timer state the API server receives)
  */
-export function sendStateUpdate(timerState, { canvasRenderer }) {
+export function sendStateUpdate(timerState) {
   const remainingTime = timerState.remainingTime;
   const absTime = Math.abs(remainingTime);
 
   appState.update({
     'timer.running': timerState.running,
     'timer.paused': timerState.paused,
+    'timer.stoppedAtZero': timerState.stoppedAtZero,
     'timer.remainingTime': timerState.remainingTimeMs,
     'timer.totalTime': timerState.totalTimeMs,
     'timer.lastSetTime': timerState.lastSetTime * 1000,
@@ -185,46 +108,25 @@ export function sendStateUpdate(timerState, { canvasRenderer }) {
     'timer.formattedTime': formatTime(remainingTime),
     'timer.warningLevel': timerState.warningLevel,
     'timer.endTimeFormatted': formatEndTime(timerState.endAt),
-    'timer.preset': timerState.preset,
-    'layout.current': canvasRenderer ? canvasRenderer.layout.name : 'detailed'
+    'timer.elapsedFormatted': timerState.started ? formatElapsedTime(timerState.elapsedMs / 1000) : '--:--:--',
+    'timer.preset': timerState.preset
   });
 }
 
 /**
- * Changes canvas layout by ID
- * @param {string} layoutId - The layout ID to switch to
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Function} dependencies.LayoutRegistry - Layout registry for getting layouts
- * @param {Function} dependencies.getElementById - Function to get DOM elements
+ * Switch the canvas (and, through the main process, the display window) to a layout
+ * @returns {Object|null} the layout, or null if there is none with that id
  */
-export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, getElementById, ipcRenderer }) {
-  if (canvasRenderer) {
-    const layout = LayoutRegistry.getLayout(layoutId);
-    if (layout) {
-      canvasRenderer.setLayout(layout);
-      
-      // Update appState
-      appState.update({
-        'layout.previous': appState.get('layout.current'),
-        'layout.current': layoutId
-      });
-      
-      // Update layout selector if it exists
-      const layoutSelector = getElementById('layoutSelector');
-      if (layoutSelector) {
-        layoutSelector.value = layoutId;
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('canvasLayout', layoutId);
-      
-      // Notify main process so the external display window gets updated
-      if (window.electron && ipcRenderer) {
-        ipcRenderer.send('layout-changed', layoutId);
-      }
-      
-      console.log('Layout changed to:', layout.name);
-    }
-  }
+export function changeLayout(layoutId, { canvasRenderer, LayoutRegistry, ipcRenderer }) {
+  const layout = LayoutRegistry.getLayout(layoutId);
+  if (!canvasRenderer || !layout) return null;
+
+  canvasRenderer.setLayout(layout);
+  appState.update({
+    'layout.previous': appState.get('layout.current'),
+    'layout.current': layoutId
+  });
+  localStorage.setItem('canvasLayout', layoutId);
+  ipcRenderer.send('layout-changed', layoutId);
+  return layout;
 }

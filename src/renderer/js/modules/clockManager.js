@@ -6,148 +6,73 @@
  * @see https://github.com/tuneado/Rocket-Timer
  *
  * Clock Manager Module
- * Manages the real-time clock display that can be toggled on/off.
- * Handles clock updates, starting/stopping the clock interval, and
- * synchronization with the display window.
- * /
+ * One ticker, aligned to the second. It always updates the info clock
+ * ('ui.clockTime'); while the canvas clock is shown it also updates the canvas
+ * and the display window.
  */
 import { formatClockTime } from '../utils/timeFormatter.js';
+import appState from './appState.js';
 
-// Lightweight DOM-only clock interval (runs when main canvas clock disabled)
-let infoClockInterval = null;
+let ticker = null;
+let canvasClockVisible = false;
+let deps = { canvasRenderer: null, ipcRenderer: null };
 
-function updateInfoClockDom() {
-  const clockTimeEl = document.getElementById('clockTime');
-  if (!clockTimeEl) return;
-  const now = new Date();
-  // Align to chosen format
-  const timeString = formatClockTime(now, getClockFormat());
-  clockTimeEl.textContent = timeString;
-}
-
-export function startInfoClock() {
-  if (infoClockInterval) return; // Already running
-  // Initial paint
-  updateInfoClockDom();
-  infoClockInterval = setTimeout(function tick() {
-    updateInfoClockDom();
-    // Schedule next tick aligned roughly to the next second boundary
-    const now = new Date();
-    const delay = 1000 - now.getMilliseconds();
-    infoClockInterval = setTimeout(tick, delay);
-  }, 1000);
-}
-
-export function stopInfoClock() {
-  if (infoClockInterval) {
-    clearTimeout(infoClockInterval);
-    infoClockInterval = null;
-  }
-}
-
-/**
- * Get clock format from localStorage (with fallback to 24h)
- * @returns {string} Clock format ('12h' or '24h')
- */
 function getClockFormat() {
   return localStorage.getItem('clockFormat') || '24h';
 }
 
-/**
- * Updates the clock display with current time
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
- */
-export function updateClock({ canvasRenderer, ipcRenderer }) {
-  const now = new Date();
-  const clockFormat = getClockFormat();
-  const timeString = formatClockTime(now, clockFormat);
-  
-  // Always update card DOM (covers both info + main clock modes)
-  const clockTimeEl = document.getElementById('clockTime');
-  if (clockTimeEl) {
-    clockTimeEl.textContent = timeString;
-  }
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ clock: timeString });
-  }
-  
-  // Send clock update to display window
-  if (window.electron && ipcRenderer) {
-    ipcRenderer.send('clock-update', { time: timeString, visible: true });
+function tick() {
+  const timeString = formatClockTime(new Date(), getClockFormat());
+  appState.set('ui.clockTime', timeString);
+
+  if (canvasClockVisible) {
+    deps.canvasRenderer?.setState({ clock: timeString });
+    deps.ipcRenderer?.send('clock-update', { time: timeString, visible: true });
   }
 }
 
-/**
- * Starts the clock interval and shows the clock
- * @param {Object} clockState - Clock state object with getters/setters
- * @param {Function} clockState.getInterval - Get current clock interval
- * @param {Function} clockState.setInterval - Set clock interval
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
- * @param {Function} dependencies.updateDisplay - Function to force display redraw
- */
-export function startClock(clockState, { canvasRenderer, ipcRenderer, updateDisplay }) {
-  // Stop lightweight info clock (avoid duplicate DOM updates)
-  stopInfoClock();
-  // First update for canvas/display
-  updateClock({ canvasRenderer, ipcRenderer });
-  
-  // Start interval
-  const interval = setInterval(() => {
-    updateClock({ canvasRenderer, ipcRenderer });
-  }, 1000);
-  clockState.setInterval(interval);
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ showClock: true });
-    if (updateDisplay) {
-      updateDisplay(); // Force immediate redraw
-    }
-  }
-  
-  localStorage.setItem("clock", "on");
-  
-  // Update menu state
-  if (window.electron && ipcRenderer) {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    ipcRenderer.send('update-menu-states', currentTheme, true);
-  }
+function scheduleTick() {
+  ticker = setTimeout(() => {
+    tick();
+    scheduleTick();
+  }, 1000 - (Date.now() % 1000));
 }
 
 /**
- * Stops the clock interval and hides the clock
- * @param {Object} clockState - Clock state object with getters/setters
- * @param {Function} clockState.getInterval - Get current clock interval
- * @param {Function} clockState.setInterval - Set clock interval
- * @param {Object} dependencies - Required dependencies
- * @param {Object} dependencies.canvasRenderer - Canvas renderer instance
- * @param {Object} dependencies.ipcRenderer - IPC renderer for sending updates
+ * Start the ticker (once)
+ * @param {Object} dependencies
+ * @param {Object} dependencies.canvasRenderer
+ * @param {Object} dependencies.ipcRenderer
  */
-export function stopClock(clockState, { canvasRenderer, ipcRenderer }) {
-  const interval = clockState.getInterval();
-  if (interval) {
-    clearInterval(interval);
-    clockState.setInterval(null);
-  }
-  // Resume lightweight DOM-only clock
-  startInfoClock();
-  
-  // Update canvas renderer
-  if (canvasRenderer) {
-    canvasRenderer.setState({ showClock: false });
-  }
-  
-  localStorage.setItem("clock", "off");
-  
-  // Update menu state
-  if (window.electron && ipcRenderer) {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    ipcRenderer.send('update-menu-states', currentTheme, false);
-  }
+export function startTicker(dependencies) {
+  deps = dependencies;
+  if (ticker) return;
+  tick();
+  scheduleTick();
+}
+
+function sendMenuState(visible) {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  deps.ipcRenderer?.send('update-menu-states', currentTheme, visible);
+}
+
+/**
+ * Show the clock on the canvas and display window
+ */
+export function startClock() {
+  canvasClockVisible = true;
+  tick();
+  deps.canvasRenderer?.setState({ showClock: true });
+  localStorage.setItem('clock', 'on');
+  sendMenuState(true);
+}
+
+/**
+ * Hide the clock on the canvas
+ */
+export function stopClock() {
+  canvasClockVisible = false;
+  deps.canvasRenderer?.setState({ showClock: false });
+  localStorage.setItem('clock', 'off');
+  sendMenuState(false);
 }
