@@ -35,10 +35,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Both Mac architectures in one job, so latest-mac.yml lists both
           - os: macos-latest
-            args: --mac --arm64
-          - os: macos-latest
-            args: --mac --x64
+            args: --mac --x64 --arm64
           - os: windows-latest
             args: --win --x64
           - os: ubuntu-latest

@@ -79,6 +79,7 @@
         "zip"
       ],
       "icon": "build/icon.icns",
+      "artifactName": "Rocket-Timer-${version}-${arch}.${ext}",
       "darkModeSupport": true,
       "hardenedRuntime": false,
       "gatekeeperAssess": false
