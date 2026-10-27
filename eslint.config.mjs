@@ -194,6 +194,27 @@ export default [
     },
   },
   {
+    // Shared core: plain ES modules with no Electron, Node or DOM globals,
+    // so the same code runs on desktop and in other shells (e.g. iOS)
+    files: ['src/core/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        console: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-undef': 'error',
+      'no-debugger': 'error',
+      'no-duplicate-case': 'error',
+      'eqeqeq': ['warn', 'smart'],
+      'no-eval': 'error',
+      'prefer-const': 'warn',
+    },
+  },
+  {
     files: ['src/preload/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,

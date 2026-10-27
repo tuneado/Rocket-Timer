@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TimerEngine, getWarningLevel, TICK_MS } from '../../src/main/timerEngine.js';
+import { TimerEngine, getWarningLevel, TICK_MS } from '../../src/core/timerEngine.js';
 
 /**
  * Fake clock and timers: advance(ms) moves time and runs due intervals/timeouts

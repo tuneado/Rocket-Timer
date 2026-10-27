@@ -27,7 +27,7 @@ import { mirrorToDisplay } from './modules/displaySync.js';
 
 const { ipcRenderer } = window.electron;
 
-// The countdown runs in the main process (src/main/timerEngine.js). These mirror its
+// The countdown runs in the main process (src/core/timerEngine.js). These mirror its
 // latest state ('timer:state'); change the time only through timerCommand().
 let remainingTime = 0; // ms
 let totalTime = 0; // ms

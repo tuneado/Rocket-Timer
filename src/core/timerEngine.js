@@ -6,24 +6,26 @@
  * @see https://github.com/tuneado/Rocket-Timer
  *
  * Timer Engine - the single source of truth for the countdown.
- * Runs in the main process so the API, menus and every window see the same time,
- * whatever state the main window is in. Remaining time is always computed from a
- * wall-clock deadline, so it never drifts.
+ * On desktop it runs in the main process so the API, menus and every window see
+ * the same time, whatever state the main window is in. Remaining time is always
+ * computed from a wall-clock deadline, so it never drifts.
+ *
+ * Part of the core: no Electron or Node-only APIs, so it can run anywhere.
  *
  * Events:
  *   'change'   (state)  after every command and every tick while running
  *   'complete' (state)  once per run, when the time crosses zero
  */
-const { EventEmitter } = require('events');
+import { Emitter } from './emitter.js';
 
-const TICK_MS = 100;
+export const TICK_MS = 100;
 
 /**
  * Warning level for a remaining/total time (milliseconds), using the
  * threshold settings. Mirrors the renderer's display colors.
  * @returns {'normal'|'warning'|'critical'|'overtime'}
  */
-function getWarningLevel(remainingMs, totalMs, settings = {}) {
+export function getWarningLevel(remainingMs, totalMs, settings = {}) {
   const remaining = Math.floor(remainingMs / 1000);
   const total = Math.floor(totalMs / 1000);
   if (remaining < 0) return 'overtime';
@@ -45,7 +47,7 @@ function getWarningLevel(remainingMs, totalMs, settings = {}) {
   return 'critical';
 }
 
-class TimerEngine extends EventEmitter {
+export class TimerEngine extends Emitter {
   /**
    * @param {object} [options]
    * @param {() => number} [options.now] - clock in ms (injectable for tests)
@@ -284,5 +286,3 @@ class TimerEngine extends EventEmitter {
     }
   }
 }
-
-module.exports = { TimerEngine, getWarningLevel, TICK_MS };

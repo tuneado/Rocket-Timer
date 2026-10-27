@@ -7,7 +7,7 @@
  *
  * Timer Controls Module
  * Timer completion effects (flash, sound). The countdown itself runs in the
- * main process: src/main/timerEngine.js
+ * main process: src/core/timerEngine.js
  * /
  */
 import { createFlashAnimation } from '../canvas/canvasEffects.js';
