@@ -8,7 +8,12 @@
  * Layout Creator Entry Point
  * Renders the Preact Layout Creator app.
  */
+// Must be first: sets the platform before any other module runs
+import './js/electronPlatform.js';
 import { h, render } from 'preact';
+// Set the LayoutRegistry and UnifiedCanvasRenderer globals used by the editor
+import './layouts/layoutRegistry.js';
+import './js/UnifiedCanvasRenderer.js';
 import { App } from './components/layoutCreator/App.jsx';
 
 // Wait for DOM to be ready

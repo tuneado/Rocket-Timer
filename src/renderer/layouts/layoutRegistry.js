@@ -12,6 +12,8 @@
  * Layout JSON files should be loaded via fetch or embedded directly.
  * /
  */
+import { getPlatform } from '../../core/platform.js';
+
 // Embedded layout definitions (avoids fetch/require complexity)
 const classicLayout = {
   "name": "Classic",
@@ -409,10 +411,20 @@ const layouts = {
   video: videoLayout
 };
 
-// Custom layouts: stored by the main process in <userData>/layouts.json; this is the
-// window's cached copy. Without the Electron bridge (plain browser), localStorage is used.
+// Custom layouts: stored by the platform's layout store (desktop: the main process,
+// <userData>/layouts.json); this is the window's cached copy. Without a platform
+// store (plain browser), localStorage is used. Loaded on first use, so the platform
+// is always set by then.
 let customLayouts = {};
-const layoutBridge = typeof window !== 'undefined' ? window.electron?.layouts : null;
+let layoutBridge = null;
+let customLayoutsLoaded = false;
+
+function ensureCustomLayouts() {
+  if (customLayoutsLoaded) return;
+  customLayoutsLoaded = true;
+  layoutBridge = getPlatform().layouts || null;
+  loadCustomLayouts();
+}
 
 // Move layouts saved by older versions (renderer localStorage) into the main-process store
 function migrateLegacyLayouts() {
@@ -463,11 +475,6 @@ function saveCustomLayouts() {
   }
 }
 
-// Initialize custom layouts on load
-if (typeof window !== 'undefined') {
-  loadCustomLayouts();
-}
-
 /**
  * Layout Registry API
  */
@@ -478,6 +485,7 @@ class LayoutRegistry {
    * @returns {object} Layout configuration object
    */
   static getLayout(layoutId) {
+    ensureCustomLayouts();
     return layouts[layoutId] || customLayouts[layoutId] || layouts.classic;
   }
   
@@ -486,6 +494,7 @@ class LayoutRegistry {
    * @returns {Array} Array of layout info objects
    */
   static getAllLayouts() {
+    ensureCustomLayouts();
     const builtinLayouts = Object.keys(layouts).map(key => ({
       id: key,
       name: layouts[key].name,
@@ -517,6 +526,7 @@ class LayoutRegistry {
    * @returns {boolean} True if layout exists
    */
   static hasLayout(layoutId) {
+    ensureCustomLayouts();
     return layouts.hasOwnProperty(layoutId) || customLayouts.hasOwnProperty(layoutId);
   }
   
@@ -539,6 +549,7 @@ class LayoutRegistry {
    * @returns {Array} Array of custom layout info objects
    */
   static getCustomLayouts() {
+    ensureCustomLayouts();
     return Object.keys(customLayouts).map(key => ({
       id: key,
       name: customLayouts[key].name,
@@ -555,6 +566,7 @@ class LayoutRegistry {
    * @returns {boolean} True if successfully added
    */
   static addCustomLayout(layoutId, layoutData) {
+    ensureCustomLayouts();
     try {
       // Validate required fields
       if (!layoutData.name || !layoutData.resolution) {
@@ -586,6 +598,7 @@ class LayoutRegistry {
    * @returns {boolean} True if successfully removed
    */
   static removeCustomLayout(layoutId) {
+    ensureCustomLayouts();
     if (customLayouts.hasOwnProperty(layoutId)) {
       if (layoutBridge) {
         if (!layoutBridge.remove(layoutId)) return false;
@@ -605,6 +618,7 @@ class LayoutRegistry {
    * @returns {boolean} True if successfully cleared
    */
   static clearAllCustomLayouts() {
+    ensureCustomLayouts();
     try {
       if (layoutBridge) {
         if (!layoutBridge.clear()) throw new Error('Main process could not clear layouts');
@@ -713,12 +727,9 @@ class LayoutRegistry {
   }
 }
 
-// For Node.js module exports
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = LayoutRegistry;
-}
+export default LayoutRegistry;
 
-// For browser global
+// Browser global, used by the settings, layout creator and main window code
 if (typeof window !== 'undefined') {
   window.LayoutRegistry = LayoutRegistry;
 }

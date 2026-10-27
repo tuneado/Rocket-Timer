@@ -9,7 +9,11 @@
  * Renders the Preact settings app.
  * /
  */
+// Must be first: sets the platform before any other module runs
+import './js/electronPlatform.js';
 import { h, render } from 'preact';
+// Sets the LayoutRegistry global used by the settings sections
+import './layouts/layoutRegistry.js';
 import { SettingsApp } from './components/settings/SettingsApp.jsx';
 
 // Wait for DOM to be ready

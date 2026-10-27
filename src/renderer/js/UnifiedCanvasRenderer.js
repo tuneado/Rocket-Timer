@@ -11,6 +11,7 @@
  * /
  */
 import VideoInputManager from './videoInputManager.js';
+import { getPlatform } from '../../core/platform.js';
 
 class UnifiedCanvasRenderer {
   constructor(width = 1920, height = 1080) {
@@ -1650,9 +1651,9 @@ class UnifiedCanvasRenderer {
     };
     
     // Get the correct path for both dev and packaged app
-    if (window.electron && window.electron.getResourcePath) {
-      const resourcePath = await window.electron.getResourcePath('renderer/assets/rocket-icon_transparent.png');
-      img.src = 'file://' + resourcePath;
+    const { getAssetUrl } = getPlatform();
+    if (getAssetUrl) {
+      img.src = await getAssetUrl('renderer/assets/rocket-icon_transparent.png');
     } else {
       // Fallback for browser mode or if IPC not available
       img.src = '../assets/rocket-icon_transparent.png';
@@ -1755,8 +1756,9 @@ class UnifiedCanvasRenderer {
    */
   async loadPerformanceSettings() {
     try {
-      if (window.electron && window.electron.settings) {
-        const settings = await window.electron.settings.getAll();
+      const { settings: settingsStore } = getPlatform();
+      if (settingsStore) {
+        const settings = await settingsStore.getAll();
         this.applyPerformanceSettings(settings);
       }
     } catch (error) {

@@ -10,6 +10,8 @@
  * modules/displaySync.js) and keeps no state or settings of its own. The
  * camera is the one thing it opens itself, following the state's device.
  */
+// Must be first: sets the platform before any other module runs
+import './electronPlatform.js';
 import { createFlashAnimation } from './canvas/canvasEffects.js';
 import UnifiedCanvasRenderer from './UnifiedCanvasRenderer.js';
 

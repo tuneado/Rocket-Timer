@@ -5,7 +5,11 @@
  * @license GPL-3.0 — see LICENSE file for details
  * @see https://github.com/tuneado/Rocket-Timer
  */
+// Must be first: sets the platform before any other module runs
+import './js/electronPlatform.js';
 import { h, render } from 'preact';
+// Sets the LayoutRegistry global used by js/countdown.js
+import './layouts/layoutRegistry.js';
 import { App } from './components/App.jsx';
 // Main window controller: canvas, timer view, IPC, keyboard (same module graph as the UI)
 import './js/countdown.js';
