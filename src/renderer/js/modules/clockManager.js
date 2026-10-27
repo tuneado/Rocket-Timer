@@ -27,7 +27,6 @@ function tick() {
 
   if (canvasClockVisible) {
     deps.canvasRenderer?.setState({ clock: timeString });
-    deps.ipcRenderer?.send('clock-update', { time: timeString, visible: true });
   }
 }
 
@@ -52,13 +51,12 @@ export function startTicker(dependencies) {
 }
 
 /**
- * Canvas, display window and appState follow the visibility
+ * Canvas (and so the external display) and appState follow the visibility
  */
 function setVisible(visible) {
   canvasClockVisible = visible;
   if (visible) tick();
   deps.canvasRenderer?.setState({ showClock: visible });
-  deps.ipcRenderer?.send('toggle-clock-visibility', visible);
   appState.set('clock.visible', visible);
 }
 

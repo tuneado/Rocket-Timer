@@ -42,10 +42,11 @@ function formatEndTime(endAt) {
 }
 
 /**
- * Update display with current timer state (from the timer engine)
+ * Update the preview with current timer state (from the timer engine);
+ * the external display mirrors the preview (displaySync.js)
  * @returns {Object} Calculated values (progressPercent, warningLevel) for reuse
  */
-export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
+export function updateDisplay(timerState, { canvasRenderer }) {
   const remainingTimeMs = timerState.remainingTimeMs;
   const totalTimeMs = timerState.totalTimeMs;
   const formattedTime = formatTime(timerState.remainingTime);
@@ -61,20 +62,6 @@ export function updateDisplay(timerState, { canvasRenderer, ipcRenderer }) {
     canvasRenderer.setState({
       countdown: formattedTime,
       progress: progressPercent,
-      elapsed: elapsedDisplay,
-      endTime: endTimeDisplay,
-      remainingTime: remainingTimeMs,
-      totalTime: totalTimeMs
-    });
-  }
-
-  // Send updates to display window
-  if (window.electron && ipcRenderer) {
-    ipcRenderer.send('timer-update', {
-      formattedTime,
-      progressPercent,
-      warningLevel,
-      remainingPercent: progressPercent,
       elapsed: elapsedDisplay,
       endTime: endTimeDisplay,
       remainingTime: remainingTimeMs,

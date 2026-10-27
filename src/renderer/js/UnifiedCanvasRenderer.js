@@ -87,6 +87,10 @@ class UnifiedCanvasRenderer {
       opacity: 0.5
     };
     this._loadWatermarkImage();
+
+    // Called after any change to what is drawn (state, layout, styles, images,
+    // video, settings); the main window mirrors it to the external display
+    this.onChange = null;
     
     // Performance settings
     this.performanceSettings = {
@@ -306,6 +310,17 @@ class UnifiedCanvasRenderer {
     this.layout = layout;
     this._dirty = true;
     console.log(`🎨 Layout set: ${layout.name}`);
+    this._notifyChange();
+  }
+
+  _notifyChange() {
+    if (this.onChange) this.onChange();
+  }
+
+  setWatermarkEnabled(enabled) {
+    this.watermark.enabled = enabled;
+    this._dirty = true;
+    this._notifyChange();
   }
   
   /**
@@ -330,6 +345,7 @@ class UnifiedCanvasRenderer {
     if (newState.progress !== undefined) {
       this.progressAnimation.target = newState.progress;
     }
+    this._notifyChange();
   }
   
   /**
@@ -793,6 +809,7 @@ class UnifiedCanvasRenderer {
       elapsedColor: styles.getPropertyValue('--canvas-elapsed-color').trim(),
       elapsedWeight: styles.getPropertyValue('--canvas-elapsed-weight').trim()
     };
+    this._notifyChange();
   }
 
   /**
@@ -1765,7 +1782,7 @@ class UnifiedCanvasRenderer {
       this.applyCanvasQuality(settings.canvasQuality);
     }
 
-    // Update timer thresholds
+    // Update timer thresholds (also notifies)
     this.applyTimerThresholds(settings);
   }
 
@@ -1800,6 +1817,8 @@ class UnifiedCanvasRenderer {
       warningTimeSeconds: this.timerThresholds.warningTimeSeconds,
       criticalTimeSeconds: this.timerThresholds.criticalTimeSeconds
     });
+    this._dirty = true;
+    this._notifyChange();
   }
 
   /**
@@ -1891,6 +1910,7 @@ class UnifiedCanvasRenderer {
    */
   updateTheme(theme) {
     this.state.theme = theme;
+    this._notifyChange();
     // Clear caches when theme changes
     this.clearTextMetricsCache();
     // Wait for CSS to update before reading computed styles
@@ -2062,7 +2082,11 @@ class UnifiedCanvasRenderer {
     if (!this.videoInputManager) {
       this.initializeVideoInput();
     }
-    return await this.videoInputManager.startVideoInput(deviceId);
+    try {
+      return await this.videoInputManager.startVideoInput(deviceId);
+    } finally {
+      this._notifyChange();
+    }
   }
 
   /**
@@ -2072,6 +2096,7 @@ class UnifiedCanvasRenderer {
     if (this.videoInputManager) {
       this.videoInputManager.stopVideoInput();
     }
+    this._notifyChange();
   }
 
   /**
@@ -2081,6 +2106,7 @@ class UnifiedCanvasRenderer {
     if (this.videoInputManager) {
       this.videoInputManager.setOpacity(opacity);
     }
+    this._notifyChange();
   }
 
   /**
@@ -2088,6 +2114,7 @@ class UnifiedCanvasRenderer {
    */
   setVideoMirror(enabled) {
     this.videoMirror = !!enabled;
+    this._notifyChange();
   }
 
   /**
@@ -2096,6 +2123,7 @@ class UnifiedCanvasRenderer {
   setVideoScaling(mode) {
     const validModes = ['contain', 'cover', 'stretch', 'none'];
     this.videoScaling = validModes.includes(mode) ? mode : 'contain';
+    this._notifyChange();
   }
 
   /**
@@ -2111,6 +2139,7 @@ class UnifiedCanvasRenderer {
       this.coverImage.currentOpacity = 0.0;
       this.coverImage.enabled = true;
       this._dirty = true;
+      this._notifyChange();
       console.log('✅ Cover image loaded from cache:', imagePath);
       return Promise.resolve();
     }
@@ -2126,6 +2155,7 @@ class UnifiedCanvasRenderer {
         this.coverImage.currentOpacity = 0.0; // Start from 0 for fade-in
         this.coverImage.enabled = true;
         this._dirty = true;
+        this._notifyChange();
         console.log('✅ Cover image loaded:', imagePath);
         resolve();
       };
@@ -2146,6 +2176,7 @@ class UnifiedCanvasRenderer {
     // Fade out before disabling
     this.coverImage.targetOpacity = 0.0;
     this._dirty = true;
+    this._notifyChange();
     
     // Wait for fade out to complete, then disable
     const checkFadeOut = () => {
@@ -2171,6 +2202,8 @@ class UnifiedCanvasRenderer {
       this.backgroundImage.path = imagePath;
       this.backgroundImage.opacity = opacity;
       this.backgroundImage.enabled = true;
+      this._dirty = true;
+      this._notifyChange();
       console.log('✅ Background image loaded from cache:', imagePath);
       return Promise.resolve();
     }
@@ -2184,6 +2217,8 @@ class UnifiedCanvasRenderer {
         this.backgroundImage.path = imagePath;
         this.backgroundImage.opacity = opacity;
         this.backgroundImage.enabled = true;
+        this._dirty = true;
+        this._notifyChange();
         console.log('✅ Background image loaded:', imagePath);
         resolve();
       };
@@ -2202,6 +2237,8 @@ class UnifiedCanvasRenderer {
    */
   disableBackgroundImage() {
     this.backgroundImage.enabled = false;
+    this._dirty = true;
+    this._notifyChange();
     console.log('Background image disabled');
   }
   
@@ -2238,6 +2275,21 @@ class UnifiedCanvasRenderer {
 }
 
 // Export as ES6 module (for import statements)
+/**
+ * CSS custom properties the renderer reads (updateStyleCache): colors, fonts, weights.
+ * The external display copies their values from the main window.
+ */
+export const CANVAS_STYLE_VARS = [
+  '--canvas-countdown-color', '--canvas-clock-color', '--canvas-message-color',
+  '--canvas-message-background-color', '--canvas-progress-bg', '--canvas-separator-color',
+  '--canvas-background', '--canvas-elapsed-color',
+  ...['success', 'warning', 'danger', 'overtime'].flatMap(level => [
+    `--canvas-progress-${level}-start`, `--canvas-progress-${level}-end`
+  ]),
+  '--canvas-font-family', '--canvas-countdown-weight', '--canvas-clock-weight',
+  '--canvas-message-weight', '--canvas-elapsed-weight'
+];
+
 export default UnifiedCanvasRenderer;
 
 // Make available globally (for backward compatibility)

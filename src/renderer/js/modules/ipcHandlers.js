@@ -11,9 +11,6 @@
  * Handles:
  * - Application menu actions (run through mainActions.js)
  * - Companion API commands (start, stop, reset, setTime, loadPreset, changeLayout, setMessage)
- * - Display window sync (request-current-state, display-window-closed)
- * - Clock state requests
- * - Theme requests
  * - Video device changes
  * - Settings application
  * /
@@ -226,121 +223,10 @@ export function initializeIPCHandlers(deps) {
     }
   });
 
-  // ===============================
-  // Display Window Sync
-  // ===============================
+  // (The external display mirrors the preview: modules/displaySync.js)
 
   ipcRenderer.on('display-window-closed', () => {
     console.log('Display window was closed');
-  });
-
-  ipcRenderer.on('request-current-state-for-display', () => {
-    console.log('🔄 Syncing current state to display window');
-
-    const canvasRenderer = getCanvasRenderer();
-    if (!canvasRenderer) {
-      console.error('❌ Canvas renderer not available for sync');
-      return;
-    }
-
-    // Get current state from canvas renderer (most reliable source)
-    const canvasState = canvasRenderer.state;
-
-    console.log('📊 Canvas state at sync:', canvasState);
-    console.log('⏱️ Timer values - remainingTime:', timerState.remainingTime, 'totalTime:', timerState.totalTime);
-
-    // Get current timer state - use canvas state as fallback
-    const timerData = {
-      formattedTime: canvasState.countdown || actions.formatTime(timerState.remainingTime),
-      progressPercent: canvasState.progress !== undefined
-        ? canvasState.progress
-        : (timerState.totalTime > 0 ? (timerState.remainingTime / timerState.totalTime * 100) : 0),
-      elapsed: canvasState.elapsed || '--:--:--',
-      endTime: canvasState.endTime || '--:--:--',
-      remainingTime: timerState.remainingTime,
-      totalTime: timerState.totalTime
-    };
-
-    console.log('📤 Sending timer data to display:', timerData);
-
-    // Get current clock state from canvasRenderer
-    const clockData = {
-      time: canvasState.clock || '--:--:--',
-      visible: canvasState.showClock || false
-    };
-
-    // Get current message state from canvasRenderer
-    const messageData = {
-      visible: canvasState.showMessage || false,
-      text: canvasState.message || ''
-    };
-
-    // Get current video input state
-    let videoData = null;
-    const videoManager = canvasRenderer.getVideoInputManager();
-    if (videoManager && videoManager.isEnabled()) {
-      const currentDevice = videoManager.getCurrentDevice();
-      videoData = {
-        enabled: true,
-        deviceId: currentDevice ? currentDevice.id : null,
-        opacity: videoManager.getOpacity()
-      };
-    }
-
-    // Get current feature image state
-    let featureImageData = null;
-    if (canvasRenderer.featureImage && canvasRenderer.featureImage.enabled) {
-      featureImageData = {
-        enabled: true,
-        path: canvasRenderer.featureImage.path
-      };
-    }
-
-    // Send all current state to main process for forwarding to display window
-    const syncData = {
-      timer: timerData,
-      clock: clockData,
-      message: messageData,
-      clockVisible: canvasState.showClock,
-      video: videoData,
-      featureImage: featureImageData
-    };
-
-    console.log('📤 Sending sync-current-state to main process:', syncData);
-    ipcRenderer.send('sync-current-state', syncData);
-  });
-
-  // ===============================
-  // Clock State Requests
-  // ===============================
-
-  ipcRenderer.on('request-clock-state', () => {
-    const canvasRenderer = getCanvasRenderer();
-    if (canvasRenderer && canvasRenderer.state) {
-      const state = canvasRenderer.state;
-      const isClockVisible = state.showClock;
-      const currentTime = state.clock || '';
-
-      ipcRenderer.send('clock-state-response', {
-        time: currentTime,
-        visible: isClockVisible
-      });
-    } else {
-      // Fallback if canvasRenderer not ready
-      ipcRenderer.send('clock-state-response', {
-        time: '',
-        visible: false
-      });
-    }
-  });
-
-  // ===============================
-  // Theme Requests
-  // ===============================
-
-  ipcRenderer.on('request-current-theme-for-display', () => {
-    const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-    ipcRenderer.send('current-theme-response', theme);
   });
 
   // ===============================

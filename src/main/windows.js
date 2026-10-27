@@ -68,17 +68,7 @@ function createDisplayWindow() {
     console.error('Display window renderer crashed:', details.reason, details.exitCode);
   });
 
-  // When display window finishes loading, sync current state
-  displayWindow.webContents.once('did-finish-load', () => {
-    // Request current state from main window
-    try {
-      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed() && mainWindow.webContents.mainFrame) {
-        mainWindow.webContents.send('request-current-state-for-display');
-      }
-    } catch (_) {
-      // Silently ignore if frame was disposed
-    }
-  });
+  // (Once loaded, the display asks for the current state: 'request-display-sync')
 
   // Handle the 'closed' event to clean up the reference
   displayWindow.on('closed', () => {

@@ -18,11 +18,11 @@ export function setDraft(text) {
 }
 
 /**
- * Show a message (the draft by default) on the canvas and display window.
+ * Show a message (the draft by default) on the canvas (mirrored to the display).
  * Also refreshes the text of a message that is already shown.
  * @returns {boolean} false if there was nothing to show
  */
-export function showMessage(text, { canvasRenderer, ipcRenderer, statusBar }) {
+export function showMessage(text, { canvasRenderer, statusBar }) {
   const message = (text ?? appState.get('message.draft')).trim();
   if (!message) {
     statusBar.warning('Please enter a message to display.', 5000);
@@ -32,16 +32,14 @@ export function showMessage(text, { canvasRenderer, ipcRenderer, statusBar }) {
   if (canvasRenderer) {
     canvasRenderer.setState({ message, showMessage: true });
   }
-  ipcRenderer.send('display-message', message);
   appState.update({ 'message.visible': true, 'message.text': message });
   return true;
 }
 
-export function hideMessage({ canvasRenderer, ipcRenderer }) {
+export function hideMessage({ canvasRenderer }) {
   if (canvasRenderer) {
     canvasRenderer.setState({ message: '', showMessage: false });
   }
-  ipcRenderer.send('clear-message');
   appState.update({ 'message.visible': false, 'message.text': '' });
 }
 

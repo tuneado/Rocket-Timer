@@ -23,6 +23,7 @@ import * as DisplayManager from './modules/displayManager.js';
 import * as TimerControls from './modules/timerControls.js';
 import * as VideoManager from './modules/videoManager.js';
 import { initializeIPCHandlers } from './modules/ipcHandlers.js';
+import { mirrorToDisplay } from './modules/displaySync.js';
 
 const { ipcRenderer } = window.electron;
 
@@ -128,7 +129,6 @@ async function setCoverImage(enabled) {
     } else {
       canvasRenderer.disableFeatureImage();
     }
-    ipcRenderer.send('toggle-cover-image', enabled);
 
     appState.update({
       'coverImage.enabled': enabled,
@@ -211,7 +211,7 @@ window.electron.settings.onUpdate((settings) => {
   if (canvasRenderer) {
     canvasRenderer.applyTimerThresholds(settings);
     if (settings.showWatermark !== undefined) {
-      canvasRenderer.watermark.enabled = settings.showWatermark;
+      canvasRenderer.setWatermarkEnabled(settings.showWatermark);
     }
     updateDisplay();
   }
@@ -254,7 +254,6 @@ function applyTheme(setting) {
   appState.set('theme', theme);
 
   canvasRenderer?.updateTheme(theme);
-  ipcRenderer.send('update-theme', theme);
 }
 
 // ============================================================================
@@ -427,9 +426,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   canvasRenderer.applyTimerThresholds(settings);
   if (settings.showWatermark === false) {
-    canvasRenderer.watermark.enabled = false;
+    canvasRenderer.setWatermarkEnabled(false);
   }
   canvasRenderer.start();
+  mirrorToDisplay(canvasRenderer, ipcRenderer);
 
   applyTheme(settings.appearanceTheme || 'dark');
 

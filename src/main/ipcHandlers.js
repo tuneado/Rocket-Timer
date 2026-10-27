@@ -13,6 +13,9 @@ const SettingsManager = require('./settingsManager');
 
 let settingsManager;
 
+// Latest external display state from the main window (see 'display-state')
+const displayState = {};
+
 /**
  * Safely send IPC message to a window, guarding against disposed frames.
  * Checks webContents.mainFrame to avoid Electron's internal error logging
@@ -108,9 +111,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       const updatedSettings = settingsManager.getSettings();
       
       safeSend(mainWindow, 'settings-updated', updatedSettings);
-      
-      const displayWindow = getDisplayWindow();
-      safeSend(displayWindow, 'settings-updated', updatedSettings);
+
       
       const settingsWindow = getSettingsWindow();
       safeSend(settingsWindow, 'settings-updated', updatedSettings);
@@ -139,9 +140,7 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       const updatedSettings = settingsManager.getSettings();
       
       safeSend(mainWindow, 'settings-updated', updatedSettings);
-      
-      const displayWindow = getDisplayWindow();
-      safeSend(displayWindow, 'settings-updated', updatedSettings);
+
       
       const settingsWindow = getSettingsWindow();
       safeSend(settingsWindow, 'settings-updated', updatedSettings);
@@ -165,12 +164,8 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   ipcMain.on('apply-settings', (event, settings) => {
     console.log('Applying settings from settings window');
     
-    // Notify main window to apply settings
+    // The external display mirrors the main window, which applies them
     safeSend(mainWindow, 'apply-settings', settings);
-    
-    // Notify display window if open
-    const displayWindow = getDisplayWindow();
-    safeSend(displayWindow, 'apply-settings', settings);
   });
 
   // Handle display window toggle
@@ -183,11 +178,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
       // Send the new state back to the main window
       safeSend(mainWindow, 'display-window-state-changed', isVisible);
       
-      // If window is now visible, request current state sync
-      if (isVisible) {
-        safeSend(mainWindow, 'request-current-state-for-display');
-      }
-      
       // Update menu items
       updateDisplayMenuItems();
     } catch (error) {
@@ -195,89 +185,9 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     }
   });
 
-  // Handle clock updates
-  ipcMain.on('clock-update', (event, data) => {
-    if (!data || typeof data !== 'object') {
-      console.warn('Invalid clock-update data received:', data);
-      return;
-    }
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'update-clock', data);
-    }
-  });
-  
-  // Handle clock visibility toggle
-  ipcMain.on('toggle-clock-visibility', (event, visible) => {
-    console.log('Received toggle-clock-visibility:', visible);
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'toggle-clock-display', visible);
-    }
-  });
-
-  // Handle timer updates
-  ipcMain.on('timer-update', (event, data) => {
-    if (!data || typeof data !== 'object') {
-      console.warn('Invalid timer-update data received:', data);
-      return;
-    }
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'update-display', data);
-    }
-  });
-
-  ipcMain.on('update-theme', (event, theme) => {
-    safeSend(mainWindow, 'theme-updated', theme);
-    
-    // Also send theme to display window if it's visible
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'theme-updated', theme);
-    }
-  });
-
-  // Handle theme requests from display window
-  ipcMain.on('request-current-theme', (event) => {
-    // Request current theme from main window
-    safeSend(mainWindow, 'request-current-theme-for-display');
-  });
-
-  // Forward theme response to display window
-  ipcMain.on('current-theme-response', (event, theme) => {
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'theme-updated', theme);
-    }
-  });
-
-  // Handle clock state requests
-  ipcMain.on('request-clock-state', (event) => {
-    safeSend(mainWindow, 'request-clock-state');
-  });
-
   // Main window state shown in the menu (checkmarks, labels, layouts, presets)
   ipcMain.on('menu-state', (event, state) => {
     if (state && typeof state === 'object') setMenuState(state);
-  });
-
-  // Add handler to respond with clock state
-  ipcMain.on('clock-state-response', (event, data) => {
-    console.log('Received clock-state-response:', data);
-    
-    if (!data || typeof data !== 'object') {
-      console.warn('Invalid clock-state-response data received:', data);
-      return;
-    }
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'update-clock', data);
-    }
   });
 
   // Handle display window state requests
@@ -286,81 +196,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     console.log('Display window state requested, visible:', isVisible);
     
     safeSend(mainWindow, 'display-window-state-changed', isVisible);
-  });
-
-  // Handle syncing current state to display window
-  ipcMain.on('sync-current-state', (event, data) => {
-    console.log('📨 Main process received sync-current-state:', data);
-    
-    const displayWindow = getDisplayWindow();
-    console.log('📺 Display window exists?', !!displayWindow, 'destroyed?', displayWindow?.isDestroyed(), 'visible?', isDisplayWindowVisible());
-    
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      // Send current timer state
-      if (data.timer) {
-        console.log('📤 Main process sending update-display to display window:', data.timer);
-        safeSend(displayWindow, 'update-display', data.timer);
-      }
-      // Send current clock state
-      if (data.clock) {
-        safeSend(displayWindow, 'update-clock', data.clock);
-      }
-      // Send clock visibility state
-      if (data.clockVisible !== undefined) {
-        safeSend(displayWindow, 'toggle-clock-display', data.clockVisible);
-      }
-      // Send current message state
-      if (data.message) {
-        if (data.message.visible && data.message.text) {
-          safeSend(displayWindow, 'show-message', data.message.text);
-        } else {
-          safeSend(displayWindow, 'clear-message');
-        }
-      }
-      // Send current video input state
-      if (data.video && data.video.enabled) {
-        console.log('Syncing video input to display window:', data.video);
-        safeSend(displayWindow, 'video-input-start', data.video.deviceId);
-        if (data.video.opacity !== undefined) {
-          safeSend(displayWindow, 'video-opacity-change', data.video.opacity);
-        }
-      }
-      // Send current cover image state
-      if (data.coverImage && data.coverImage.enabled) {
-        console.log('Syncing cover image to display window:', data.coverImage);
-        safeSend(displayWindow, 'sync-cover-image', data.coverImage);
-      }
-      // Send current background image state
-      if (data.backgroundImage && data.backgroundImage.enabled) {
-        console.log('Syncing background image to display window:', data.backgroundImage);
-        safeSend(displayWindow, 'sync-background-image', data.backgroundImage);
-      }
-    }
-  });
-
-  // Handle display message
-  ipcMain.on('display-message', (event, message) => {
-    if (!message || typeof message !== 'string') {
-      console.warn('Invalid display-message data received:', message);
-      return;
-    }
-    
-    console.log('Displaying message on display window:', message);
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'show-message', message);
-    }
-  });
-
-  // Handle clear message
-  ipcMain.on('clear-message', (event) => {
-    console.log('Clearing message from display window');
-    
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'clear-message');
-    }
   });
 
   // Handle flash at zero
@@ -383,8 +218,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     }
   });
 
-  // Handle display sync request (when external display opens) - REMOVED - See consolidated handler below
-
   // Handle layout changes
   ipcMain.on('layout-changed', (event, layoutId) => {
     console.log('Layout changed to:', layoutId);
@@ -392,23 +225,11 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     // Cache for `get-current-layout` so we don't need to poll the renderer
     // via executeJavaScript (which races during window close / reload).
     lastKnownLayoutId = layoutId || lastKnownLayoutId;
-
-    // Forward layout change to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'layout-changed', layoutId);
-    }
   });
 
   // Handle video input start
   ipcMain.on('video-input-started', (event, deviceId) => {
     console.log('Video input started with device:', deviceId);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'video-input-start', deviceId);
-    }
     
     // Notify settings window with device info
     const settingsWindow = getSettingsWindow();
@@ -421,12 +242,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   // Handle video input stop
   ipcMain.on('video-input-stopped', (event) => {
     console.log('Video input stopped');
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'video-input-stop');
-    }
     
     // Notify settings window
     const settingsWindow = getSettingsWindow();
@@ -442,12 +257,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     // Forward to main window
     safeSend(mainWindow, 'video-mirror-changed', enabled);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed()) {
-      safeSend(displayWindow, 'video-mirror-changed', enabled);
-    }
   });
 
   // Handle video scaling setting change
@@ -456,37 +265,14 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     
     // Forward to main window
     safeSend(mainWindow, 'video-scaling-changed', mode);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed()) {
-      safeSend(displayWindow, 'video-scaling-changed', mode);
-    }
   });
 
   // Handle video device selection from settings window
   ipcMain.on('video-device-selected', (event, deviceId) => {
     console.log('Video device selected in settings:', deviceId);
     
-    // Forward to main window so it knows which device to use
+    // The preview switches device; the external display follows its state
     safeSend(mainWindow, 'video-device-changed', deviceId);
-    
-    // Also forward to display window if it exists
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'video-device-changed', deviceId);
-    }
-  });
-
-  // Handle video opacity change
-  ipcMain.on('video-opacity-changed', (event, opacity) => {
-    console.log('Video opacity changed to:', opacity);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'video-opacity-change', opacity);
-    }
   });
 
   // Handle performance stats updates from main window
@@ -544,78 +330,28 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
     return result;
   });
 
-  // Handle cover image toggle
-  ipcMain.on('toggle-cover-image', (event, enabled) => {
-    console.log('Cover image toggled:', enabled);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'toggle-cover-image', enabled);
-    }
-  });
   
   // Handle background image updates
   ipcMain.on('sync-background-image-update', (event, data) => {
     console.log('Background image updated:', data);
-    
-    // Forward to display window
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(displayWindow, 'sync-background-image', data);
-    }
-    
-    // Forward to main window (for preview canvas)
+
+    // The preview loads it; the external display follows its state
     safeSend(mainWindow, 'sync-background-image', data);
   });
   
-  // Handle display window initialization sync (consolidated handler)
-  ipcMain.on('request-display-sync', async (event) => {
-    console.log('Display window requesting sync');
-    const displayWindow = getDisplayWindow();
-    
-    // Request timer state sync from main window
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.mainWindowReady) {
-        console.log('Main window is ready, requesting timer state sync');
-        safeSend(mainWindow, 'request-current-state-for-display');
-      } else {
-        console.log('Main window not ready yet, waiting...');
-        // Wait for main window to be ready
-        const checkReady = () => {
-          if (mainWindow.mainWindowReady) {
-            console.log('Main window now ready, requesting timer state sync');
-            safeSend(mainWindow, 'request-current-state-for-display');
-          } else {
-            setTimeout(checkReady, 100);
-          }
-        };
-        checkReady();
-      }
-    }
-    
-    // Sync images to display window
-    if (displayWindow && !displayWindow.isDestroyed()) {
-      const settings = settingsManager.getSettings();
-      
-      // Sync cover image
-      if (settings.coverImage && settings.coverImage.enabled && settings.coverImage.path) {
-        safeSend(displayWindow, 'sync-cover-image', {
-          enabled: true,
-          path: settings.coverImage.path
-        });
-      }
-      
-      // Sync background image
-      if (settings.backgroundImage && settings.backgroundImage.enabled && settings.backgroundImage.path) {
-        safeSend(displayWindow, 'sync-background-image', {
-          enabled: true,
-          path: settings.backgroundImage.path,
-          opacity: settings.backgroundImage.opacity || 1.0
-        });
-      }
-    }
+  // External display mirror: the main window's preview is the source ('display-state'
+  // patches, see renderer/js/modules/displaySync.js). The merged state is kept here
+  // so a display that opens or reloads gets everything at once.
+  ipcMain.on('display-state', (event, patch) => {
+    if (!patch || typeof patch !== 'object') return;
+    Object.assign(displayState, patch);
+    safeSend(getDisplayWindow(), 'display-state', patch);
   });
+
+  ipcMain.on('request-display-sync', (event) => {
+    event.sender.send('display-state', displayState);
+  });
+
   
   ipcMain.on('open-api-docs', () => openApiDocs());
 
@@ -686,12 +422,6 @@ function setupIpcHandlers(mainWindow, sharedSettingsManager) {
   ipcMain.on('main-window-ready', (event) => {
     console.log('Main window renderer is ready');
     mainWindow.mainWindowReady = true;
-    
-    // If display window is already open and waiting, sync it now
-    const displayWindow = getDisplayWindow();
-    if (displayWindow && !displayWindow.isDestroyed() && isDisplayWindowVisible()) {
-      safeSend(mainWindow, 'request-current-state-for-display');
-    }
   });
 
   // ========================================================================
