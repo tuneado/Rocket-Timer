@@ -5,7 +5,7 @@
  * @license GPL-3.0 — see LICENSE file for details
  * @see https://github.com/tuneado/Rocket-Timer
  */
-const { app, screen } = require('electron');
+const { app, screen, session, systemPreferences } = require('electron');
 const path = require('path');
 const { createMainWindow, showFullscreenOnDisplay } = require('./windows');
 const { setupMenu, updateProjectsMenu } = require('./menu');
@@ -16,6 +16,7 @@ const LayoutStore = require('./layoutStore');
 const { TimerEngine } = require('../core/timerEngine.js');
 const { UnifiedTimerAPIServer } = require('./unifiedApiServer');
 const UpdateManager = require('./updateManager');
+const { createPermissionRequestHandler } = require('./mediaAccess');
 const log = require('electron-log');
 
 // Configure logging
@@ -83,6 +84,9 @@ app.on('ready', async () => {
   } catch (err) {
     log.warn('cleanupStalePromptFiles failed:', err && err.message);
   }
+
+  // macOS: ask for camera access the first time a window requests the camera
+  session.defaultSession.setPermissionRequestHandler(createPermissionRequestHandler({ systemPreferences, log }));
 
   // Custom layouts: registered before any window loads (renderers read them synchronously)
   setupLayoutStoreHandlers(new LayoutStore(path.join(app.getPath('userData'), 'layouts.json')));
