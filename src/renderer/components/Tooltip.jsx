@@ -15,15 +15,14 @@ const GAP = 8;
 const MARGIN = 8;
 
 /**
- * Props for a control with a keyboard shortcut: the tooltip shows `label` and the
- * key while the shortcut is enabled; otherwise the native title shows `label`.
+ * Props for a control with a keyboard shortcut: the tooltip shows `label`, plus the
+ * key while the shortcut is enabled
  */
 export function shortcutProps(shortcuts, key, label) {
   const enabled = Boolean(shortcuts[key]);
   return {
-    'data-shortcut': key,
     'data-tooltip': label,
-    title: enabled ? undefined : label,
+    'data-shortcut': key,
     'aria-keyshortcuts': enabled ? ariaKeys(key) : undefined
   };
 }
@@ -38,40 +37,47 @@ function ariaKeys(key) {
 }
 
 /**
- * One tooltip for the whole window, positioned over the hovered [data-shortcut]
- * control. Fixed positioning keeps it clear of the cards' overflow clipping.
+ * One tooltip for the whole window, for any element with a data-tooltip label
+ * (with data-shortcut, the key is shown while that shortcut is enabled).
+ * Fixed positioning keeps it clear of the cards' overflow clipping.
  */
-export function ShortcutTooltip() {
+export function Tooltip() {
   const shortcuts = useAppState('ui.shortcuts');
-  const [tip, setTip] = useState(null); // { key, label, rect }
+  const [tip, setTip] = useState(null); // { label, shortcut, rect }
   const [pos, setPos] = useState(null);
   const ref = useRef(null);
-  const enabledRef = useRef(shortcuts);
-  enabledRef.current = shortcuts;
 
   useEffect(() => {
     let timer = null;
     let target = null;
+    let observer = null;
+
+    const read = (el) => ({ label: el.dataset.tooltip, shortcut: el.dataset.shortcut, rect: el.getBoundingClientRect() });
 
     const hide = () => {
       clearTimeout(timer);
+      observer?.disconnect();
+      observer = null;
       target = null;
       setTip(null);
     };
 
     const onOver = (e) => {
-      const el = e.target.closest?.('[data-shortcut]');
+      const el = e.target.closest?.('[data-tooltip]');
       if (el === target) return;
       hide();
-      if (!el || !enabledRef.current[el.dataset.shortcut]) return;
+      if (!el || !el.dataset.tooltip) return;
       target = el;
       timer = setTimeout(() => {
-        setTip({ key: el.dataset.shortcut, label: el.dataset.tooltip, rect: el.getBoundingClientRect() });
+        setTip(read(el));
+        // Follow label changes while shown (e.g. the performance stats)
+        observer = new MutationObserver(() => setTip(read(el)));
+        observer.observe(el, { attributes: true, attributeFilter: ['data-tooltip', 'data-shortcut'] });
       }, SHOW_DELAY_MS);
     };
 
     const onOut = (e) => {
-      // Still inside the control (moving between its children)
+      // Still inside the element (moving between its children)
       if (target && target.contains(e.relatedTarget)) return;
       hide();
     };
@@ -93,7 +99,9 @@ export function ShortcutTooltip() {
     };
   }, []);
 
-  // Above the control, or below if there's no room; kept inside the window
+  const showKey = Boolean(tip?.shortcut && shortcuts[tip.shortcut]);
+
+  // Above the element, or below if there's no room; kept inside the window
   useLayoutEffect(() => {
     if (!tip || !ref.current) {
       setPos(null);
@@ -108,23 +116,23 @@ export function ShortcutTooltip() {
       window.innerWidth - width - MARGIN
     );
     setPos({ top, left });
-  }, [tip]);
+  }, [tip, showKey]);
 
-  // Shortcut turned off in settings while showing
-  const visible = tip && shortcuts[tip.key];
-  if (!visible) return null;
+  if (!tip) return null;
 
   return (
     <div
       ref={ref}
       role="tooltip"
-      className="shortcut-tooltip fixed z-50 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs whitespace-nowrap font-medium shadow-lg bg-[var(--text-primary)] text-[var(--bg-base)]"
+      className="app-tooltip fixed z-50 pointer-events-none flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs whitespace-pre-line font-medium shadow-lg bg-[var(--text-primary)] text-[var(--bg-base)]"
       style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
     >
-      {tip.label && <span>{tip.label}</span>}
-      <kbd className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded font-mono text-xs border border-current/30">
-        {formatShortcut(tip.key)}
-      </kbd>
+      <span>{tip.label}</span>
+      {showKey && (
+        <kbd className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5 rounded font-mono text-xs border border-current/30 whitespace-nowrap">
+          {formatShortcut(tip.shortcut)}
+        </kbd>
+      )}
     </div>
   );
 }

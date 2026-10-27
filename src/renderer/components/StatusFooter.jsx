@@ -62,10 +62,25 @@ export function StatusFooter() {
             id="performanceStatus"
             className="bi bi-speedometer2"
             style={{ color: PERFORMANCE_COLORS[performance.level] || PERFORMANCE_COLORS.good }}
-            title={performance.title}
+            role="img"
+            aria-label={performance.title}
+            data-tooltip={performance.title}
           />
-          <i id="cameraStatus" className={`bi bi-camera-video ${camera.className}`} style={{ color: camera.color }} title={camera.title} />
-          <i id="serverStatus" className={`bi bi-broadcast ${server.className}`} title={server.title} />
+          <i
+            id="cameraStatus"
+            className={`bi bi-camera-video ${camera.className}`}
+            style={{ color: camera.color }}
+            role="img"
+            aria-label={camera.title}
+            data-tooltip={camera.title}
+          />
+          <i
+            id="serverStatus"
+            className={`bi bi-broadcast ${server.className}`}
+            role="img"
+            aria-label={server.title}
+            data-tooltip={server.title}
+          />
         </div>
       </div>
     </Card>

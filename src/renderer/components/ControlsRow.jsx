@@ -8,7 +8,7 @@
 import { h } from 'preact';
 import { Card, Button } from './ui';
 import { useAppState } from './useAppState.js';
-import { shortcutProps } from './ShortcutTooltip.jsx';
+import { shortcutProps } from './Tooltip.jsx';
 import actions from '../js/mainActions.js';
 
 const ICON_TEXT = 'text-[clamp(0.75rem,1.5vh,0.875rem)]';

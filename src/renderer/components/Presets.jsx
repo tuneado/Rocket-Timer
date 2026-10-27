@@ -9,7 +9,7 @@ import { h } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 import { Card, Button } from './ui';
 import { useAppState } from './useAppState.js';
-import { shortcutProps } from './ShortcutTooltip.jsx';
+import { shortcutProps } from './Tooltip.jsx';
 import actions from '../js/mainActions.js';
 import { DEFAULT_PRESETS, formatPresetDisplay } from '../js/modules/presetManager.js';
 
