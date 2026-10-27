@@ -1485,7 +1485,13 @@ class UnifiedTimerAPIServer extends EventEmitter {
         rest: 'N/A',
         osc: 'N/A'
       },
-      config: this.config
+      // Plain values only: this goes over IPC, and config also holds the timer engine
+      config: {
+        restPort: this.config.restPort,
+        wsPort: this.config.wsPort,
+        oscPort: this.config.oscPort,
+        allowExternal: this.config.allowExternal
+      }
     }
   }
 }
