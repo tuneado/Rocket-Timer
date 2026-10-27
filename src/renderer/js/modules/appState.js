@@ -109,7 +109,8 @@ function createInitialState() {
       flashing: false,
       status: { text: '', type: 'info' },
       performance: { level: 'good', title: 'Performance: Good' },
-      cameraStatus: false    // true (live), false (inactive) or 'error'
+      cameraStatus: false,   // true (live), false (inactive) or 'error'
+      shortcuts: {}          // shortcut key → enabled, for the button tooltips
     }
   };
 }

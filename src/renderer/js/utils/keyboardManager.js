@@ -9,6 +9,28 @@
  * Handles global keyboard shortcuts for timer controls
  * /
  */
+/**
+ * Shortcut key string for display, e.g. 'shift+arrowup' → '⇧ ↑' on macOS
+ */
+export function formatShortcut(key) {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  return key
+    .split('+')
+    .map(k => {
+      if (isMac && k === 'ctrl') return '\u2303';
+      if (isMac && k === 'alt') return '\u2325';
+      if (isMac && k === 'shift') return '\u21E7';
+      if (isMac && k === 'meta') return '\u2318';
+      if (k === 'arrowup') return '\u2191';
+      if (k === 'arrowdown') return '\u2193';
+      if (k === 'arrowleft') return '\u2190';
+      if (k === 'arrowright') return '\u2192';
+      if (k === 'space') return 'Space';
+      return k.charAt(0).toUpperCase() + k.slice(1);
+    })
+    .join(' ');
+}
+
 export class KeyboardManager {
   constructor() {
     this.shortcuts = new Map();
@@ -129,35 +151,12 @@ export class KeyboardManager {
     for (const [key, data] of this.shortcuts.entries()) {
       shortcuts.push({
         key,
-        keyFormatted: this._formatKey(key),
+        keyFormatted: formatShortcut(key),
         description: data.description,
         enabled: !this.disabledShortcuts.has(key)
       });
     }
     return shortcuts;
-  }
-
-  /**
-   * Format key string for display
-   * @private
-   */
-  _formatKey(key) {
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-    return key
-      .split('+')
-      .map(k => {
-        if (isMac && k === 'ctrl') return '\u2303';
-        if (isMac && k === 'alt') return '\u2325';
-        if (isMac && k === 'shift') return '\u21E7';
-        if (isMac && k === 'meta') return '\u2318';
-        if (k === 'arrowup') return '\u2191';
-        if (k === 'arrowdown') return '\u2193';
-        if (k === 'arrowleft') return '\u2190';
-        if (k === 'arrowright') return '\u2192';
-        if (k === 'space') return 'Space';
-        return k.charAt(0).toUpperCase() + k.slice(1);
-      })
-      .join(' ');
   }
 }
 

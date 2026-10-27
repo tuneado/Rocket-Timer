@@ -9,6 +9,7 @@ import { h } from 'preact';
 import { useState, useRef } from 'preact/hooks';
 import { Card, Button } from './ui';
 import { useAppState } from './useAppState.js';
+import { shortcutProps } from './ShortcutTooltip.jsx';
 import actions from '../js/mainActions.js';
 import { DEFAULT_PRESETS, formatPresetDisplay } from '../js/modules/presetManager.js';
 
@@ -19,7 +20,7 @@ const FEEDBACK_MS = 300;
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 const modifierKey = isMac ? '⌘' : 'Ctrl';
 
-function PresetButton({ index, preset, disabled }) {
+function PresetButton({ index, preset, disabled, shortcuts }) {
   const [holding, setHolding] = useState(false);
   const [saved, setSaved] = useState(false);
   const timer = useRef(null);
@@ -68,7 +69,7 @@ function PresetButton({ index, preset, disabled }) {
       disabled={disabled}
       data-minutes={minutes}
       aria-label={`Set timer to ${formatPresetDisplay(preset.time)}`}
-      title="Click to set, hold to save"
+      {...shortcutProps(shortcuts, String(index + 1), 'Click to set, hold to save')}
       onPointerDown={startPress}
       onPointerUp={endPress}
       onPointerLeave={endPress}
@@ -83,6 +84,7 @@ function PresetButton({ index, preset, disabled }) {
 export function Presets() {
   const stored = useAppState('ui.presets');
   const running = useAppState('timer.running');
+  const shortcuts = useAppState('ui.shortcuts');
   const presets = DEFAULT_PRESETS.map((preset, i) => stored[i] || preset);
 
   return (
@@ -107,7 +109,7 @@ export function Presets() {
         </p>
         <div className="grid grid-cols-4 gap-[clamp(0.375rem,0.8vh,0.5rem)]">
           {presets.map((preset, index) => (
-            <PresetButton key={index} index={index} preset={preset} disabled={running} />
+            <PresetButton key={index} index={index} preset={preset} disabled={running} shortcuts={shortcuts} />
           ))}
         </div>
       </Card.Content>

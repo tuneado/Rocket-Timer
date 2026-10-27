@@ -8,6 +8,7 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { SettingsGroup } from '../../ui/SettingsGroup.jsx';
+import { formatShortcut } from '../../../js/utils/keyboardManager.js';
 
 const DEFAULT_SHORTCUTS = {
   'space': { enabled: true, key: 'space', description: 'Start/Stop timer' },
@@ -46,31 +47,12 @@ const SHORTCUT_GROUPS = [
   }
 ];
 
-function formatKey(key) {
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  return key
-    .split('+')
-    .map(k => {
-      if (isMac && k === 'ctrl') return '\u2303';
-      if (isMac && k === 'alt') return '\u2325';
-      if (isMac && k === 'shift') return '\u21E7';
-      if (isMac && k === 'meta') return '\u2318';
-      if (k === 'arrowup') return '\u2191';
-      if (k === 'arrowdown') return '\u2193';
-      if (k === 'arrowleft') return '\u2190';
-      if (k === 'arrowright') return '\u2192';
-      if (k === 'space') return 'Space';
-      return k.charAt(0).toUpperCase() + k.slice(1);
-    })
-    .join(' ');
-}
-
 function ShortcutRow({ shortcutKey, config, onToggle }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3 px-5 border-b border-[var(--border-muted)] last:border-b-0">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <kbd className="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-md text-xs font-mono text-[var(--text-primary)] shadow-sm">
-          {formatKey(shortcutKey)}
+          {formatShortcut(shortcutKey)}
         </kbd>
         <span className={`text-sm ${config.enabled ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
           {config.description}

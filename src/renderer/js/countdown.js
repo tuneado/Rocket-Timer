@@ -224,7 +224,7 @@ window.electron.settings.onUpdate((settings) => {
   }
 
   if (settings.keyboardShortcuts) {
-    keyboard.applySettings(settings.keyboardShortcuts);
+    applyShortcutSettings(settings.keyboardShortcuts);
   }
 
   // e.g. after a project switch
@@ -464,9 +464,17 @@ function initializeKeyboardShortcuts(settings) {
   }
 
   keyboard.init();
-  if (settings.keyboardShortcuts) {
-    keyboard.applySettings(settings.keyboardShortcuts);
-  }
+  applyShortcutSettings(settings.keyboardShortcuts);
+}
+
+/**
+ * Enable/disable shortcuts per settings; the button tooltips follow 'ui.shortcuts'
+ */
+function applyShortcutSettings(shortcutSettings) {
+  keyboard.applySettings(shortcutSettings);
+  appState.set('ui.shortcuts', Object.fromEntries(
+    keyboard.getShortcuts().map(({ key, enabled }) => [key, enabled])
+  ));
 }
 
 // ============================================================================

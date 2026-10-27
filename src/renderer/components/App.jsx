@@ -8,6 +8,7 @@
 import { h } from 'preact';
 import { LeftPanel } from './LeftPanel.jsx';
 import { RightPanel } from './RightPanel.jsx';
+import { ShortcutTooltip } from './ShortcutTooltip.jsx';
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
       <div className="col-span-2 flex flex-col h-full">
         <RightPanel />
       </div>
+      <ShortcutTooltip />
     </main>
   );
 }
