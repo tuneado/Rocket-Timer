@@ -68,9 +68,11 @@ const ACCELERATOR_KEYS = { space: 'Space', arrowup: 'Up', arrowdown: 'Down', ctr
 /**
  * Show an in-window keyboard shortcut next to a menu item, while it's enabled.
  * Display only: the main window handles the key, so Space still types in text fields.
+ * Windows/Linux only: macOS ignores registerAccelerator and the menu would take the
+ * key (typing "5" in a time field loaded preset 5), so no hint there.
  */
 function shortcutHint(key) {
-  if (!menuState.shortcuts[key]) return {};
+  if (isMac || !menuState.shortcuts[key]) return {};
   const accelerator = key.split('+').map(k => ACCELERATOR_KEYS[k] || k.toUpperCase()).join('+');
   return { accelerator, registerAccelerator: false };
 }
