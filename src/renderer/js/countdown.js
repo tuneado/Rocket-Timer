@@ -466,6 +466,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   ipcRenderer.send('request-server-status');
   followMenuState();
 
+  // API clients (Companion) show the flash button lit while the screen flashes
+  appState.subscribe('ui.flashing', (flashing) => ipcRenderer.send('flash-state-changed', !!flashing));
+
   // API server: throttled to 10 updates per second
   let stateUpdateThrottle = null;
   appState.subscribe('*', (newValue, oldValue, path) => {

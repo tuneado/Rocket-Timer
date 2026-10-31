@@ -16,6 +16,7 @@ const SEND_CHANNELS = new Set([
   'display-state',
   'companion-state-update',
   'flash-at-zero',
+  'flash-state-changed',
   'layout-changed',
   'layout-creator:saved',
   'layout-list-updated',

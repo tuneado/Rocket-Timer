@@ -104,6 +104,12 @@ class UnifiedTimerAPIServer extends EventEmitter {
     // Listen for presets updates from settings/project changes
     ipcMain.on('settings-presets-updated', (event, presets) => {
       this.timerState.presets = presets || []
+      this.broadcastToAll('presets-updated', this.timerState.presets)
+    })
+
+    // The main window reports when a flash starts and ends
+    ipcMain.on('flash-state-changed', (event, isFlashing) => {
+      this.broadcastToAll('flash-state', { isFlashing: !!isFlashing })
     })
   }
 
@@ -1339,7 +1345,7 @@ class UnifiedTimerAPIServer extends EventEmitter {
               'connection-established', 'timer-update', 'timer-start-requested',
               'timer-stop-requested', 'timer-pause-requested', 'timer-resume-requested',
               'time-adjust-requested', 'time-set-requested', 'preset-load-requested',
-              'flash-requested', 'command-response'
+              'flash-requested', 'flash-state', 'presets-updated', 'command-response'
             ]
           }
         },

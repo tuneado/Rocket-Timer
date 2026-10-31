@@ -1195,9 +1195,13 @@ socket.on('time-adjusted', (data) => {});
 
 // Presets
 socket.on('preset-load-requested', (data) => {});
+// Sent whenever presets are edited; data is the full list, as GET /presets returns it
+socket.on('presets-updated', (presets) => {});
 
 // Display
 socket.on('flash-requested', (data) => {});
+// Sent when a flash starts and when it ends, however it was triggered
+socket.on('flash-state', (data) => { /* data.isFlashing === true/false */ });
 socket.on('feature-image-toggled', () => {});
 socket.on('feature-image-set', (data) => {});
 
