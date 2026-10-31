@@ -40,17 +40,23 @@ export function initializeIPCHandlers(deps) {
   // Settings Application
   // ===============================
 
+  // Default duration last applied (the engine starts with it), so closing the
+  // settings window only resets the time when the default itself was changed
+  const toSeconds = ({ hours = 0, minutes = 0, seconds = 0 } = {}) => hours * 3600 + minutes * 60 + seconds;
+  let appliedDefaultTime = null;
+  window.electron.settings.getAll()
+    .then((settings) => { appliedDefaultTime ??= toSeconds(settings.defaultTime); })
+    .catch(() => {});
+
   window.electron.ipcRenderer.on('apply-settings', (settings) => {
     console.log('Received apply-settings event:', settings);
 
-    // Apply default time ONLY if the timer is not running
-    if (settings.defaultTime && !timerState.running) {
-      const { hours, minutes, seconds } = settings.defaultTime;
-      const timeInSeconds = (hours * 3600) + (minutes * 60) + seconds;
-
-      // Only reset if stoppedAtZero or if the default time actually changed
-      if (timerState.stoppedAtZero || timerState.lastSetTime !== timeInSeconds) {
-        actions.timerCommand({ action: 'set-time', seconds: timeInSeconds });
+    // A new default duration replaces the time, unless the timer is running
+    if (settings.defaultTime) {
+      const defaultSeconds = toSeconds(settings.defaultTime);
+      if (defaultSeconds !== appliedDefaultTime && !timerState.running) {
+        actions.timerCommand({ action: 'set-time', seconds: defaultSeconds });
+        appliedDefaultTime = defaultSeconds;
       }
     }
 
