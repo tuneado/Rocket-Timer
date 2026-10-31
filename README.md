@@ -4,6 +4,8 @@ A professional broadcast-grade countdown timer built with Electron, featuring ca
 
 Rocket Timer was made by Andre Raimundo with love, shaped by real-world experience in the AV and event industry. It was built to fill the gaps and missing features that are often hard to find in other timer apps. If you have an idea, spot something missing, or want a feature to be implemented, let me know.
 
+**Website**: [rockettimer-app.50-hz.com](https://rockettimer-app.50-hz.com)
+
 **Version**: 1.1.0 | **License**: GPL-3.0
 
 ---
